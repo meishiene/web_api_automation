@@ -1,0 +1,50 @@
+# =========================
+# Python / FastAPI 后端
+# =========================
+# 忽略虚拟环境
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+
+# 忽略日志文件和数据库文件
+*.log
+*.sqlite3
+
+# 忽略 IDE 文件
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Node / Vue 前端
+# =========================
+# 忽略前端依赖
+node_modules/
+
+# 忽略本地构建文件
+dist/
+build/
+
+# 临时文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# 系统文件
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+
+# 忽略 node_modules
+frontend/node_modules/
+
+# 忽略本地数据库
+*.db
