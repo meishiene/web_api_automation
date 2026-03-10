@@ -10,6 +10,7 @@ from app.dependencies import get_current_user
 from app.services.test_executor import execute_test
 from pydantic import BaseModel
 import asyncio
+from typing import Optional
 
 router = APIRouter()
 
@@ -18,9 +19,9 @@ class TestRunResponse(BaseModel):
     id: int
     test_case_id: int
     status: str
-    actual_status: int
-    actual_body: str
-    error_message: str
+    actual_status: Optional[int]
+    actual_body: Optional[str]
+    error_message: Optional[str]
     duration_ms: int
     created_at: int
 
