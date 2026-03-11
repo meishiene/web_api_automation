@@ -1,145 +1,225 @@
-<template>
-  <div class="test-case-list">
-    <div class="page-header">
+﻿<template>
+  <section class="cases-page">
+    <div class="hero-card">
       <div>
-        <button @click="$router.push('/')" class="back-btn">← 返回项目列表</button>
-        <h1>{{ projectName }} - 测试用例</h1>
+        <router-link to="/" class="back-link">← 返回项目列表</router-link>
+        <span class="eyebrow">Project</span>
+        <h2>{{ projectName }}</h2>
+        <p>维护测试用例、执行接口验证，并查看最近一次执行结果。</p>
       </div>
-      <button @click="showCreateModal = true" class="create-btn">新建测试用例</button>
+      <button @click="openCreateModal" class="primary-btn">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        新建用例
+      </button>
     </div>
 
-    <div v-if="loading" class="loading">加载中...</div>
-
-    <div v-else-if="testCases.length === 0" class="empty">
-      <p>暂无测试用例</p>
+    <div class="stats-grid">
+      <article class="stat-card">
+        <span>用例总数</span>
+        <strong>{{ filteredTestCases.length }}</strong>
+        <small>当前项目下的接口测试配置</small>
+      </article>
+      <article class="stat-card accent">
+        <span>GET / POST 数量</span>
+        <strong>{{ getCount }} / {{ postCount }}</strong>
+        <small>常用方法快速统计</small>
+      </article>
+      <article class="stat-card soft">
+        <span>最近执行</span>
+        <strong>{{ lastRunStatus }}</strong>
+        <small>{{ lastRunTime }}</small>
+      </article>
     </div>
 
-    <table v-else class="test-table">
-      <thead>
-        <tr>
-          <th>名称</th>
-          <th>方法</th>
-          <th>URL</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="tc in testCases" :key="tc.id">
-          <td>{{ tc.name }}</td>
-          <td>
-            <span :class="'method-' + tc.method">{{ tc.method }}</span>
-          </td>
-          <td class="url">{{ tc.url }}</td>
-          <td class="actions">
-            <button @click="editTestCase(tc)" class="edit-btn">编辑</button>
-            <button @click="runTestCase(tc)" class="run-btn">运行</button>
-            <button @click="deleteTestCaseById(tc.id)" class="delete-btn">删除</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- 新建/编辑测试用例模态框 -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal modal-large">
-        <h2>{{ isEditing ? '编辑测试用例' : '新建测试用例' }}</h2>
-        <form @submit.prevent="handleSaveTestCase">
-          <div class="form-group">
-            <label>用例名称</label>
-            <input v-model="testCaseForm.name" type="text" placeholder="请输入用例名称" required />
+    <section class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h3>测试用例列表</h3>
+          <p>按方法、URL 和断言配置管理接口测试。</p>
+        </div>
+        <div class="panel-tools">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 100-14.4 7.2 7.2 0 000 14.4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <input v-model.trim="keyword" placeholder="搜索用例名称或 URL..." />
           </div>
-          <div class="form-group">
-            <label>请求方法</label>
+        </div>
+      </div>
+
+      <div v-if="loading" class="state-block">
+        <div class="spinner"></div>
+        <p>正在加载测试用例...</p>
+      </div>
+
+      <div v-else-if="filteredTestCases.length === 0" class="state-block empty">
+        <div class="empty-icon">API</div>
+        <h4>{{ keyword ? '没有匹配到用例' : '还没有测试用例' }}</h4>
+        <p>{{ keyword ? '试试其他关键词，或者新建一个测试用例。' : '先创建一个用例，再进行接口执行。' }}</p>
+        <button @click="openCreateModal" class="primary-btn">立即创建</button>
+      </div>
+
+      <div v-else class="table-wrap">
+        <table class="cases-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>方法</th>
+              <th>URL</th>
+              <th>期望状态</th>
+              <th>更新时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="tc in filteredTestCases" :key="tc.id">
+              <td>
+                <div class="name-cell">
+                  <strong>{{ tc.name }}</strong>
+                  <span>#{{ tc.id }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="method-pill" :class="`method-${tc.method}`">{{ tc.method }}</span>
+              </td>
+              <td>
+                <div class="url-cell" :title="tc.url">{{ tc.url }}</div>
+              </td>
+              <td>
+                <span class="status-code">{{ tc.expected_status }}</span>
+              </td>
+              <td>{{ formatDate(tc.updated_at || tc.created_at) }}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="table-btn subtle" @click="runTestCase(tc)">运行</button>
+                  <button class="table-btn edit" @click="editTestCase(tc)">编辑</button>
+                  <button class="table-btn danger" @click="deleteTestCaseById(tc.id)">删除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div v-if="showCreateModal" class="modal-mask" @click.self="closeModal">
+      <div class="modal-card modal-wide">
+        <div class="modal-head">
+          <div>
+            <h3>{{ isEditing ? '编辑测试用例' : '创建测试用例' }}</h3>
+            <p>支持配置请求参数、请求体和基础断言。</p>
+          </div>
+          <button @click="closeModal" class="icon-btn">✕</button>
+        </div>
+
+        <form @submit.prevent="handleSaveTestCase" class="modal-form grid-form">
+          <label class="field-block">
+            <span>用例名称</span>
+            <input v-model="testCaseForm.name" type="text" placeholder="例如：获取用户详情" />
+          </label>
+
+          <label class="field-block">
+            <span>请求方法</span>
             <select v-model="testCaseForm.method">
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
+              <option>GET</option>
+              <option>POST</option>
+              <option>PUT</option>
+              <option>PATCH</option>
+              <option>DELETE</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label>请求 URL</label>
-            <input v-model="testCaseForm.url" type="text" placeholder="https://api.example.com/endpoint" required />
-          </div>
-          <div class="form-group">
-            <label>请求头 (JSON)</label>
-            <textarea v-model="testCaseForm.headers" rows="3" placeholder='{"Authorization": "Bearer token"}'></textarea>
-          </div>
-          <div class="form-group">
-            <label>请求体 (JSON)</label>
-            <textarea v-model="testCaseForm.body" rows="5" placeholder='{"key": "value"}'></textarea>
-          </div>
-          <div class="form-group">
-            <label>期望状态码</label>
-            <input v-model="testCaseForm.expected_status" type="number" placeholder="200" required />
-          </div>
-          <div class="form-group">
-            <label>期望响应体 (JSON)</label>
-            <textarea v-model="testCaseForm.expected_body" rows="4" placeholder='{"status": "ok"}'></textarea>
-          </div>
-          <p v-if="formError" class="error">{{ formError }}</p>
-          <div class="modal-actions">
-            <button type="button" @click="closeModal">取消</button>
-            <button type="submit" :disabled="saving">
-              {{ saving ? '保存中...' : '保存' }}
+          </label>
+
+          <label class="field-block full-row">
+            <span>请求 URL</span>
+            <input v-model="testCaseForm.url" type="text" placeholder="https://api.example.com/users/1" />
+          </label>
+
+          <label class="field-block">
+            <span>请求头 Headers</span>
+            <textarea v-model="testCaseForm.headers" rows="8" placeholder='例如：{"Authorization":"Bearer xxx"}'></textarea>
+          </label>
+
+          <label class="field-block">
+            <span>请求体 Body</span>
+            <textarea v-model="testCaseForm.body" rows="8" placeholder='例如：{"name":"Tom"}'></textarea>
+          </label>
+
+          <label class="field-block">
+            <span>期望状态码</span>
+            <input v-model="testCaseForm.expected_status" type="number" min="100" max="599" />
+          </label>
+
+          <label class="field-block full-row">
+            <span>期望响应体</span>
+            <textarea v-model="testCaseForm.expected_body" rows="8" placeholder='可填 JSON 或纯文本，例如：{"success":true}'></textarea>
+          </label>
+
+          <p v-if="formError" class="form-error full-row">{{ formError }}</p>
+
+          <div class="modal-actions full-row">
+            <button type="button" class="secondary-btn" @click="closeModal">取消</button>
+            <button type="submit" class="primary-btn" :disabled="saving">
+              {{ saving ? '保存中...' : (isEditing ? '保存修改' : '创建用例') }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- 测试结果模态框 -->
-    <div v-if="showResultModal" class="modal-overlay" @click.self="showResultModal = false">
-      <div class="modal modal-large">
-        <h2>测试结果</h2>
-        <div class="result-content">
-          <div :class="'status-badge ' + (testResult?.status === 'passed' ? 'success' : 'failed')">
-            {{ testResult?.status === 'passed' ? '通过' : '失败' }}
+    <div v-if="showResultModal && testResult" class="modal-mask" @click.self="showResultModal = false">
+      <div class="modal-card modal-result">
+        <div class="modal-head">
+          <div>
+            <h3>执行结果</h3>
+            <p>展示本次接口执行的返回状态、耗时和响应内容。</p>
           </div>
-          <div class="result-section">
-            <h3>响应状态码</h3>
-            <p>{{ testResult?.actual_status }}</p>
+          <button @click="showResultModal = false" class="icon-btn">✕</button>
+        </div>
+
+        <div class="result-summary">
+          <span class="result-badge" :class="testResult.status">{{ testResult.status }}</span>
+          <div class="result-mini-card">
+            <span>响应状态</span>
+            <strong>{{ testResult.actual_status ?? '--' }}</strong>
           </div>
-          <div class="result-section">
-            <h3>响应时间</h3>
-            <p>{{ testResult?.duration_ms }} ms</p>
-          </div>
-          <div class="result-section">
-            <h3>响应头</h3>
-            <pre>无</pre>
-          </div>
-          <div class="result-section">
-            <h3>响应体</h3>
-            <pre>{{ formatJson(testResult?.actual_body) }}</pre>
-          </div>
-          <div v-if="testResult?.error_message" class="result-section">
-            <h3>错误信息</h3>
-            <pre class="error-text">{{ testResult.error_message }}</pre>
+          <div class="result-mini-card">
+            <span>耗时</span>
+            <strong>{{ testResult.duration_ms }} ms</strong>
           </div>
         </div>
-        <div class="modal-actions">
-          <button type="button" @click="showResultModal = false">关闭</button>
+
+        <div class="result-grid">
+          <section class="result-panel">
+            <h4>响应体</h4>
+            <pre>{{ formatJson(testResult.actual_body) || '无响应体' }}</pre>
+          </section>
+
+          <section class="result-panel" v-if="testResult.error_message">
+            <h4>错误信息</h4>
+            <pre class="error-pre">{{ testResult.error_message }}</pre>
+          </section>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   getTestCases,
   createTestCase,
   updateTestCase,
   deleteTestCase as deleteTestCaseApi,
-  runTestCase as runTestCaseApi,
-  getTestResult
+  runTestCase as runTestCaseApi
 } from '@/api/testCases'
 import { getProjects } from '@/api/projects'
 
 const route = useRoute()
-const projectId = computed(() => parseInt(route.params.projectId))
+const projectId = computed(() => parseInt(route.params.projectId, 10))
 
 const testCases = ref([])
 const loading = ref(false)
@@ -149,8 +229,9 @@ const isEditing = ref(false)
 const saving = ref(false)
 const formError = ref('')
 const testResult = ref(null)
+const keyword = ref('')
 
-const testCaseForm = ref({
+const defaultForm = () => ({
   name: '',
   method: 'GET',
   url: '',
@@ -160,15 +241,44 @@ const testCaseForm = ref({
   expected_body: '{}'
 })
 
+const testCaseForm = ref(defaultForm())
 const projectName = ref('项目')
+const lastRunAt = ref(null)
+
+const filteredTestCases = computed(() => {
+  if (!keyword.value) return testCases.value
+  return testCases.value.filter(tc =>
+    tc.name?.toLowerCase().includes(keyword.value.toLowerCase()) ||
+    tc.url?.toLowerCase().includes(keyword.value.toLowerCase())
+  )
+})
+
+const getCount = computed(() => filteredTestCases.value.filter(tc => tc.method === 'GET').length)
+const postCount = computed(() => filteredTestCases.value.filter(tc => tc.method === 'POST').length)
+const lastRunStatus = computed(() => testResult.value?.status || '--')
+const lastRunTime = computed(() => lastRunAt.value ? formatDate(lastRunAt.value) : '暂无执行记录')
+
+const normalizeTimestamp = (value) => {
+  if (!value) return 0
+  const numeric = Number(value)
+  return numeric > 1e12 ? numeric : numeric * 1000
+}
+
+const formatDate = (value) => {
+  if (!value) return '--'
+  return new Date(normalizeTimestamp(value)).toLocaleString('zh-CN')
+}
+
+const editorValue = (value, fallback = '{}') => {
+  if (value === null || value === undefined || value === '') return fallback
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+}
 
 const fetchProjectName = async () => {
   try {
     const list = await getProjects()
-    const project = list.find(p => p.id === projectId.value)
-    if (project) {
-      projectName.value = project.name
-    }
+    const project = list.find(item => item.id === projectId.value)
+    if (project) projectName.value = project.name
   } catch (err) {
     console.error('Failed to fetch project name')
   }
@@ -185,20 +295,32 @@ const fetchTestCases = async () => {
   }
 }
 
+const openCreateModal = () => {
+  isEditing.value = false
+  formError.value = ''
+  testCaseForm.value = defaultForm()
+  showCreateModal.value = true
+}
+
 const handleSaveTestCase = async () => {
+  if (!testCaseForm.value.name.trim() || !testCaseForm.value.url.trim()) {
+    formError.value = '请先填写用例名称和请求 URL'
+    return
+  }
+
   try {
+    saving.value = true
+    formError.value = ''
+
     const data = {
       name: testCaseForm.value.name,
       method: testCaseForm.value.method,
       url: testCaseForm.value.url,
       headers: testCaseForm.value.headers || '{}',
       body: testCaseForm.value.body || '{}',
-      expected_status: parseInt(testCaseForm.value.expected_status) || 200,
+      expected_status: parseInt(testCaseForm.value.expected_status, 10) || 200,
       expected_body: testCaseForm.value.expected_body || '{}'
     }
-
-    saving.value = true
-    formError.value = ''
 
     if (isEditing.value) {
       await updateTestCase(projectId.value, testCaseForm.value.id, data)
@@ -209,11 +331,7 @@ const handleSaveTestCase = async () => {
     closeModal()
     await fetchTestCases()
   } catch (err) {
-    if (err instanceof SyntaxError) {
-      formError.value = 'JSON 格式错误，请检查输入'
-    } else {
-      formError.value = err.response?.data?.detail || '保存失败'
-    }
+    formError.value = err.response?.data?.detail || '保存失败'
   } finally {
     saving.value = false
   }
@@ -221,23 +339,22 @@ const handleSaveTestCase = async () => {
 
 const editTestCase = (tc) => {
   isEditing.value = true
+  formError.value = ''
   testCaseForm.value = {
     id: tc.id,
     name: tc.name,
     method: tc.method,
     url: tc.url,
-    headers: JSON.stringify(tc.headers, null, 2),
-    body: JSON.stringify(tc.body, null, 2),
+    headers: editorValue(tc.headers),
+    body: editorValue(tc.body),
     expected_status: tc.expected_status || 200,
-    expected_body: JSON.stringify(tc.expected_body || {}, null, 2)
+    expected_body: editorValue(tc.expected_body)
   }
   showCreateModal.value = true
 }
 
 const deleteTestCaseById = async (id) => {
-  if (!confirm('确定要删除这个测试用例吗？')) {
-    return
-  }
+  if (!confirm('确定要删除这个测试用例吗？')) return
 
   try {
     await deleteTestCaseApi(projectId.value, id)
@@ -251,6 +368,7 @@ const runTestCase = async (tc) => {
   try {
     const result = await runTestCaseApi(projectId.value, tc.id)
     testResult.value = result
+    lastRunAt.value = Date.now()
     showResultModal.value = true
   } catch (err) {
     alert('运行测试失败')
@@ -260,16 +378,8 @@ const runTestCase = async (tc) => {
 const closeModal = () => {
   showCreateModal.value = false
   isEditing.value = false
-  testCaseForm.value = {
-    name: '',
-    method: 'GET',
-    url: '',
-    headers: '{}',
-    body: '{}',
-    expected_status: 200,
-    expected_body: '{}'
-  }
   formError.value = ''
+  testCaseForm.value = defaultForm()
 }
 
 const formatJson = (data) => {
@@ -291,247 +401,547 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-header {
+.cases-page {
   display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.hero-card,
+.panel-card,
+.stat-card,
+.modal-card,
+.result-panel,
+.result-mini-card {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-card {
+  border-radius: var(--radius-lg);
+  padding: 28px 30px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
+  gap: 18px;
+  background: linear-gradient(135deg, rgba(234, 248, 246, 0.95), rgba(244, 249, 249, 0.95));
 }
 
-.page-header h1 {
-  margin: 0.5rem 0 0 0;
+.back-link {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
 }
 
-.back-btn {
-  padding: 0.5rem 1rem;
-  background: #666;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.eyebrow {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.back-btn:hover {
-  background: #555;
+.hero-card h2,
+.panel-head h3,
+.modal-head h3,
+.result-panel h4 {
+  margin: 12px 0 8px;
+  color: var(--text-strong);
 }
 
-.create-btn {
-  padding: 0.75rem 1.5rem;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
+.hero-card p,
+.panel-head p,
+.modal-head p {
+  margin: 0;
+  color: var(--text-muted);
 }
 
-.create-btn:hover {
-  background: #45a049;
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
 }
 
-.test-table {
+.stat-card {
+  border-radius: var(--radius-md);
+  padding: 22px;
+}
+
+.stat-card span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-strong);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.stat-card small {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-muted);
+}
+
+.stat-card.accent {
+  background: linear-gradient(135deg, rgba(18, 179, 165, 0.14), rgba(255, 255, 255, 0.88));
+}
+
+.stat-card.soft {
+  background: linear-gradient(135deg, rgba(91, 124, 255, 0.08), rgba(255, 255, 255, 0.88));
+}
+
+.panel-card {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.search-box {
+  min-width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--bg-card-soft);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+}
+
+.search-box svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.search-box input {
   width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  height: 48px;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: #fff;
+}
+
+.cases-table {
+  width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.test-table th,
-.test-table td {
-  padding: 1rem;
+.cases-table th,
+.cases-table td {
+  padding: 18px 20px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #edf2f1;
 }
 
-.test-table th {
-  background: #f5f5f5;
-  font-weight: 600;
+.cases-table thead th {
+  background: #f8fbfb;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.url {
-  max-width: 300px;
+.cases-table tbody tr:hover {
+  background: rgba(18, 179, 165, 0.04);
+}
+
+.name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name-cell strong {
+  color: var(--text-strong);
+}
+
+.name-cell span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.method-pill,
+.status-code,
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.method-pill {
+  min-width: 74px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.method-GET { background: #e6f2ff; color: #2b6cb0; }
+.method-POST { background: #e4fbf3; color: #0f8f6b; }
+.method-PUT { background: #fff3df; color: #b7791f; }
+.method-PATCH { background: #efe8ff; color: #6b46c1; }
+.method-DELETE { background: #ffe7e7; color: #d44a4a; }
+
+.url-cell {
+  max-width: 360px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #666;
+  color: var(--text-main);
 }
 
-.method-GET { color: #61affe; font-weight: 600; }
-.method-POST { color: #49cc90; font-weight: 600; }
-.method-PUT { color: #fca130; font-weight: 600; }
-.method-DELETE { color: #f93e3e; font-weight: 600; }
+.status-code {
+  padding: 8px 12px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
 
-.actions {
+.row-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.actions button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
+.table-btn,
+.primary-btn,
+.secondary-btn,
+.icon-btn {
+  border: 0;
 }
 
-.edit-btn {
-  background: #2196F3;
-  color: white;
-}
-
-.edit-btn:hover { background: #1976D2; }
-
-.run-btn {
-  background: #9C27B0;
-  color: white;
-}
-
-.run-btn:hover { background: #7B1FA2; }
-
-.delete-btn {
-  background: #f44336;
-  color: white;
-}
-
-.delete-btn:hover { background: #d32f2f; }
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
+.table-btn,
+.primary-btn,
+.secondary-btn {
+  display: inline-flex;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 700;
 }
 
-.modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
+.primary-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(18, 179, 165, 0.22);
 }
 
-.modal-large {
-  max-width: 700px;
+.primary-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
-.modal h2 {
-  margin: 0 0 1.5rem 0;
+.secondary-btn {
+  background: #f4f7f7;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
 }
 
-.form-group {
-  margin-bottom: 1rem;
+.table-btn.subtle {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
+.table-btn.edit {
+  background: #eef2ff;
+  color: #4c63d2;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
+.table-btn.danger {
+  background: var(--danger-soft);
+  color: #d44a4a;
+}
+
+.state-block {
+  min-height: 300px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px;
+}
+
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(18, 179, 165, 0.2);
+  border-top-color: var(--primary);
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.36);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 999;
+}
+
+.modal-card {
+  width: min(1120px, 100%);
+  border-radius: 24px;
+  padding: 24px;
+  background: #fff;
+}
+
+.modal-wide {
+  max-height: 92vh;
+  overflow: auto;
+}
+
+.modal-result {
+  width: min(920px, 100%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--bg-card-soft);
+  color: var(--text-main);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+.field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-block span {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.field-block input,
+.field-block textarea,
+.field-block select {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-sizing: border-box;
-  font-family: 'Courier New', monospace;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card-soft);
+  border-radius: 16px;
+  padding: 14px 16px;
+  outline: none;
+  color: var(--text-main);
+}
+
+.field-block textarea {
+  resize: vertical;
+  min-height: 140px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.field-block input:focus,
+.field-block textarea:focus,
+.field-block select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(18, 179, 165, 0.12);
+}
+
+.form-error {
+  margin: 0;
+  color: #d44a4a;
+  background: var(--danger-soft);
+  padding: 12px 14px;
+  border-radius: 14px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 12px;
 }
 
-.modal-actions button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.result-summary {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
-.modal-actions button[type="button"] {
-  background: #ccc;
-  color: white;
+.result-badge {
+  min-width: 120px;
+  padding: 14px 18px;
+  font-size: 15px;
+  text-transform: capitalize;
 }
 
-.modal-actions button[type="submit"] {
-  background: #4CAF50;
-  color: white;
+.result-badge.success {
+  background: #e4fbf3;
+  color: #0f8f6b;
 }
 
-.modal-actions button[type="submit"]:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+.result-badge.failed,
+.result-badge.error {
+  background: #ffe7e7;
+  color: #d44a4a;
 }
 
-.result-content {
-  margin-bottom: 1.5rem;
+.result-mini-card {
+  border-radius: 18px;
+  padding: 14px 16px;
+  min-width: 150px;
 }
 
-.status-badge {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-weight: 600;
-  margin-bottom: 1rem;
+.result-mini-card span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
-.status-badge.success {
-  background: #d4edda;
-  color: #155724;
+.result-mini-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 22px;
 }
 
-.status-badge.failed {
-  background: #f8d7da;
-  color: #721c24;
+.result-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
 }
 
-.result-section {
-  margin-bottom: 1.5rem;
+.result-panel {
+  border-radius: 20px;
+  padding: 18px;
 }
 
-.result-section h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  color: #666;
+.result-panel h4 {
+  margin-top: 0;
 }
 
-.result-section pre {
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 4px;
-  overflow-x: auto;
+.result-panel pre {
   margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8fbfb;
+  border-radius: 16px;
+  padding: 16px;
+  color: var(--text-main);
+  line-height: 1.65;
+  overflow: auto;
 }
 
-.error-text {
-  color: #f44336;
+.error-pre {
+  color: #b42318;
 }
 
-.loading,
-.empty {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.error {
-  color: #f44336;
-  margin: 0.5rem 0;
-  font-size: 0.875rem;
+@media (max-width: 980px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card,
+  .panel-head,
+  .result-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .grid-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel-card,
+  .hero-card,
+  .modal-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .modal-actions,
+  .row-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .table-btn,
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+  }
 }
 </style>

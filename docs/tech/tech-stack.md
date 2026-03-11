@@ -1,88 +1,64 @@
 # Technology Stack
 
-## 编程语言
-- **后端**: Python 3.x
-- **前端**: JavaScript (ES6+)
-- **模板**: Vue单文件组件 (.vue)
+## 后端
+- **语言**：Python 3
+- **Web 框架**：FastAPI
+- **ASGI 服务**：uvicorn
+- **ORM**：SQLAlchemy
+- **配置管理**：pydantic-settings
+- **HTTP 客户端**：httpx
 
-## 后端框架
-- **Web框架**: FastAPI 0.100+
-  - 异步支持
-  - 自动生成OpenAPI文档
-  - Pydantic数据验证
+## 前端
+- **语言**：JavaScript ES Modules
+- **框架**：Vue 3
+- **路由**：Vue Router 4
+- **请求库**：axios
+- **构建工具**：Vite 5
 
-- **ORM框架**: SQLAlchemy
-  - Declarative Base模型定义
-  - Session管理
-  - 关系映射 (ForeignKey)
+## 数据存储
+- **数据库**：SQLite
+- **连接串默认值**：`sqlite:///./test_platform.db`
+- **线程参数**：`check_same_thread=False`
 
-- **配置管理**: pydantic-settings
-  - 环境变量支持
-  - 类型验证
+## 当前技术实现特征
+- FastAPI 同时承载同步路由与异步测试执行接口
+- 测试执行通过 `httpx.AsyncClient` 发起外部请求
+- 前端通过 axios 拦截器统一处理认证头与 401 跳转
+- 前端 `baseURL` 支持两种来源：
+  - `VITE_API_BASE_URL`
+  - 根据当前页面 origin 推导 `:8000`
 
-## 前端框架
-- **核心框架**: Vue 3.4+
-  - Composition API (setup语法)
-  - 响应式系统 (ref, reactive)
-  - 组件化开发
+## 运行方式
 
-- **路由管理**: Vue Router 4.2+
-  - 客户端路由
-  - 路由守卫
-  - 动态路由
+### 后端开发运行
+```bash
+uvicorn app.main:app --reload
+```
 
-- **构建工具**: Vite 5.0+
-  - 快速HMR (热模块替换)
-  - ESBuild预构建
-  - 开发服务器代理
+### 前端开发运行
+```bash
+npm run dev
+```
 
-## 数据库
-- **数据库类型**: SQLite
-- **连接方式**: 文件型数据库 (`./test_platform.db`)
-- **ORM**: SQLAlchemy
-- **连接参数**: `check_same_thread=False` (支持多线程)
+## 已声明依赖
 
-## 中间件和库
-- **HTTP客户端**: httpx
-  - 异步HTTP请求
-  - 支持超时控制
-  - JSON响应处理
+### Python 依赖
+`requirements.txt` 中当前声明：
+- `fastapi`
+- `uvicorn`
+- `sqlalchemy`
+- `pydantic-settings`
+- `httpx`
 
-- **HTTP服务**: uvicorn
-  - ASGI服务器
-  - 异步支持
+### Node 依赖
+`frontend/package.json` 中当前声明：
+- `vue`
+- `vue-router`
+- `axios`
+- `vite`
+- `@vitejs/plugin-vue`
 
-- **跨域处理**: FastAPI CORSMiddleware
-  - 允许所有来源 (`*`)
-  - 允许所有方法
-  - 允许所有头部
-
-- **HTTP请求库**: axios 1.6+
-  - Promise API
-  - 拦截器支持
-  - 自动JSON转换
-
-## 构建和运行工具
-- **后端运行**: uvicorn
-  - 命令: `uvicorn app.main:app --reload`
-  - 端口: 8000
-
-- **前端开发**: Vite
-  - 命令: `npm run dev`
-  - 端口: 5173
-  - 代理: `/api` → `http://localhost:8000`
-
-- **前端构建**: Vite build
-  - 命令: `npm run build`
-  - 输出: 静态文件 (dist目录)
-
-## 依赖管理
-- **后端**: pip + requirements.txt
-- **前端**: npm + package.json
-
-## 开发工具
-- **代码编辑**: 任意IDE (VSCode推荐)
-- **版本控制**: Git
-- **包管理**:
-  - Python: pip
-  - Node.js: npm
+## 与代码一致的重要说明
+- 当前认证不是 JWT 真正落地方案，`ALGORITHM` 与 `ACCESS_TOKEN_EXPIRE_MINUTES` 只是保留配置
+- 当前没有 Redis、Celery、消息队列、任务调度器等基础设施
+- 当前没有测试框架依赖，执行器是应用内自定义实现

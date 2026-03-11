@@ -1,102 +1,119 @@
 # System Architecture
 
 ## 架构模式
-**前后端分离架构** + **RESTful API** + **单用户MVP模式**
+当前项目采用 **前后端分离 + REST API + SQLite 本地持久化** 的轻量架构。
 
-- 前端: Vue 3 + Vite + Vue Router（单页应用）
-- 后端: FastAPI（异步Python Web框架）
-- 数据层: SQLAlchemy ORM + SQLite（本地数据库）
+- 前端：Vue 3 + Vite + Vue Router
+- 后端：FastAPI
+- 数据访问：SQLAlchemy ORM
+- 数据库：SQLite
+- 外部调用：`httpx.AsyncClient`
 
-## 系统分层
+## 分层结构
+```text
+浏览器 / Vue 前端
+  ├─ 登录 / 注册页面
+  ├─ 项目列表页面
+  └─ 测试用例管理页面（含执行结果弹窗）
 
-```
-┌─────────────────────────────────────────┐
-│           表示层 (Presentation)          │
-│          Vue.js 前端应用                 │
-│  - 项目管理界面                         │
-│  - 测试用例管理界面                     │
-│  - 测试执行界面                         │
-│  - 测试报告界面                         │
-└──────────────┬──────────────────────────┘
-               │ HTTP/REST
-┌──────────────▼──────────────────────────┐
-│           应用层 (Application)           │
-│          FastAPI 后端服务                │
-│  - 路由控制器 (Routers)                  │
-│  - 业务服务 (Services)                   │
-│  - 认证中间件 (Auth)                     │
-│  - CORS中间件                            │
-└──────────────┬──────────────────────────┘
-               │ SQLAlchemy ORM
-┌──────────────▼──────────────────────────┐
-│           数据层 (Data)                  │
-│          SQLite 数据库                   │
-│  - 用户表 (users)                        │
-│  - 项目表 (projects)                     │
-│  - 测试用例表 (api_test_cases)          │
-│  - 测试执行记录表 (test_runs)           │
-└─────────────────────────────────────────┘
-```
+        │ HTTP + JSON
+        ▼
 
-## 服务结构
+FastAPI 应用
+  ├─ app/main.py                应用入口与路由注册
+  ├─ app/api/*.py               路由层
+  ├─ app/dependencies.py        认证依赖
+  ├─ app/services/test_executor.py  测试执行服务
+  └─ app/models/*.py            ORM 模型
 
-### 后端服务 (FastAPI)
-- **服务名称**: API Test Platform
-- **启动文件**: `app/main.py`
-- **监听端口**: 8000 (默认)
-- **路由结构**:
-  - `/api/auth`: 认证路由 (注册、登录)
-  - `/api/projects`: 项目管理路由
-  - `/api/test-cases`: 测试用例管理路由
-  - `/api/test-runs`: 测试执行和报告路由
-  - `/ping`: 健康检查端点
+        │ SQLAlchemy
+        ▼
 
-### 前端服务 (Vue.js)
-- **应用名称**: test-platform-frontend
-- **启动文件**: `frontend/src/main.js`
-- **监听端口**: 5173 (默认)
-- **代理配置**: 通过Vite代理转发API请求到 `http://localhost:8000`
-- **路由结构**:
-  - `/login`: 登录页面
-  - `/register`: 注册页面
-  - `/`: 项目列表页面
-  - `/project/:id`: 项目详情和测试用例页面
-
-## 模块交互
-
-```
-用户请求
-   ↓
-Vue Router 路由匹配
-   ↓
-Vue 组件发起 HTTP 请求 (axios)
-   ↓
-Vite Dev Server 代理 (/api → http://localhost:8000)
-   ↓
-FastAPI 路由匹配
-   ↓
-依赖注入 (get_db, get_current_user)
-   ↓
-业务逻辑处理
-   ↓
-SQLAlchemy ORM 数据库操作
-   ↓
-SQLite 数据持久化
-   ↓
-响应返回 (JSON)
+SQLite 数据库
+  ├─ users
+  ├─ projects
+  ├─ api_test_cases
+  ├─ test_runs
+  ├─ schedule_tasks   (预留)
+  └─ run_queue        (预留)
 ```
 
-## 外部系统
+## 后端服务结构
 
-### 被测试的API服务
-- **角色**: 系统的外部依赖和测试目标
-- **交互方式**: 通过 httpx 库发起HTTP请求
-- **协议支持**: HTTP/HTTPS
-- **超时设置**: 30秒
-- **认证方式**: 无（由测试用例的headers配置决定）
+### 应用入口
+- `app/main.py`
+- 注册 CORS 中间件，当前配置为全部放开：`allow_origins=["*"]`
+- 挂载路由：
+  - `/api/auth`
+  - `/api/projects`
+  - `/api/test-cases`
+  - `/api/test-runs`
+- 提供健康检查：`GET /ping`
+- 在 `startup` 事件中执行 `init_db()` 自动建表
 
-### 数据库
-- **类型**: SQLite (文件型数据库)
-- **连接方式**: SQLAlchemy ORM
-- **数据库文件**: `./test_platform.db`
-- **表结构**: 4张主表（users, projects, api_test_cases, test_runs）
+### 认证方式
+- 不是 JWT，也没有真正的 Bearer Token 校验
+- 登录接口返回的 `access_token` 实际上是用户 `id` 的字符串
+- 前端把用户 ID 保存到 `localStorage`
+- 每次请求通过 `X-User-ID` 请求头传给后端
+- `app/dependencies.py` 根据 `X-User-ID` 读取当前用户
+
+这是一种 MVP 阶段的简化认证方案，便于联调，但安全性有限。
+
+### 路由层
+- `app/api/auth.py`：注册、登录
+- `app/api/projects.py`：项目 CRUD
+- `app/api/test_cases.py`：测试用例 CRUD
+- `app/api/test_runs.py`：执行测试、按项目查询执行记录
+
+### 服务层
+- `app/services/test_executor.py`
+- 负责把测试用例转换为 HTTP 请求参数并发起调用
+- 支持解析 JSON `headers` / `body`
+- 负责生成 `success` / `failed` / `error` 三种结果状态
+
+## 前端结构
+- 路由定义：`frontend/src/router/index.js`
+- 页面：
+  - `/login`
+  - `/register`
+  - `/`
+  - `/project/:projectId`
+- 路由守卫：未登录时跳转 `/login`
+
+### 前端 API 封装
+- `frontend/src/utils/request.js`
+  - 自动推导默认 `baseURL`
+  - 自动注入 `X-User-ID`
+  - 401 时清理登录态并跳转登录页
+- `frontend/src/api/projects.js`
+- `frontend/src/api/testCases.js`
+
+## 关键调用流程
+
+### 登录流程
+1. 用户在前端提交用户名密码
+2. 前端调用 `POST /api/auth/login`
+3. 后端校验明文密码
+4. 前端保存 `userId`
+5. 后续请求自动带上 `X-User-ID`
+
+### 项目管理流程
+1. 前端调用 `/api/projects`
+2. 后端通过 `get_current_user()` 获取当前用户
+3. 查询或写入当前用户拥有的项目
+4. 返回 JSON 给前端渲染
+
+### 测试执行流程
+1. 前端在测试用例页面点击“运行”
+2. 请求 `POST /api/test-runs/test-cases/{case_id}/run`
+3. 后端校验用例归属
+4. `test_executor.execute_test()` 调用目标 API
+5. 结果写入 `test_runs`
+6. 前端展示本次执行结果
+
+## 当前架构特点
+- 结构简单，适合快速开发和本地部署
+- 认证链路简单，方便前后端联调
+- 数据模型已为后续调度和队列做了预留
+- 暂未形成完整“服务层 + 调度层 + 工作节点”体系

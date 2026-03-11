@@ -19,4 +19,6 @@ def init_db():
     from app.models.project import Project
     from app.models.api_test_case import ApiTestCase
     from app.models.test_run import TestRun
+    from app.models.schedule_task import ScheduleTask
+    from app.models.run_queue import RunQueue
     Base.metadata.create_all(bind=engine)
