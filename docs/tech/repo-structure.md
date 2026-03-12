@@ -6,6 +6,13 @@ web_api_automation/
 ├─ app/                    后端代码
 ├─ docs/                   项目文档
 ├─ frontend/               前端代码
+├─ infra/                  基础设施脚本（PostgreSQL 初始化等）
+├─ migrations/             Alembic 迁移目录
+├─ scripts/                开发辅助脚本（一键启动、数据库自检等）
+├─ tests/                  后端测试
+├─ alembic.ini             Alembic 配置
+├─ docker-compose.postgres.yml   PostgreSQL 本地编排
+├─ .env.postgres.example   PostgreSQL 环境变量样例
 ├─ requirements.txt        后端依赖
 ├─ test_platform.db        SQLite 数据库文件
 ├─ README.md               根说明文件
@@ -17,6 +24,7 @@ web_api_automation/
 app/
 ├─ api/
 │  ├─ auth.py
+│  ├─ audit_logs.py
 │  ├─ projects.py
 │  ├─ test_cases.py
 │  └─ test_runs.py
@@ -25,15 +33,24 @@ app/
 │  ├─ project.py
 │  ├─ api_test_case.py
 │  ├─ test_run.py
+│  ├─ audit_log.py
+│  ├─ audit_log_archive.py
 │  ├─ schedule_task.py
-│  └─ run_queue.py
+│  ├─ run_queue.py
+│  └─ lifecycle.py
 ├─ schemas/
+│  ├─ __init__.py
+│  ├─ audit_log.py
+│  ├─ common.py
 │  ├─ user.py
 │  ├─ project.py
 │  ├─ api_test_case.py
 │  └─ test_run.py
 ├─ services/
-│  └─ test_executor.py
+│  ├─ test_executor.py
+│  └─ audit_service.py
+├─ errors.py
+├─ logging_config.py
 ├─ config.py
 ├─ database.py
 ├─ dependencies.py
@@ -42,9 +59,9 @@ app/
 
 ### 说明
 - `api/` 是当前业务主入口
-- `models/` 包含已落地实体和预留扩展实体
-- `schemas/` 目录存在，但当前路由文件大多直接在文件内定义 Pydantic 模型，尚未统一复用 `schemas/`
-- `services/` 当前只有一个 `test_executor.py`
+- `models/` 包含已落地实体和预留扩展实体，已补齐约束/索引/级联与生命周期默认值治理
+- 路由 DTO（请求/响应模型）已统一复用 `app/schemas/` 下的 Pydantic 模型
+- `services/` 目前包含测试执行与审计日志服务
 
 ## `frontend/` 前端目录
 ```text
@@ -79,7 +96,16 @@ frontend/
 - `modules/`：模块清单
 - `tech/`：技术栈与仓库结构
 
+## `scripts/` 关键脚本
+- `scripts/dev-postgres-up.ps1`：一键启动 PostgreSQL（容器启动 + 迁移 + 自检）
+- `scripts/dev-postgres-down.ps1`：一键停止 PostgreSQL（可选清理卷）
+- `scripts/dev-api-up.ps1`：数据库就绪后自动启动 API（可 `-PrepareOnly`）
+- `scripts/dev-api-down.ps1`：按端口停止 API 进程
+- `scripts/prod-db-migrate.ps1`：生产环境迁移脚本（强制确认 + 可选备份 + 可选自检）
+- `scripts/audit-governance-run.py`：审计归档与保留策略执行（支持 dry-run）
+- `scripts/db_connectivity_check.py`：数据库连通性和必需表自检
+
 ## 代码与文档对照时的注意点
 - `app/models/schedule_task.py` 与 `app/models/run_queue.py` 已在代码中存在，但尚未形成完整功能
 - `frontend/src/api/testCases.js` 中保留了 `getTestResult()` 方法，但后端当前没有对应 `GET /api/test-runs/{runId}` 接口
-- `app/schemas/` 与当前路由的实际使用方式存在一定重复，后续可以考虑统一整理
+- `app/schemas/` 是当前路由层 DTO 的统一入口；新增接口应优先在 `schemas/` 中定义模型

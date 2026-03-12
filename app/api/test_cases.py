@@ -1,41 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 from app.database import get_db
 from app.models.api_test_case import ApiTestCase
 from app.models.project import Project
 from app.models.user import User
 from app.dependencies import get_current_user
-from pydantic import BaseModel
+from app.errors import AppException, ErrorCode
+from app.services.audit_service import create_audit_log
+from app.schemas.api_test_case import TestCaseCreateRequest, TestCaseResponse
+from app.schemas.common import MessageResponse
 
 router = APIRouter()
 
 
-class TestCaseCreate(BaseModel):
-    name: str
-    method: str
-    url: str
-    headers: Optional[str] = None
-    body: Optional[str] = None
-    expected_status: int = 200
-    expected_body: Optional[str] = None
-
-
-class TestCaseResponse(BaseModel):
-    id: int
-    name: str
-    project_id: int
-    method: str
-    url: str
-    headers: Optional[str]
-    body: Optional[str]
-    expected_status: int
-    expected_body: Optional[str]
-    created_at: int
-    updated_at: int
-
-
-@router.get("/project/{project_id}")
+@router.get("/project/{project_id}", response_model=List[TestCaseResponse])
 def get_test_cases(
     project_id: int,
     user: User = Depends(get_current_user),
@@ -44,29 +23,38 @@ def get_test_cases(
     # Verify user owns the project
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
 
     test_cases = db.query(ApiTestCase).filter(ApiTestCase.project_id == project_id).all()
     return test_cases
 
 
-@router.post("/project/{project_id}")
+@router.post("/project/{project_id}", response_model=TestCaseResponse)
 def create_test_case(
     project_id: int,
-    test_case: TestCaseCreate,
+    test_case: TestCaseCreateRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> TestCaseResponse:
     # Verify user owns the project
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+
+    duplicated_name = (
+        db.query(ApiTestCase)
+        .filter(ApiTestCase.project_id == project_id, ApiTestCase.name == test_case.name)
+        .first()
+    )
+    if duplicated_name:
+        raise AppException(400, ErrorCode.TEST_CASE_ALREADY_EXISTS, "Test case name already exists")
 
     now = int(__import__('time').time())
     new_test_case = ApiTestCase(
         name=test_case.name,
         project_id=project_id,
-        method=test_case.method,
+        method=test_case.method.upper(),
         url=test_case.url,
         headers=test_case.headers,
         body=test_case.body,
@@ -78,13 +66,23 @@ def create_test_case(
     db.add(new_test_case)
     db.commit()
     db.refresh(new_test_case)
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.create",
+        resource_type="api_test_case",
+        resource_id=str(new_test_case.id),
+        user_id=user.id,
+        details={"name": new_test_case.name, "project_id": project_id},
+    )
     return new_test_case
 
 
-@router.put("/{case_id}")
+@router.put("/{case_id}", response_model=TestCaseResponse)
 def update_test_case(
     case_id: int,
-    test_case: TestCaseCreate,
+    test_case: TestCaseCreateRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> TestCaseResponse:
@@ -94,10 +92,22 @@ def update_test_case(
         Project.owner_id == user.id
     ).first()
     if not existing_case:
-        raise HTTPException(status_code=404, detail="Test case not found")
+        raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
+
+    duplicated_name = (
+        db.query(ApiTestCase)
+        .filter(
+            ApiTestCase.project_id == existing_case.project_id,
+            ApiTestCase.name == test_case.name,
+            ApiTestCase.id != case_id,
+        )
+        .first()
+    )
+    if duplicated_name:
+        raise AppException(400, ErrorCode.TEST_CASE_ALREADY_EXISTS, "Test case name already exists")
 
     existing_case.name = test_case.name
-    existing_case.method = test_case.method
+    existing_case.method = test_case.method.upper()
     existing_case.url = test_case.url
     existing_case.headers = test_case.headers
     existing_case.body = test_case.body
@@ -107,12 +117,22 @@ def update_test_case(
 
     db.commit()
     db.refresh(existing_case)
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.update",
+        resource_type="api_test_case",
+        resource_id=str(existing_case.id),
+        user_id=user.id,
+        details={"name": existing_case.name},
+    )
     return existing_case
 
 
-@router.delete("/{case_id}")
+@router.delete("/{case_id}", response_model=MessageResponse)
 def delete_test_case(
     case_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -122,8 +142,16 @@ def delete_test_case(
         Project.owner_id == user.id
     ).first()
     if not existing_case:
-        raise HTTPException(status_code=404, detail="Test case not found")
+        raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
 
     db.delete(existing_case)
     db.commit()
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.delete",
+        resource_type="api_test_case",
+        resource_id=str(case_id),
+        user_id=user.id,
+    )
     return {"message": "Test case deleted"}

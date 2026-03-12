@@ -1,0 +1,1 @@
+CREATE DATABASE web_api_automation_test;

@@ -1,17 +1,52 @@
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
 from sqlalchemy.orm import Session
+from typing import Callable
 from app.database import get_db
 from app.models.user import User
+from app.security import decode_token
+from app.errors import AppException, ErrorCode
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def get_current_user(
-    x_user_id: int = Header(None),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
-    if x_user_id is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not token:
+        raise AppException(401, ErrorCode.NOT_AUTHENTICATED, "Not authenticated")
 
-    user = db.query(User).filter(User.id == x_user_id).first()
+    try:
+        payload = decode_token(token)
+    except JWTError:
+        raise AppException(401, ErrorCode.INVALID_TOKEN, "Invalid token")
+
+    if payload.get("type") != "access":
+        raise AppException(401, ErrorCode.INVALID_TOKEN_TYPE, "Invalid token type")
+
+    subject = payload.get("sub")
+    if subject is None:
+        raise AppException(401, ErrorCode.INVALID_TOKEN_SUBJECT, "Invalid token subject")
+
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
+        raise AppException(401, ErrorCode.INVALID_TOKEN_SUBJECT, "Invalid token subject")
+
+    user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise AppException(401, ErrorCode.USER_NOT_FOUND, "User not found")
     return user
+
+
+def require_roles(*roles: str) -> Callable[[User], User]:
+    allowed_roles = {role.strip().lower() for role in roles if role and role.strip()}
+
+    def _checker(user: User = Depends(get_current_user)) -> User:
+        if user.role not in allowed_roles:
+            raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+        return user
+
+    return _checker

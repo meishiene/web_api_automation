@@ -91,7 +91,10 @@ const handleLogin = async () => {
   error.value = ''
   try {
     const res = await request.post('/api/auth/login', form.value)
+    localStorage.setItem('accessToken', res.access_token)
+    localStorage.setItem('refreshToken', res.refresh_token)
     localStorage.setItem('userId', res.user.id)
+    localStorage.setItem('username', res.user.username)
     router.push('/')
   } catch (err) {
     error.value = err.response?.data?.detail || '登录失败'

@@ -3,3 +3,7 @@ uvicorn
 sqlalchemy
 pydantic-settings
 httpx
+pytest
+python-jose[cryptography]
+alembic
+psycopg[binary]

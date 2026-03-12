@@ -1,12 +1,24 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import CheckConstraint, Column, Integer, String
+from sqlalchemy.orm import declarative_base, relationship
+
+from app.models.lifecycle import unix_timestamp
 
 Base = declarative_base()
 
+
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("length(trim(username)) > 0", name="ck_users_username_not_blank"),
+        CheckConstraint("role IN ('admin', 'user')", name="ck_users_role_allowed"),
+        CheckConstraint("created_at >= 0", name="ck_users_created_at_non_negative"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
+    role = Column(String(20), nullable=False, default="user")
     password = Column(String(255), nullable=False)
-    created_at = Column(Integer, nullable=False)
+    created_at = Column(Integer, nullable=False, default=unix_timestamp)
+
+    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
+    schedule_tasks = relationship("ScheduleTask", back_populates="creator", cascade="all, delete-orphan")

@@ -30,8 +30,8 @@ const router = createRouter({
 
 // Navigation guard - check auth
 router.beforeEach((to, from, next) => {
-  const userId = localStorage.getItem('userId')
-  if (to.path !== '/login' && to.path !== '/register' && !userId) {
+  const accessToken = localStorage.getItem('accessToken')
+  if (to.path !== '/login' && to.path !== '/register' && !accessToken) {
     next('/login')
   } else {
     next()

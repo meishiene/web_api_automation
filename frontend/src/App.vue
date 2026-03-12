@@ -94,9 +94,10 @@ const route = useRoute()
 
 const isAuthPage = computed(() => ['/login', '/register'].includes(route.path))
 const currentProjectId = computed(() => route.params.projectId || '')
-const userId = computed(() => localStorage.getItem('userId') || '')
-const username = computed(() => (userId.value ? `用户 ${userId.value}` : '未登录用户'))
-const userInitials = computed(() => (userId.value ? `U${String(userId.value).slice(-1)}` : 'U'))
+const currentUsername = computed(() => localStorage.getItem('username') || '')
+const currentUserId = computed(() => localStorage.getItem('userId') || '')
+const username = computed(() => currentUsername.value || (currentUserId.value ? `用户 ${currentUserId.value}` : '未登录用户'))
+const userInitials = computed(() => (username.value ? username.value.slice(0, 1).toUpperCase() : 'U'))
 
 const pageTitle = computed(() => {
   if (route.path.startsWith('/project/')) return '测试用例'
@@ -109,7 +110,10 @@ const pageSubtitle = computed(() => {
 })
 
 const handleLogout = () => {
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
   localStorage.removeItem('userId')
+  localStorage.removeItem('username')
   router.push('/login')
 }
 </script>

@@ -16,9 +16,10 @@
 - **构建工具**：Vite 5
 
 ## 数据存储
-- **数据库**：SQLite
-- **连接串默认值**：`sqlite:///./test_platform.db`
-- **线程参数**：`check_same_thread=False`
+- **默认数据库**：SQLite
+- **已支持数据库**：SQLite、PostgreSQL（本地/测试环境）
+- **默认连接串**：`sqlite:///./test_platform.db`
+- **PostgreSQL 驱动**：`psycopg[binary]`
 
 ## 当前技术实现特征
 - FastAPI 同时承载同步路由与异步测试执行接口
@@ -49,6 +50,10 @@ npm run dev
 - `sqlalchemy`
 - `pydantic-settings`
 - `httpx`
+- `pytest`
+- `python-jose[cryptography]`
+- `alembic`
+- `psycopg[binary]`
 
 ### Node 依赖
 `frontend/package.json` 中当前声明：
@@ -59,6 +64,8 @@ npm run dev
 - `@vitejs/plugin-vue`
 
 ## 与代码一致的重要说明
-- 当前认证不是 JWT 真正落地方案，`ALGORITHM` 与 `ACCESS_TOKEN_EXPIRE_MINUTES` 只是保留配置
+- 当前认证已使用 JWT + Refresh Token；受保护接口走 Bearer 鉴权
+- 当前已引入 Alembic 作为数据库迁移工具，迁移目录为 `migrations/`
+- 当前已支持按环境切换 SQLite / PostgreSQL（见 `app/config.py`）
 - 当前没有 Redis、Celery、消息队列、任务调度器等基础设施
-- 当前没有测试框架依赖，执行器是应用内自定义实现
+- 当前已引入 `pytest` 作为后端测试门禁基础

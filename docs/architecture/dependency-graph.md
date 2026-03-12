@@ -65,8 +65,9 @@ views/*.vue
 Login.vue / Register.vue
   → /api/auth/*
   → User
-  → localStorage(userId)
-  → X-User-ID
+  → localStorage(accessToken, refreshToken)
+  → Authorization: Bearer <access_token>
+  → /api/auth/refresh (token 过期时)
   → get_current_user()
 ```
 
