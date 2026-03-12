@@ -1,15 +1,9 @@
 import axios from 'axios'
 
-// 动态设置baseURL：如果是通过localhost访问，使用localhost:8000；否则使用当前域名的8000端口
+// 动态设置baseURL：始终复用当前页面主机，仅切换后端端口为 8000
 const getBaseURL = () => {
-  const currentOrigin = window.location.origin
-  if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-    return 'http://localhost:8000'
-  } else {
-    // 从当前origin提取协议和主机，然后替换端口为8000
-    const url = new URL(currentOrigin)
-    return `${url.protocol}//${url.hostname}:8000`
-  }
+  const { protocol, hostname } = window.location
+  return `${protocol}//${hostname}:8000`
 }
 
 const request = axios.create({

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
@@ -46,7 +46,7 @@
 
         <div v-if="error" class="error-message">
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            <path d="M11 15h2v2h-2v-2zm0-8h2v6h-2V7zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
           </svg>
           {{ error }}
         </div>
@@ -54,7 +54,7 @@
         <button type="submit" :disabled="loading" class="login-btn">
           <span v-if="loading" class="loading-spinner"></span>
           <svg v-else viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16 21v-2l-4-4-4 4v2l4-2 4 2zm-8-6l4-4 4 4V9l-4-4-4 4v6z"/>
+            <path d="M10 17l5-5-5-5v10z"/>
           </svg>
           {{ loading ? '登录中...' : '登录' }}
         </button>
@@ -67,7 +67,6 @@
       </div>
     </div>
 
-    <!-- 背景装饰 -->
     <div class="background-decoration">
       <div class="shape shape-1"></div>
       <div class="shape shape-2"></div>
@@ -110,7 +109,7 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(135deg, var(--primary-color, #2563eb) 0%, var(--primary-dark, #1e40af) 100%);
   position: relative;
   overflow: hidden;
   padding: 2rem 1rem;
@@ -119,11 +118,11 @@ const handleLogin = async () => {
 .login-card {
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--border-radius-lg, 16px);
   padding: 3rem 2.5rem;
   width: 100%;
   max-width: 420px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg, 0 20px 40px rgba(15, 23, 42, 0.25));
   border: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
   z-index: 10;
@@ -137,14 +136,14 @@ const handleLogin = async () => {
 .logo {
   width: 4rem;
   height: 4rem;
-  background: var(--primary-color);
+  background: var(--primary-color, #2563eb);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.5rem;
   color: white;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md, 0 10px 20px rgba(37, 99, 235, 0.35));
 }
 
 .logo svg {
@@ -155,12 +154,12 @@ const handleLogin = async () => {
 .login-header h1 {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--gray-800);
+  color: var(--gray-800, #1f2937);
   margin-bottom: 0.5rem;
 }
 
 .login-header p {
-  color: var(--gray-600);
+  color: var(--gray-600, #4b5563);
   font-size: 1rem;
 }
 
@@ -178,7 +177,7 @@ const handleLogin = async () => {
 
 .form-group label {
   font-weight: 600;
-  color: var(--gray-700);
+  color: var(--gray-700, #374151);
   font-size: 0.875rem;
 }
 
@@ -193,29 +192,29 @@ const handleLogin = async () => {
   left: 1rem;
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--gray-400);
+  color: var(--gray-400, #9ca3af);
   z-index: 1;
 }
 
 .input-wrapper input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 3rem;
-  border: 2px solid var(--gray-200);
-  border-radius: var(--border-radius);
+  border: 2px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--border-radius, 10px);
   font-size: 1rem;
-  background: var(--gray-50);
+  background: var(--gray-50, #f9fafb);
   transition: all 0.2s ease;
   outline: none;
 }
 
 .input-wrapper input:focus {
-  border-color: var(--primary-color);
+  border-color: var(--primary-color, #2563eb);
   background: white;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .input-wrapper input::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-400, #9ca3af);
 }
 
 .error-message {
@@ -225,8 +224,8 @@ const handleLogin = async () => {
   padding: 0.875rem 1rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  border-radius: var(--border-radius);
-  color: var(--error-color);
+  border-radius: var(--border-radius, 10px);
+  color: var(--error-color, #dc2626);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -243,22 +242,20 @@ const handleLogin = async () => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  background: linear-gradient(135deg, var(--primary-color, #2563eb), var(--primary-dark, #1e40af));
   color: white;
   border: none;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius, 10px);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
+  box-shadow: var(--shadow, 0 8px 16px rgba(37, 99, 235, 0.25));
 }
 
 .login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg, 0 20px 40px rgba(15, 23, 42, 0.25));
 }
 
 .login-btn:disabled {
@@ -290,28 +287,26 @@ const handleLogin = async () => {
   text-align: center;
   margin-top: 2rem;
   padding-top: 2rem;
-  border-top: 1px solid var(--gray-200);
+  border-top: 1px solid var(--gray-200, #e5e7eb);
 }
 
 .login-footer p {
-  color: var(--gray-600);
+  color: var(--gray-600, #4b5563);
   font-size: 0.875rem;
   margin: 0;
 }
 
 .register-link {
-  color: var(--primary-color);
+  color: var(--primary-color, #2563eb);
   text-decoration: none;
   font-weight: 600;
-  transition: color 0.2s ease;
 }
 
 .register-link:hover {
-  color: var(--primary-dark);
+  color: var(--primary-dark, #1e40af);
   text-decoration: underline;
 }
 
-/* 背景装饰 */
 .background-decoration {
   position: absolute;
   top: 0;
@@ -325,7 +320,7 @@ const handleLogin = async () => {
 .shape {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   animation: float 6s ease-in-out infinite;
 }
 
@@ -354,15 +349,10 @@ const handleLogin = async () => {
 }
 
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(180deg);
-  }
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
 }
 
-/* 响应式设计 */
 @media (max-width: 480px) {
   .login-card {
     padding: 2rem 1.5rem;

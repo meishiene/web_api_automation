@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import init_db
+from app.config import settings
+from app.database import auto_migrate_db, init_db
 from app.api import audit_logs, auth, organizations, projects, test_cases, test_runs
 from app.errors import register_exception_handlers
 from app.logging_config import setup_logging
@@ -15,8 +16,8 @@ app = FastAPI(title="API Test Platform")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.CORS_ALLOW_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -80,4 +81,5 @@ def ping():
 
 @app.on_event("startup")
 def startup_event():
+    auto_migrate_db()
     init_db()

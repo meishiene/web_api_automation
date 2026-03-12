@@ -19,3 +19,11 @@ def test_validation_error_has_standard_structure(client):
     assert body["error"]["message"] == "Validation failed"
     assert "details" in body["error"]
 
+
+def test_cors_header_present_for_local_frontend_origin(client):
+    response = client.get(
+        "/api/projects/",
+        headers={"Origin": "http://127.0.0.1:5173"},
+    )
+    assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+

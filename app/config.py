@@ -6,6 +6,14 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     APP_ENV: Literal["local", "test", "prod"] = "local"
     USE_POSTGRES: bool = False
+    AUTO_DB_MIGRATE_ON_STARTUP: bool = True
+    CORS_ALLOW_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    CORS_ALLOW_CREDENTIALS: bool = True
 
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"

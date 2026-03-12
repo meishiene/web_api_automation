@@ -183,6 +183,10 @@
 ## 10. 最近更新记录
 
 ### 2026-03-12
+- 修复本地登录跨域失败：后端 CORS 改为明确白名单（`localhost/127.0.0.1` 常用前端端口），避免 `allow_credentials=true` 与 `*` 组合导致浏览器拦截
+- 修复本地旧库导致登录 500：启动阶段新增本地/测试环境自动迁移（`auto_migrate_db()`），并对历史 SQLite 脏库增加列级修复兜底（`users.role`、`projects.organization_id`）
+- 修复登录页展示异常：重写 `frontend/src/views/Login.vue` 文案与样式兜底，解决乱码与变量缺省导致的样式错乱
+- 新增 CORS 回归测试 `test_error_response_format.py`，并验证前端构建通过
 - 完成组织层权限治理与跨项目成员治理（阶段 1）：新增组织模型 `organizations`、`organization_members` 与迁移 `d1f8902c4b61_organization_layer_governance`
 - 新增组织治理接口：`/api/organizations/`、`/api/organizations/{id}/members`、`/api/organizations/{id}/projects/attach`、`/api/organizations/{id}/members/governance/cross-project`
 - 访问控制升级：`app/services/access_control.py` 增加组织层判定，项目/用例/执行鉴权接入组织管理员能力

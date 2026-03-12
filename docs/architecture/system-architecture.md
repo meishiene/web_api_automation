@@ -48,7 +48,7 @@ SQLite 数据库
 
 ### 应用入口
 - `app/main.py`
-- 注册 CORS 中间件，当前配置为全部放开：`allow_origins=["*"]`
+- 注册 CORS 中间件，当前配置为本地开发白名单（`localhost/127.0.0.1` 常用前端端口）
 - 挂载路由：
   - `/api/auth`
   - `/api/organizations`
@@ -57,7 +57,7 @@ SQLite 数据库
   - `/api/test-runs`
   - `/api/audit-logs`
 - 提供健康检查：`GET /ping`
-- 在 `startup` 事件中执行 `init_db()` 自动建表
+- 在 `startup` 事件中执行 `auto_migrate_db()`（本地/测试环境自动迁移，含历史 SQLite 脏库列级修复兜底）与 `init_db()` 自动建表
 
 ### 数据库迁移
 - 已引入 Alembic：`alembic.ini` + `migrations/`
