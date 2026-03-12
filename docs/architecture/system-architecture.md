@@ -32,7 +32,10 @@ FastAPI 应用
 
 SQLite 数据库
   ├─ users
+  ├─ organizations
+  ├─ organization_members
   ├─ projects
+  ├─ project_members
   ├─ api_test_cases
   ├─ test_runs
   ├─ audit_logs
@@ -48,6 +51,7 @@ SQLite 数据库
 - 注册 CORS 中间件，当前配置为全部放开：`allow_origins=["*"]`
 - 挂载路由：
   - `/api/auth`
+  - `/api/organizations`
   - `/api/projects`
   - `/api/test-cases`
   - `/api/test-runs`
@@ -68,11 +72,17 @@ SQLite 数据库
 - 每次请求通过 `Authorization: Bearer <access_token>` 访问受保护接口
 - 当访问令牌过期时，前端调用 `POST /api/auth/refresh` 获取新 `access_token`
 - `app/dependencies.py` 负责解码并校验访问令牌中的 `sub` 与 `type`
-- 最小 RBAC 已落地：`users.role`（`admin` / `user`）+ `require_roles(...)` 权限依赖
+- RBAC 已落地：`users.role`（`admin` / `user`）+ `require_roles(...)`/`require_permissions(...)` 权限依赖
+- 已支持项目成员协作权限：`project_members`（`maintainer` / `editor` / `viewer`）
+- 已支持组织层权限治理基础能力：`organizations`、`organization_members`（`admin` / `member`）
 
 ### 路由层
 - `app/api/auth.py`：注册、登录
+- `app/api/organizations.py`：组织管理、组织成员管理、项目归属治理、跨项目成员治理
 - `app/api/projects.py`：项目 CRUD
+  - `GET /api/projects/{project_id}/members`
+  - `POST /api/projects/{project_id}/members`
+  - `DELETE /api/projects/{project_id}/members/{member_user_id}`
 - `app/api/test_cases.py`：测试用例 CRUD
 - `app/api/test_runs.py`：执行测试、按项目查询执行记录
 - `app/api/audit_logs.py`：审计日志查询
@@ -91,7 +101,7 @@ SQLite 数据库
 
 ### 模型关系映射
 - 核心模型已补齐显式关系映射（`relationship + back_populates`）
-- 已覆盖 `User`、`Project`、`ApiTestCase`、`TestRun` 与预留调度/队列模型的主关联关系
+- 已覆盖 `User`、`Organization`、`OrganizationMember`、`Project`、`ProjectMember`、`ApiTestCase`、`TestRun` 与预留调度/队列模型的主关联关系
 
 ### 领域模型治理
 - 已在核心实体中落地数据治理规则：约束（Check/Unique）、索引（单列/组合）、级联删除策略与时间字段生命周期默认值
@@ -144,7 +154,7 @@ SQLite 数据库
 ### 项目管理流程
 1. 前端调用 `/api/projects`
 2. 后端通过 `get_current_user()` 获取当前用户
-3. 查询或写入当前用户拥有的项目
+3. 查询当前用户拥有的项目与成员项目（admin 可全量查询）
 4. 返回 JSON 给前端渲染
 
 ### 测试执行流程

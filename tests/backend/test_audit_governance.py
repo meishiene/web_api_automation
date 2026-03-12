@@ -134,6 +134,17 @@ def test_non_admin_cannot_run_governance_api(client, create_user_and_login, auth
     assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
+def test_non_admin_cannot_query_other_user_audit_logs(client, create_user_and_login, auth_headers):
+    owner_token = create_user_and_login("owner", "pwd")
+    other_token = create_user_and_login("other", "pwd")
+
+    client.post("/api/projects/", headers=auth_headers(owner_token), json={"name": "Owner P", "description": "desc"})
+    response = client.get("/api/audit-logs/?user_id=1", headers=auth_headers(other_token))
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
 def test_admin_can_run_governance_api(client, create_user_and_login, auth_headers, db_session):
     token = create_user_and_login("admin-user", "pwd")
     admin = db_session.query(User).filter(User.username == "admin-user").first()

@@ -144,3 +144,67 @@ Dry-run：
 ```bash
 POST /api/audit-logs/governance/run
 ```
+
+## 8. 生产化编排建议
+
+### 8.1 并发控制与防重入
+- 治理脚本支持 `--lock-file`，同一时刻仅允许一个治理任务执行
+- 当锁文件已存在时，脚本返回 `status=locked` 并以非 0 退出
+
+### 8.2 执行留痕
+- 治理脚本支持 `--manifest-dir`，每次执行会落一份 JSON 清单（含开始/结束时间、耗时、结果、告警）
+- 建议将产物目录纳入运维留档与备份策略
+
+### 8.3 阈值告警
+- 支持设置阈值：
+  - `--max-candidate-archive-count`
+  - `--max-candidate-delete-archive-count`
+  - `--max-archived-count`
+  - `--max-deleted-archive-count`
+- 当超阈值时会输出 `alerts`；可通过 `--fail-on-alert` 让任务以告警退出码失败，便于调度平台告警
+
+### 8.4 生产执行入口
+- 脚本：`scripts/prod-audit-governance-run.ps1`
+- 强制保护：
+  - 需传入 `-ConfirmText I_UNDERSTAND_THIS_IS_PRODUCTION`
+  - 必须显式提供 `DATABASE_URL`（环境变量或 `-DatabaseUrl`）
+- 告警联动：
+  - 支持 `-AlertWebhookUrl`，当任务失败或触发阈值告警时自动推送 webhook
+  - 通过 `scripts/alert_webhook_notify.py` 发送统一 JSON 告警消息
+
+### 8.5 配置默认值
+- 审计治理编排默认参数已收敛到 `app/config.py`（`AUDIT_GOVERNANCE_*`）
+- `scripts/audit-governance-run.py` 的锁文件、清单目录、阈值与告警开关默认值由配置统一提供
+
+### 8.6 真实定时任务落地（Windows Task Scheduler）
+- 创建脚本：`scripts/setup-audit-governance-schedule.ps1`
+- 删除脚本：`scripts/remove-audit-governance-schedule.ps1`
+- 创建任务强制确认：`I_UNDERSTAND_THIS_CREATES_SCHEDULED_TASK`
+- 删除任务强制确认：`I_UNDERSTAND_THIS_DELETES_SCHEDULED_TASK`
+
+创建示例：
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-audit-governance-schedule.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_CREATES_SCHEDULED_TASK `
+  -DatabaseUrl "postgresql+psycopg://user:password@host:5432/dbname" `
+  -IntervalMinutes 60 `
+  -AlertWebhookUrl "https://example.com/webhook" `
+  -FailOnAlert
+```
+
+删除示例：
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\remove-audit-governance-schedule.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_DELETES_SCHEDULED_TASK `
+  -TaskName "web-api-automation-audit-governance"
+```
+
+示例：
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\prod-audit-governance-run.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_IS_PRODUCTION `
+  -DatabaseUrl "postgresql+psycopg://user:password@host:5432/dbname" `
+  -MaxCandidateArchiveCount 10000 `
+  -MaxDeletedArchiveCount 5000 `
+  -FailOnAlert
+```

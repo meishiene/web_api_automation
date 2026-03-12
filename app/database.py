@@ -26,6 +26,9 @@ def init_db():
     from app.models.audit_log import AuditLog
     from app.models.audit_log_archive import AuditLogArchive
     from app.models.project import Project
+    from app.models.project_member import ProjectMember
+    from app.models.organization import Organization
+    from app.models.organization_member import OrganizationMember
     from app.models.api_test_case import ApiTestCase
     from app.models.test_run import TestRun
     from app.models.schedule_task import ScheduleTask

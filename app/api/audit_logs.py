@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles
+from app.dependencies import get_current_user, require_permissions
 from app.models.user import User
+from app.permissions import Permission, has_permission
+from app.errors import AppException, ErrorCode
 from app.schemas.audit_log import (
     AuditLogGovernanceRunRequest,
     AuditLogGovernanceRunResponse,
@@ -31,9 +33,12 @@ def get_audit_logs(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AuditLogListResponse:
-    is_admin = user.role == "admin"
-    query_user_id = user_id if is_admin else user.id
-    scope_all = is_admin and user_id is None
+    can_view_all = has_permission(user.role, Permission.AUDIT_LOG_VIEW_ALL)
+    if user_id is not None and user_id != user.id and not can_view_all:
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    query_user_id = user_id if can_view_all else user.id
+    scope_all = can_view_all and user_id is None
 
     total, items = query_audit_logs(
         db=db,
@@ -60,7 +65,7 @@ def get_audit_logs(
 @router.post("/governance/run", response_model=AuditLogGovernanceRunResponse)
 def run_audit_log_governance(
     payload: AuditLogGovernanceRunRequest,
-    _: User = Depends(require_roles("admin")),
+    _: User = Depends(require_permissions(Permission.AUDIT_GOVERNANCE_RUN)),
     db: Session = Depends(get_db),
 ) -> AuditLogGovernanceRunResponse:
     summary = run_audit_retention(

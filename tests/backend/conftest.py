@@ -12,7 +12,10 @@ from app.models.user import Base
 from app.models import api_test_case  # noqa: F401
 from app.models import audit_log  # noqa: F401
 from app.models import audit_log_archive  # noqa: F401
+from app.models import organization  # noqa: F401
+from app.models import organization_member  # noqa: F401
 from app.models import project  # noqa: F401
+from app.models import project_member  # noqa: F401
 from app.models import run_queue  # noqa: F401
 from app.models import schedule_task  # noqa: F401
 from app.models import test_run  # noqa: F401

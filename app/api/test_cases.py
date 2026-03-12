@@ -7,6 +7,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.dependencies import get_current_user
 from app.errors import AppException, ErrorCode
+from app.services.access_control import can_manage_test_case, can_view_test_case
 from app.services.audit_service import create_audit_log
 from app.schemas.api_test_case import TestCaseCreateRequest, TestCaseResponse
 from app.schemas.common import MessageResponse
@@ -20,10 +21,11 @@ def get_test_cases(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> List[TestCaseResponse]:
-    # Verify user owns the project
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_view_test_case(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     test_cases = db.query(ApiTestCase).filter(ApiTestCase.project_id == project_id).all()
     return test_cases
@@ -37,10 +39,11 @@ def create_test_case(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> TestCaseResponse:
-    # Verify user owns the project
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_manage_test_case(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     duplicated_name = (
         db.query(ApiTestCase)
@@ -86,13 +89,13 @@ def update_test_case(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> TestCaseResponse:
-    # Verify user owns the project
     existing_case = db.query(ApiTestCase).join(Project).filter(
-        ApiTestCase.id == case_id,
-        Project.owner_id == user.id
+        ApiTestCase.id == case_id
     ).first()
     if not existing_case:
         raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
+    if not can_manage_test_case(db, user, existing_case.project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     duplicated_name = (
         db.query(ApiTestCase)
@@ -136,13 +139,13 @@ def delete_test_case(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Verify user owns the project
     existing_case = db.query(ApiTestCase).join(Project).filter(
-        ApiTestCase.id == case_id,
-        Project.owner_id == user.id
+        ApiTestCase.id == case_id
     ).first()
     if not existing_case:
         raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
+    if not can_manage_test_case(db, user, existing_case.project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     db.delete(existing_case)
     db.commit()

@@ -1,0 +1,14 @@
+﻿{
+    "status":  "failed",
+    "started_at":  "2026-03-12T15:06:37.1364458+08:00",
+    "database_url":  "sqlite:///./tmp/prod_window_drill_20260312_150637.db",
+    "target_revision":  "head",
+    "rollback_target_revision":  null,
+    "migration_manifest_path":  null,
+    "report_json_path":  "D:\\project\\web_api_automation\\.\\artifacts\\prod-db-window-drill\\window_drill_20260312_150637.json",
+    "report_markdown_path":  "D:\\project\\web_api_automation\\.\\artifacts\\prod-db-window-drill\\window_drill_20260312_150637.md",
+    "steps":  [
+
+              ],
+    "error_message":  "Failed to query current alembic revision before migration."
+}

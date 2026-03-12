@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     AUDIT_LOG_ACTIVE_RETENTION_DAYS: int = 30
     AUDIT_LOG_ARCHIVE_RETENTION_DAYS: int = 180
     AUDIT_LOG_RETENTION_BATCH_SIZE: int = 500
+    AUDIT_GOVERNANCE_LOCK_FILE: str = "./artifacts/audit-governance/audit-governance.lock"
+    AUDIT_GOVERNANCE_MANIFEST_DIR: str = "./artifacts/audit-governance"
+    AUDIT_GOVERNANCE_ALERT_OUTPUT: Optional[str] = None
+    AUDIT_GOVERNANCE_FAIL_ON_ALERT: bool = False
+    AUDIT_GOVERNANCE_MAX_CANDIDATE_ARCHIVE_COUNT: Optional[int] = None
+    AUDIT_GOVERNANCE_MAX_CANDIDATE_DELETE_ARCHIVE_COUNT: Optional[int] = None
+    AUDIT_GOVERNANCE_MAX_ARCHIVED_COUNT: Optional[int] = None
+    AUDIT_GOVERNANCE_MAX_DELETED_ARCHIVE_COUNT: Optional[int] = None
 
     def _postgres_url(self, db_name: str) -> str:
         return (

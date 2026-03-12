@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.api import audit_logs, auth, projects, test_cases, test_runs
+from app.api import audit_logs, auth, organizations, projects, test_cases, test_runs
 from app.errors import register_exception_handlers
 from app.logging_config import setup_logging
 import logging
@@ -67,6 +67,7 @@ async def request_id_middleware(request, call_next):
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(organizations.router, prefix="/api/organizations", tags=["organizations"])
 app.include_router(test_cases.router, prefix="/api/test-cases", tags=["test-cases"])
 app.include_router(test_runs.router, prefix="/api/test-runs", tags=["test-runs"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-logs"])

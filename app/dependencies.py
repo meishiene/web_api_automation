@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from typing import Callable
 from app.database import get_db
 from app.models.user import User
+from app.permissions import Permission, has_permission
 from app.security import decode_token
 from app.errors import AppException, ErrorCode
 
@@ -46,6 +47,20 @@ def require_roles(*roles: str) -> Callable[[User], User]:
 
     def _checker(user: User = Depends(get_current_user)) -> User:
         if user.role not in allowed_roles:
+            raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+        return user
+
+    return _checker
+
+
+def require_permissions(*permissions: Permission | str) -> Callable[[User], User]:
+    required_permissions = [permission for permission in permissions]
+
+    def _checker(user: User = Depends(get_current_user)) -> User:
+        if not required_permissions:
+            return user
+
+        if not any(has_permission(user.role, permission) for permission in required_permissions):
             raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
         return user
 

@@ -1,3 +1,6 @@
+from app.models.user import User
+
+
 def test_project_crud_for_owner(client, create_user_and_login, auth_headers):
     token = create_user_and_login("owner", "pwd")
     headers = auth_headers(token)
@@ -46,8 +49,32 @@ def test_user_can_only_access_own_projects(client, create_user_and_login, auth_h
         headers=auth_headers(attacker_token),
         json={"name": "Hacked", "description": "desc"},
     )
-    assert update_resp.status_code == 404
-    assert update_resp.json()["detail"] == "Project not found"
+    assert update_resp.status_code == 403
+    assert update_resp.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_admin_can_update_other_user_project(client, create_user_and_login, auth_headers, db_session):
+    owner_token = create_user_and_login("owner", "pwd")
+    admin_token = create_user_and_login("admin", "pwd")
+
+    admin = db_session.query(User).filter_by(username="admin").first()
+    admin.role = "admin"
+    db_session.commit()
+
+    create_resp = client.post(
+        "/api/projects/",
+        headers=auth_headers(owner_token),
+        json={"name": "Owner Project", "description": "desc"},
+    )
+    project_id = create_resp.json()["id"]
+
+    update_resp = client.put(
+        f"/api/projects/{project_id}",
+        headers=auth_headers(admin_token),
+        json={"name": "Managed By Admin", "description": "updated"},
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["name"] == "Managed By Admin"
 
 
 def test_project_name_must_be_unique_per_owner(client, create_user_and_login, auth_headers):

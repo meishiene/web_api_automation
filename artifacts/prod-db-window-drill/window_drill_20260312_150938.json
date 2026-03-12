@@ -1,0 +1,37 @@
+﻿{
+    "status":  "completed",
+    "started_at":  "2026-03-12T15:09:38.3737154+08:00",
+    "database_url":  "sqlite:///./tmp/prod_window_drill_20260312_150938.db",
+    "target_revision":  "head",
+    "rollback_target_revision":  "fcf57b5ad65c",
+    "migration_manifest_path":  "D:\\project\\web_api_automation\\artifacts\\prod-db-window-drill\\manifests\\prod_migration_20260312_150940.json",
+    "report_json_path":  "D:\\project\\web_api_automation\\.\\artifacts\\prod-db-window-drill\\window_drill_20260312_150938.json",
+    "report_markdown_path":  "D:\\project\\web_api_automation\\.\\artifacts\\prod-db-window-drill\\window_drill_20260312_150938.md",
+    "steps":  [
+                  {
+                      "name":  "bootstrap_drill_database",
+                      "status":  "completed",
+                      "note":  "revision=fcf57b5ad65c",
+                      "at":  "2026-03-12T15:09:40.6048212+08:00"
+                  },
+                  {
+                      "name":  "migrate_to_target",
+                      "status":  "completed",
+                      "note":  "",
+                      "at":  "2026-03-12T15:09:45.0704643+08:00"
+                  },
+                  {
+                      "name":  "rollback_to_pre_revision",
+                      "status":  "completed",
+                      "note":  "target=fcf57b5ad65c",
+                      "at":  "2026-03-12T15:09:47.4855844+08:00"
+                  },
+                  {
+                      "name":  "migrate_back_to_target",
+                      "status":  "completed",
+                      "note":  "",
+                      "at":  "2026-03-12T15:09:51.7339504+08:00"
+                  }
+              ],
+    "error_message":  null
+}

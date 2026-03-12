@@ -21,4 +21,7 @@ class User(Base):
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
 
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
+    project_memberships = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
+    organizations_owned = relationship("Organization", back_populates="owner", cascade="all, delete-orphan")
+    organization_memberships = relationship("OrganizationMember", back_populates="user", cascade="all, delete-orphan")
     schedule_tasks = relationship("ScheduleTask", back_populates="creator", cascade="all, delete-orphan")

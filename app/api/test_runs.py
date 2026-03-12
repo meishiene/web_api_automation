@@ -9,6 +9,7 @@ from app.models.user import User
 from app.dependencies import get_current_user
 from app.services.test_executor import execute_test
 from app.services.audit_service import create_audit_log
+from app.services.access_control import can_execute_test_run, can_view_test_run
 from app.errors import AppException, ErrorCode
 from app.schemas.test_run import TestRunResponse
 
@@ -22,14 +23,14 @@ async def run_test_case(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> TestRunResponse:
-    # Verify user owns the test case's project
     test_case = db.query(ApiTestCase).join(Project).filter(
-        ApiTestCase.id == case_id,
-        Project.owner_id == user.id
+        ApiTestCase.id == case_id
     ).first()
 
     if not test_case:
         raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
+    if not can_execute_test_run(db, user, test_case.project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     # Execute the test
     result = await execute_test(test_case)
@@ -68,10 +69,11 @@ def get_test_runs(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> List[TestRunResponse]:
-    # Verify user owns the project
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_view_test_run(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     test_runs = db.query(TestRun).join(ApiTestCase).filter(
         ApiTestCase.project_id == project_id

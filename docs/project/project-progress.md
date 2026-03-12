@@ -21,17 +21,17 @@
 
 | 领域 | 当前状态 | 进度 |
 | --- | --- | --- |
-| 用户与认证 | 已完成 JWT + Refresh Token、最小 RBAC（admin/user）与关键治理接口权限校验 | 60% |
-| 项目管理 | 已支持基础 CRUD | 40% |
-| API 用例管理 | 已支持基础 CRUD | 35% |
-| API 执行能力 | 已支持单条执行 | 25% |
+| 用户与认证 | 已完成 JWT + Refresh Token、最小 RBAC（admin/user）、角色-权限矩阵、项目成员与组织层权限基础能力 | 80% |
+| 项目管理 | 已支持基础 CRUD、项目成员管理与组织归属治理 | 60% |
+| API 用例管理 | 已支持基础 CRUD，并接入项目成员/组织角色鉴权 | 50% |
+| API 执行能力 | 已支持单条执行，并接入项目成员/组织角色鉴权 | 35% |
 | 工程化与测试基线 | 已建立测试基线、统一异常错误码、结构化日志、审计治理闭环、Alembic/PG 本地测试落地与模型治理细则 | 90% |
 | Web 测试能力 | 未开始 | 0% |
 | 环境与变量管理 | 未开始 | 0% |
 | 套件与批量执行 | 未开始 | 0% |
 | 调度与队列 | 已有预留模型，未打通 | 5% |
 | 报告与分析 | 仅有基础结果记录 | 5% |
-| 权限与治理 | 已完成最小 RBAC 闭环，细粒度治理未开始 | 20% |
+| 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
 | 企业集成 | 未开始 | 0% |
 
 ## 4. 当前阶段状态表
@@ -74,6 +74,10 @@
 - 已新增领域治理测试与接口侧防护（重名约束校验、方法规范化）
 - 已完成审计治理闭环：查询接口、归档表、保留策略执行脚本（含 dry-run）
 - 已落地最小 RBAC 闭环：`users.role`（`admin/user`）、`require_roles` 权限依赖、治理接口 admin 限制
+- 已落地角色-权限矩阵与统一权限依赖：`app/permissions.py`、`require_permissions(...)`
+- 已落地项目成员模型与接口：`project_members`、`/api/projects/{project_id}/members`
+- 已落地组织层模型与接口：`organizations`、`organization_members`、`/api/organizations/*`
+- 已落地跨项目成员治理：组织管理员可批量下发成员项目角色
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -95,7 +99,11 @@
 - 已完成 Bearer 鉴权接入与受保护接口校验
 - 已完成密码哈希存储（兼容历史明文用户登录后自动迁移）
 - 已完成最小 RBAC（`admin/user`）与关键治理接口权限校验
-- 组织级权限治理、细粒度权限矩阵与成员模型尚未完成
+- 已完成角色-权限矩阵基础落地（`app/permissions.py`）与统一权限依赖
+- 已补齐核心资源越权访问校验，越权场景统一返回 `403 FORBIDDEN`
+- 已落地项目成员模型（`project_members`）与成员协作权限（`maintainer/editor/viewer`）
+- 已落地组织层级与跨项目成员治理基础能力（组织成员、项目归属、跨项目角色下发）
+- 组织级权限治理深化（组织层级策略、部门/工作区维度）尚未完成
 
 ### 6.2 执行能力
 - 当前只支持单条 API 用例执行
@@ -108,8 +116,10 @@
 
 ### 6.4 数据库迁移
 - 已完成 Alembic 基线和本地/测试 PostgreSQL 落地
-- 已提供生产环境迁移脚本（`scripts/prod-db-migrate.ps1`，含强制确认、可选备份与可选自检）
-- 生产环境迁移发布流程与回滚预案仍需在生产窗口执行并固化
+- 已提供生产环境迁移/回滚脚本（`scripts/prod-db-migrate.ps1`、`scripts/prod-db-rollback.ps1`），含强制确认、可选备份、可选自检与迁移清单留痕
+- 已固化生产迁移发布与回滚 runbook
+- 已完成窗口流程本地实操演练与留档脚本（`scripts/prod-db-window-drill.ps1`），并生成演练记录
+- 真实生产环境窗口实操演练仍待执行
 
 ### 6.5 调度与队列
 - 数据模型已存在
@@ -119,11 +129,13 @@
 - 已提供审计日志查询接口（按用户、动作、结果、request_id、时间范围筛选）
 - 已提供审计归档表 `audit_logs_archive`
 - 已提供保留策略执行脚本 `scripts/audit-governance-run.py`（支持 dry-run）
-- 仍需生产环境定时任务接入与运维告警编排
+- 已补齐生产化编排基础能力：锁文件防重入、执行清单留痕、阈值告警、生产执行脚本 `scripts/prod-audit-governance-run.ps1`
+- 已补齐真实定时任务与告警联动脚本：`setup-audit-governance-schedule.ps1`、`remove-audit-governance-schedule.ps1`、`alert_webhook_notify.py`
+- 仍需在真实生产环境完成任务注册与告警平台配置生效验证
 
 ## 7. 当前未开始内容
 
-- 组织级与细粒度权限治理（RBAC 深化）
+- 组织级权限治理深化（组织层级策略、部门/工作区维度）
 - 多环境与变量管理
 - API 套件与批量执行
 - Web 自动化测试模块
@@ -151,10 +163,9 @@
 ## 9. 下一阶段优先事项
 
 ### P0：平台底座
-- PostgreSQL 生产环境迁移发布演练与窗口执行（按当前决策不做压测）
-- 认证治理收口（细粒度权限矩阵、组织/成员模型、越权校验补齐）
-- 落地迁移执行流程与发布规范
-- 完善审计治理的生产化编排（定时执行、告警、权限隔离）
+- PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
+- 认证治理收口（组织层模型、跨项目成员治理、权限矩阵细化）
+- 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
 
 ### P1：API 平台化
 - 增加 API 套件
@@ -172,6 +183,35 @@
 ## 10. 最近更新记录
 
 ### 2026-03-12
+- 完成组织层权限治理与跨项目成员治理（阶段 1）：新增组织模型 `organizations`、`organization_members` 与迁移 `d1f8902c4b61_organization_layer_governance`
+- 新增组织治理接口：`/api/organizations/`、`/api/organizations/{id}/members`、`/api/organizations/{id}/projects/attach`、`/api/organizations/{id}/members/governance/cross-project`
+- 访问控制升级：`app/services/access_control.py` 增加组织层判定，项目/用例/执行鉴权接入组织管理员能力
+- 新增组织治理测试 `tests/backend/test_organization_governance.py`，回归通过：`.\.venv\Scripts\python -m pytest`（52 passed）
+- 迁移链路验证通过（临时库）：`alembic upgrade head -> downgrade 9b1f0b38d7d2 -> upgrade head`
+- 完成审计治理“真实定时任务 + 告警联动”落地：新增 `setup-audit-governance-schedule.ps1`、`remove-audit-governance-schedule.ps1` 与 `alert_webhook_notify.py`
+- 增强 `prod-audit-governance-run.ps1`：支持 `-AlertWebhookUrl`，任务失败或阈值告警时自动推送 webhook
+- 新增告警构造测试 `tests/backend/test_alert_webhook_notify.py`，并通过回归：`.\.venv\Scripts\python -m pytest`（46 passed）
+- 完成生产窗口流程本地实操演练与留档：新增 `scripts/prod-db-window-drill.ps1`，执行 `迁移 -> 回滚 -> 再迁移` 全链路并产出报告
+- 演练留档产物：`artifacts/prod-db-window-drill/window_drill_20260312_150938.json` 与同名 `.md`
+- 补齐配置与测试验证缺口：`scripts/audit-governance-run.py` 默认编排参数接入 `app/config.py`（`AUDIT_GOVERNANCE_*`）
+- 新增日志字段完整性测试 `tests/backend/test_logging_config.py`，补充配置默认值测试 `test_database_config.py`
+- 回归验证通过：`.\.venv\Scripts\python -m pytest`（46 passed）
+- 完成审计治理生产化编排（阶段 1）：增强 `scripts/audit-governance-run.py`，支持锁文件防重入、执行清单留痕、阈值告警与告警退出码
+- 新增生产执行脚本 `scripts/prod-audit-governance-run.ps1`（强制确认 + 显式 `DATABASE_URL`）
+- 新增编排单测 `tests/backend/test_audit_governance_orchestrator.py`，并通过全量回归：`.\.venv\Scripts\python -m pytest`（43 passed）
+- 完成权限治理深化（阶段 1 第二批）：新增项目成员模型 `project_members`（迁移 `9b1f0b38d7d2_project_member_model`）与成员管理接口
+- 项目/用例/执行接入成员角色鉴权：`owner/maintainer/editor/viewer`，并通过 `app/services/access_control.py` 统一判定
+- 新增成员权限测试 `tests/backend/test_project_members_api.py`，并更新相关鉴权测试，回归通过：`.\.venv\Scripts\python -m pytest`（41 passed）
+- 迁移链路验证通过（临时库）：`alembic upgrade head -> downgrade fcf57b5ad65c -> upgrade head`
+- 完成权限治理深化（阶段 1）：新增 `app/permissions.py` 角色-权限矩阵，鉴权依赖新增 `require_permissions(...)`
+- 补齐越权校验：项目/用例/执行/审计查询等关键接口统一返回 `403 FORBIDDEN`，并补充 admin 跨资源治理权限
+- 新增并更新权限治理测试：`test_projects_api.py`、`test_test_cases_api.py`、`test_test_runs_api.py`、`test_audit_governance.py`
+- 回归验证通过：`.\.venv\Scripts\python -m pytest`（36 passed）
+- 新增根目录开发入口：补充 `package.json` 与 `scripts/dev-runner.mjs`，支持在仓库根目录执行 `npm run dev` 同时启动后端与前端
+- 同步修正文档 `docs/tech/tech-stack.md`，明确根目录 `npm run dev` 与 `frontend` 独立启动方式
+- 固化生产迁移流程闭环：新增 `scripts/db_revision_check.py`、`scripts/prod-db-rollback.ps1`，迁移脚本 `scripts/prod-db-migrate.ps1` 增加迁移清单留痕（前后版本、备份文件、回滚命令、状态）
+- 补充生产迁移 runbook：更新 `docs/tech/db-migration.md`，明确窗口前检查、执行步骤、回滚决策与留档项
+- 新增迁移流程测试 `tests/backend/test_db_migration_workflow.py`，验证版本探测脚本基础行为
 - 完成最小 RBAC/权限校验闭环：新增 `users.role`（`admin/user`）与权限依赖 `require_roles(...)`
 - 新增治理权限接口：`POST /api/audit-logs/governance/run`（admin）
 - 增强审计查询权限：admin 可全局查询，普通用户仅可查询本人日志

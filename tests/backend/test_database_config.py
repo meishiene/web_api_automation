@@ -38,3 +38,15 @@ def test_resolved_database_url_uses_postgres_test_db_when_enabled():
     )
     assert settings.resolved_database_url == "postgresql+psycopg://postgres:postgres@localhost:5432/test_db"
 
+
+def test_audit_governance_config_defaults_are_exposed():
+    settings = Settings()
+    assert settings.AUDIT_GOVERNANCE_LOCK_FILE == "./artifacts/audit-governance/audit-governance.lock"
+    assert settings.AUDIT_GOVERNANCE_MANIFEST_DIR == "./artifacts/audit-governance"
+    assert settings.AUDIT_GOVERNANCE_ALERT_OUTPUT is None
+    assert settings.AUDIT_GOVERNANCE_FAIL_ON_ALERT is False
+    assert settings.AUDIT_GOVERNANCE_MAX_CANDIDATE_ARCHIVE_COUNT is None
+    assert settings.AUDIT_GOVERNANCE_MAX_CANDIDATE_DELETE_ARCHIVE_COUNT is None
+    assert settings.AUDIT_GOVERNANCE_MAX_ARCHIVED_COUNT is None
+    assert settings.AUDIT_GOVERNANCE_MAX_DELETED_ARCHIVE_COUNT is None
+

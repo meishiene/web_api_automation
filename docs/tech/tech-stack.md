@@ -38,8 +38,21 @@ uvicorn app.main:app --reload
 
 ### 前端开发运行
 ```bash
+cd frontend
 npm run dev
 ```
+
+### 根目录一键开发运行
+```bash
+npm run dev
+```
+
+说明：
+- 根目录 `package.json` 已提供统一开发入口
+- `npm run dev` 会同时启动后端与前端开发服务
+- 后端固定使用仓库内 `.venv\Scripts\python.exe` 启动 `uvicorn`
+- 根目录 `npm run dev` 默认走本地开发配置，可直接使用默认 `SQLite`
+- 前端通过 `frontend/package.json` 的 `vite` 启动
 
 ## 已声明依赖
 
@@ -62,6 +75,14 @@ npm run dev
 - `axios`
 - `vite`
 - `@vitejs/plugin-vue`
+
+### 根目录 Node 脚本
+`package.json` 中当前声明：
+- `dev`
+- `dev:backend`
+- `dev:frontend`
+- `build`
+- `preview`
 
 ## 与代码一致的重要说明
 - 当前认证已使用 JWT + Refresh Token；受保护接口走 Bearer 鉴权

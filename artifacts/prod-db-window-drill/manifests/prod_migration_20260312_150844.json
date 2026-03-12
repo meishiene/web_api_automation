@@ -1,0 +1,5 @@
+﻿{
+    "status":  "failed",
+    "failed_at":  "2026-03-12T15:08:45.8666931+08:00",
+    "error_message":  "Failed to query current alembic revision before migration."
+}

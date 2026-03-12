@@ -1,0 +1,15 @@
+
+> dev
+> node scripts/dev-runner.mjs
+
+Starting backend and frontend dev services...
+
+> test-platform-frontend@1.0.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m632[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+{"timestamp": "2026-03-12T03:10:47.879552+00:00", "level": "INFO", "logger": "app.request", "message": "request_completed", "request_id": "778fb7b0-e9d1-42d9-8e67-ec57e7dc41dc", "event": "http_request", "method": "GET", "path": "/ping", "status_code": 200, "duration_ms": 4, "client_ip": "127.0.0.1"}
+INFO:     127.0.0.1:58192 - "GET /ping HTTP/1.1" 200 OK

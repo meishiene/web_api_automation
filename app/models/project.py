@@ -18,9 +18,12 @@ class Project(Base):
     name = Column(String(100), nullable=False)
     description = Column(String(500))
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
 
     owner = relationship("User", back_populates="projects")
+    organization = relationship("Organization", back_populates="projects")
+    members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
     test_cases = relationship("ApiTestCase", back_populates="project", cascade="all, delete-orphan")
     schedule_tasks = relationship("ScheduleTask", back_populates="project", cascade="all, delete-orphan")
     run_queue_items = relationship("RunQueue", back_populates="project", cascade="all, delete-orphan")

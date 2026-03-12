@@ -104,14 +104,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-api-down.ps1 -Port 8011
 
 脚本：`scripts/prod-db-migrate.ps1`
 
+配套脚本：
+- `scripts/db_revision_check.py`：读取当前数据库 `alembic_version`
+- `scripts/prod-db-rollback.ps1`：按目标版本或迁移清单执行回滚
+
 用途：
 - 在 `prod` 环境执行 Alembic 迁移
 - 支持迁移前数据库备份（默认启用）
 - 支持迁移后连通性与表结构自检（默认启用）
+- 自动记录迁移清单（迁移前版本、目标版本、备份文件、回滚命令、完成状态）
 
 强制保护：
 - 必须传入 `-ConfirmText I_UNDERSTAND_THIS_IS_PRODUCTION`
 - 必须显式提供 `DATABASE_URL`（环境变量或 `-DatabaseUrl`）
+- 运行环境需提供可用的 `python` / `alembic`，脚本优先使用仓库 `.venv`，缺失时回退到系统 `PATH`
 
 ### 生产迁移（默认：备份 + 迁移 + 自检）
 ```bash
@@ -134,6 +140,113 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prod-db-migrate.ps1 `
   -ConfirmText I_UNDERSTAND_THIS_IS_PRODUCTION `
   -DryRun -SkipBackup -SkipConnectivityCheck
 ```
+
+### 迁移产物
+- 默认备份目录：`backups/prod-db/`
+- 默认迁移清单目录：`artifacts/prod-db-migrations/`
+- 每次迁移都会生成一份 JSON 清单，包含：
+  - `pre_revision`
+  - `target_revision`
+  - `post_revision`
+  - `backup_file`
+  - `status`
+  - `rollback_command`
+
+## 3.6 生产回滚脚本
+
+脚本：`scripts/prod-db-rollback.ps1`
+
+用途：
+- 在 `prod` 环境按目标版本执行 Alembic 回滚
+- 支持直接读取迁移清单中的 `pre_revision`
+- 支持回滚后连通性与表结构自检（默认启用）
+
+强制保护：
+- 必须传入 `-ConfirmText I_UNDERSTAND_THIS_WILL_ROLLBACK_PRODUCTION`
+- 必须显式提供 `DATABASE_URL`（环境变量或 `-DatabaseUrl`）；迁移清单不保存生产连接串
+- 运行环境需提供可用的 `python` / `alembic`，脚本优先使用仓库 `.venv`，缺失时回退到系统 `PATH`
+
+### 基于迁移清单回滚
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\prod-db-rollback.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_WILL_ROLLBACK_PRODUCTION `
+  -ManifestPath .\artifacts\prod-db-migrations\prod_migration_20260312_120000.json `
+  -DatabaseUrl "postgresql+psycopg://user:password@host:5432/dbname"
+```
+
+### 指定目标版本回滚
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\prod-db-rollback.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_WILL_ROLLBACK_PRODUCTION `
+  -DatabaseUrl "postgresql+psycopg://user:password@host:5432/dbname" `
+  -TargetRevision 802c16c9f78e
+```
+
+### 仅演练回滚流程（Dry Run）
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\prod-db-rollback.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_WILL_ROLLBACK_PRODUCTION `
+  -TargetRevision 802c16c9f78e `
+  -DryRun -SkipConnectivityCheck
+```
+
+## 3.7 生产窗口执行 Runbook
+
+### 窗口前检查
+- 确认目标版本与对应迁移脚本已在测试环境完成 `upgrade -> downgrade -> upgrade` 验证
+- 确认应用发布包、数据库连接串、值班人和回滚责任人已就位
+- 确认 `pg_dump` 可用，且备份目录剩余空间充足
+- 确认业务低峰窗口、只读/停写策略和公告已执行
+
+### 窗口执行步骤
+1. 先执行 dry-run，确认命令参数和目录输出无误
+2. 执行正式迁移命令，保留终端日志与生成的迁移清单
+3. 检查迁移清单 `status=completed`，并确认 `post_revision` 符合预期
+4. 执行应用健康检查与关键接口冒烟
+5. 完成窗口记录，登记执行人、时间、版本、备份文件与结果
+
+### 回滚决策
+- 若 Alembic 迁移失败且尚未切流，优先依据迁移清单执行 `alembic downgrade` 回到 `pre_revision`
+- 若数据库状态异常且无法通过降级恢复，使用迁移前备份按数据库恢复流程执行 `pg_restore`
+- 回滚后必须重新执行连通性检查、关键接口冒烟和版本确认
+
+### 建议留档项
+- 迁移命令
+- 迁移清单路径
+- 备份文件路径
+- 执行终端日志
+- 冒烟验证结果
+- 是否触发回滚及原因
+
+## 3.8 生产窗口实操演练脚本（留档）
+
+脚本：`scripts/prod-db-window-drill.ps1`
+
+用途：
+- 演练完整窗口流程：`迁移到目标版本 -> 回滚到迁移前版本 -> 再迁移到目标版本`
+- 自动产出演练留档（JSON + Markdown）
+- 支持使用独立演练库，避免影响现有开发/测试库
+
+强制保护：
+- 必须传入 `-ConfirmText I_UNDERSTAND_THIS_IS_DB_WINDOW_DRILL`
+- 默认会创建临时 SQLite 演练库；也可通过 `-DatabaseUrl` 指定演练数据库
+
+### 执行示例（推荐）
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\prod-db-window-drill.ps1 `
+  -ConfirmText I_UNDERSTAND_THIS_IS_DB_WINDOW_DRILL
+```
+
+### 关键参数
+- `-TargetRevision`：目标版本（默认 `head`）
+- `-BootstrapRevision`：临时演练库引导版本（默认 `fcf57b5ad65c`）
+- `-ReportDir`：演练报告目录（默认 `artifacts/prod-db-window-drill`）
+- `-SkipConnectivityCheck`：跳过迁移后连通性检查
+
+### 演练产物
+- `artifacts/prod-db-window-drill/window_drill_<timestamp>.json`
+- `artifacts/prod-db-window-drill/window_drill_<timestamp>.md`
+- `artifacts/prod-db-window-drill/manifests/prod_migration_<timestamp>.json`
 
 ## 4. 迁移命令
 
@@ -189,3 +302,4 @@ $env:TEST_DATABASE_URL='postgresql+psycopg://postgres:postgres@127.0.0.1:5432/we
   - `alembic upgrade head`
   - `alembic downgrade base`
   - 再 `alembic upgrade head`
+- 生产迁移需保留迁移清单与备份信息，禁止只执行命令不留痕
