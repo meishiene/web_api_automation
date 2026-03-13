@@ -1,4 +1,4 @@
-﻿
+
 def test_run_suite_generates_batch_and_uses_env_variables(client, monkeypatch, create_user_and_login, auth_headers):
     token = create_user_and_login("owner", "pwd")
     headers = auth_headers(token)
@@ -114,7 +114,13 @@ def test_run_suite_generates_batch_and_uses_env_variables(client, monkeypatch, c
     batch_id = batches_resp.json()[0]["id"]
     batch_detail_resp = client.get(f"/api/test-runs/batches/{batch_id}", headers=headers)
     assert batch_detail_resp.status_code == 200
-    assert len(batch_detail_resp.json()["items"]) == 2
+    detail_body = batch_detail_resp.json()
+    assert len(detail_body["items"]) == 2
+    first_item = detail_body["items"][0]
+    assert first_item["test_case_name"] == "case-login"
+    assert first_item["test_case_method"] == "POST"
+    assert first_item["actual_status"] == 200
+    assert first_item["duration_ms"] == 10
 
     assert calls[0]["vars"]["base_url"] == "https://staging.example.com"
     assert calls[0]["vars"]["username"] == "owner"

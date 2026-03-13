@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="cases-page">
     <div class="hero-card">
       <div>
@@ -40,6 +40,7 @@
           <p>按方法、URL 和断言配置管理接口测试。</p>
         </div>
         <div class="panel-tools">
+          <button class="secondary-btn" @click="goToBatchRuns">查看批次结果</button>
           <div class="search-box">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 100-14.4 7.2 7.2 0 000 14.4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -175,7 +176,10 @@
             <h3>执行结果</h3>
             <p>展示本次接口执行的返回状态、耗时和响应内容。</p>
           </div>
-          <button @click="showResultModal = false" class="icon-btn">✕</button>
+          <div class="result-head-actions">
+            <button class="secondary-btn" @click="openRunDetail" :disabled="!testResult?.id">查看执行详情</button>
+            <button @click="showResultModal = false" class="icon-btn">✕</button>
+          </div>
         </div>
 
         <div class="result-summary">
@@ -208,7 +212,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getTestCases,
   createTestCase,
@@ -219,6 +223,7 @@ import {
 import { getProjects } from '@/api/projects'
 
 const route = useRoute()
+const router = useRouter()
 const projectId = computed(() => parseInt(route.params.projectId, 10))
 
 const testCases = ref([])
@@ -375,6 +380,16 @@ const runTestCase = async (tc) => {
   }
 }
 
+const goToBatchRuns = () => {
+  router.push(`/project/${projectId.value}/batches`)
+}
+
+const openRunDetail = () => {
+  if (!testResult.value?.id) return
+  showResultModal.value = false
+  router.push(`/project/${projectId.value}/runs/${testResult.value.id}`)
+}
+
 const closeModal = () => {
   showCreateModal.value = false
   isEditing.value = false
@@ -513,6 +528,12 @@ onMounted(() => {
   margin-bottom: 22px;
 }
 
+.panel-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .search-box {
   min-width: 320px;
   display: flex;
@@ -630,6 +651,12 @@ onMounted(() => {
 .table-btn,
 .primary-btn,
 .secondary-btn,
+.result-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .icon-btn {
   border: 0;
 }
@@ -745,6 +772,12 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.result-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .icon-btn {

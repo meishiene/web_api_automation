@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -36,6 +36,7 @@ class ErrorCode:
     ENVIRONMENT_NOT_FOUND = "ENVIRONMENT_NOT_FOUND"
     VARIABLE_NOT_FOUND = "VARIABLE_NOT_FOUND"
     BATCH_RUN_NOT_FOUND = "BATCH_RUN_NOT_FOUND"
+    TEST_RUN_NOT_FOUND = "TEST_RUN_NOT_FOUND"
 
 
 DEFAULT_HTTP_ERROR_CODES = {
@@ -183,4 +184,3 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
-

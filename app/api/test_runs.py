@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -14,8 +14,8 @@ from app.models.project import Project
 from app.models.project_environment import ProjectEnvironment
 from app.models.test_run import TestRun
 from app.models.user import User
-from app.schemas.batch_run import BatchRunDetailResponse, BatchRunResponse, SuiteRunRequest
-from app.schemas.test_run import TestRunResponse
+from app.schemas.batch_run import BatchRunDetailResponse, BatchRunItemResponse, BatchRunResponse, SuiteRunRequest
+from app.schemas.test_run import TestRunDetailResponse, TestRunResponse
 from app.services.access_control import can_execute_test_run, can_view_test_run
 from app.services.audit_service import create_audit_log
 from app.services.test_executor import execute_test
@@ -224,12 +224,33 @@ def get_batch_run_detail(
     if not can_view_test_run(db, user, batch.project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    items = (
-        db.query(ApiBatchRunItem)
+    item_rows = (
+        db.query(ApiBatchRunItem, ApiTestCase, TestRun)
+        .join(ApiTestCase, ApiTestCase.id == ApiBatchRunItem.test_case_id)
+        .outerjoin(TestRun, TestRun.id == ApiBatchRunItem.test_run_id)
         .filter(ApiBatchRunItem.batch_run_id == batch_id)
         .order_by(ApiBatchRunItem.order_index.asc(), ApiBatchRunItem.id.asc())
         .all()
     )
+
+    items = [
+        BatchRunItemResponse(
+            id=item.id,
+            batch_run_id=item.batch_run_id,
+            test_case_id=item.test_case_id,
+            test_case_name=test_case.name,
+            test_case_method=test_case.method,
+            test_case_url=test_case.url,
+            test_run_id=item.test_run_id,
+            order_index=item.order_index,
+            status=item.status,
+            actual_status=(test_run.actual_status if test_run else None),
+            duration_ms=(test_run.duration_ms if test_run else None),
+            error_message=item.error_message,
+            created_at=item.created_at,
+        )
+        for item, test_case, test_run in item_rows
+    ]
 
     return BatchRunDetailResponse(
         id=batch.id,
@@ -246,4 +267,37 @@ def get_batch_run_detail(
         finished_at=batch.finished_at,
         created_at=batch.created_at,
         items=items,
+    )
+
+@router.get("/{run_id}", response_model=TestRunDetailResponse)
+def get_test_run_detail(
+    run_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TestRunDetailResponse:
+    run = (
+        db.query(TestRun)
+        .join(ApiTestCase)
+        .join(Project)
+        .filter(TestRun.id == run_id)
+        .first()
+    )
+    if not run:
+        raise AppException(404, ErrorCode.TEST_RUN_NOT_FOUND, "Test run not found")
+    if not can_view_test_run(db, user, run.test_case.project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    return TestRunDetailResponse(
+        id=run.id,
+        test_case_id=run.test_case_id,
+        status=run.status,
+        actual_status=run.actual_status,
+        actual_body=run.actual_body,
+        error_message=run.error_message,
+        duration_ms=run.duration_ms,
+        created_at=run.created_at,
+        test_case_name=run.test_case.name,
+        test_case_method=run.test_case.method,
+        test_case_url=run.test_case.url,
+        test_case_expected_status=run.test_case.expected_status,
     )

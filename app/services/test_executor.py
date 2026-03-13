@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 import time
 from typing import Any
@@ -7,6 +7,7 @@ import httpx
 
 
 _TEMPLATE_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
+_ALLOWED_SCHEMA_TYPES = {"object", "array", "string", "number", "integer", "boolean", "null"}
 
 
 def _stringify_template_value(value: Any) -> str:
@@ -60,7 +61,7 @@ def _parse_json_path(path: str) -> list[Any]:
             if end == -1:
                 raise ValueError("JSONPath missing closing bracket")
             key = expr[i + 1 : end].strip()
-            if (key.startswith("\"") and key.endswith("\"")) or (key.startswith("'") and key.endswith("'")):
+            if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
                 key = key[1:-1]
                 tokens.append(key)
             elif key.isdigit():
@@ -98,6 +99,154 @@ def _ensure_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _schema_path(base: str, token: Any) -> str:
+    if isinstance(token, int):
+        return f"{base}[{token}]"
+    if token.isidentifier():
+        return f"{base}.{token}"
+    return f"{base}['{token}']"
+
+
+def _json_type_name(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def _matches_schema_type(value: Any, expected_type: str) -> bool:
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "number":
+        return (isinstance(value, (int, float)) and not isinstance(value, bool))
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "null":
+        return value is None
+    return False
+
+
+def _validate_schema_rule(schema: Any, path: str = "$") -> None:
+    if not isinstance(schema, dict):
+        raise ValueError(f"Invalid schema assertion rule: schema at {path} must be an object")
+
+    schema_type = schema.get("type")
+    if schema_type is not None:
+        if not isinstance(schema_type, str) or schema_type not in _ALLOWED_SCHEMA_TYPES:
+            allowed = ", ".join(sorted(_ALLOWED_SCHEMA_TYPES))
+            raise ValueError(f"Invalid schema assertion rule: 'type' at {path} must be one of [{allowed}]")
+
+    required = schema.get("required")
+    if required is not None:
+        if not isinstance(required, list) or any(not isinstance(name, str) for name in required):
+            raise ValueError(f"Invalid schema assertion rule: 'required' at {path} must be an array of strings")
+
+    properties = schema.get("properties")
+    if properties is not None:
+        if not isinstance(properties, dict):
+            raise ValueError(f"Invalid schema assertion rule: 'properties' at {path} must be an object")
+        for key, sub_schema in properties.items():
+            if not isinstance(key, str):
+                raise ValueError(f"Invalid schema assertion rule: property key at {path} must be a string")
+            _validate_schema_rule(sub_schema, f"{path}.properties.{key}")
+
+    items = schema.get("items")
+    if items is not None:
+        _validate_schema_rule(items, f"{path}.items")
+
+    enum_values = schema.get("enum")
+    if enum_values is not None and not isinstance(enum_values, list):
+        raise ValueError(f"Invalid schema assertion rule: 'enum' at {path} must be an array")
+
+    additional_properties = schema.get("additionalProperties")
+    if additional_properties is not None and not isinstance(additional_properties, bool):
+        raise ValueError(f"Invalid schema assertion rule: 'additionalProperties' at {path} must be boolean")
+
+    for key in ("minimum", "maximum"):
+        if key in schema and not isinstance(schema[key], (int, float)):
+            raise ValueError(f"Invalid schema assertion rule: '{key}' at {path} must be number")
+
+    for key in ("minLength", "maxLength", "minItems", "maxItems"):
+        if key in schema and (not isinstance(schema[key], int) or schema[key] < 0):
+            raise ValueError(f"Invalid schema assertion rule: '{key}' at {path} must be non-negative integer")
+
+
+def _validate_schema_value(value: Any, schema: dict[str, Any], path: str = "$") -> None:
+    schema_type = schema.get("type")
+    if schema_type and not _matches_schema_type(value, schema_type):
+        actual = _json_type_name(value)
+        raise ValueError(f"{path} expected type {schema_type}, got {actual}")
+
+    if "const" in schema and value != schema["const"]:
+        raise ValueError(f"{path} expected const {schema['const']}, got {value}")
+
+    if "enum" in schema and value not in schema["enum"]:
+        raise ValueError(f"{path} value {value} not in enum {schema['enum']}")
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if minimum is not None and value < minimum:
+            raise ValueError(f"{path} expected >= {minimum}, got {value}")
+        if maximum is not None and value > maximum:
+            raise ValueError(f"{path} expected <= {maximum}, got {value}")
+
+    if isinstance(value, str):
+        min_length = schema.get("minLength")
+        max_length = schema.get("maxLength")
+        if min_length is not None and len(value) < min_length:
+            raise ValueError(f"{path} length expected >= {min_length}, got {len(value)}")
+        if max_length is not None and len(value) > max_length:
+            raise ValueError(f"{path} length expected <= {max_length}, got {len(value)}")
+
+    if isinstance(value, list):
+        min_items = schema.get("minItems")
+        max_items = schema.get("maxItems")
+        if min_items is not None and len(value) < min_items:
+            raise ValueError(f"{path} item count expected >= {min_items}, got {len(value)}")
+        if max_items is not None and len(value) > max_items:
+            raise ValueError(f"{path} item count expected <= {max_items}, got {len(value)}")
+
+        item_schema = schema.get("items")
+        if item_schema is not None:
+            for idx, item in enumerate(value):
+                _validate_schema_value(item, item_schema, _schema_path(path, idx))
+
+    if isinstance(value, dict):
+        required = schema.get("required") or []
+        for key in required:
+            if key not in value:
+                raise ValueError(f"{path} missing required field '{key}'")
+
+        properties = schema.get("properties") or {}
+        for key, sub_schema in properties.items():
+            if key in value:
+                _validate_schema_value(value[key], sub_schema, _schema_path(path, key))
+
+        additional_properties = schema.get("additionalProperties")
+        if additional_properties is False:
+            extra_keys = [key for key in value.keys() if key not in properties]
+            if extra_keys:
+                raise ValueError(f"{path} has unexpected fields {extra_keys}")
 
 
 def _evaluate_assertions(
@@ -147,6 +296,21 @@ def _evaluate_assertions(
                     return False, f"Invalid JSONPath '{path}': {exc}"
                 if actual != expected:
                     return False, f"JSONPath {path} expected {expected}, got {actual}"
+
+        schema_rule = rules.get("schema") if isinstance(rules, dict) else None
+        if schema_rule is not None:
+            try:
+                actual_json = response.json()
+            except Exception as exc:
+                return False, f"Response is not valid JSON for schema assertion: {exc}"
+            try:
+                _validate_schema_rule(schema_rule)
+                _validate_schema_value(actual_json, schema_rule)
+            except ValueError as exc:
+                message = str(exc)
+                if message.startswith("Invalid schema assertion rule:"):
+                    return False, message
+                return False, f"Schema assertion failed: {message}"
 
         return True, None
 

@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | 阶段 0 | MVP 雏形 | 已完成 | 已完成最小 API 测试闭环 |
 | 阶段 1 | 平台基础重构 | 暂停 | 已完成测试基线、认证升级、迁移基线、DTO 统一、模型关系映射、模型治理细则、审计治理闭环、最小 RBAC 与生产迁移脚本；生产窗口执行与治理运营能力暂挂 |
-| 阶段 2 | API 平台化 | 进行中 | 已完成首批能力落地（套件、批量、环境变量、断言增强），执行详情页与高级能力待建设 |
+| 阶段 2 | API 平台化 | 进行中 | 已完成首批能力落地（套件、批量、环境变量、断言增强、执行详情与批次结果页），高级能力待建设 |
 | 阶段 3 | Web 测试平台建设 | 未开始 | Playwright 与 Web 用例体系待建设 |
 | 阶段 4 | 调度与分布式执行 | 未开始 | Scheduler、Queue、Worker 待建设 |
 | 阶段 5 | 报告分析与治理 | 未开始 | 报告中心、趋势分析、治理待建设 |
@@ -90,6 +90,7 @@
 - 已建立基础路由守卫
 - 已打通项目管理与 API 用例管理主链路
 - 已支持在测试用例页面触发执行并查看最近结果
+- 已支持批次结果页与执行详情页联动（批次列表 -> 批次详情 -> 执行详情）
 
 ### 5.3 文档
 - 已补充项目概览文档
@@ -119,6 +120,7 @@
 ### 6.3 结果展示
 - 当前已记录单次执行结果与套件批次结果
 - 已支持按项目查询批次列表与批次明细
+- 已形成阶段 2 最小结果可视化闭环（批次结果页、批次详情、执行详情）
 - 但尚未形成正式的报告中心、趋势分析、失败聚类分析
 
 ### 6.4 数据库迁移
@@ -180,9 +182,9 @@
 - 已完成环境与变量最小能力（项目级/环境级 + 执行替换）
 
 ### P1：执行与断言增强（进行中）
-- 已落地断言能力（JSONPath / 正则 / 包含）；Schema 校验待补充
+- 已落地断言能力（JSONPath / 正则 / 包含 / Schema）
 - 已落地响应数据提取与链路变量传递
-- 执行详情页与批次结果页面仍待建设
+- 执行详情页与批次结果页面已落地，后续需持续增强展示维度
 
 ### P2：阶段 1 遗留风险托管（暂停态）
 - PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
@@ -191,6 +193,17 @@
 
 ## 10. 最近更新记录
 ### 2026-03-13
+- 完成阶段 2 S2-02：执行引擎新增 Schema 断言能力（规则校验 + 递归校验，覆盖 type/required/properties/items/enum/const/边界约束）
+- 新增测试：`test_execute_test_supports_schema_assertion_success`、`test_execute_test_schema_assertion_failed_when_payload_mismatch`、`test_execute_test_schema_assertion_rejects_invalid_schema_rule`
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_executor_enhancements.py`（5 passed）
+- 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py`（6 passed）
+
+- 完成阶段 2 S2-01：新增执行详情与批次结果可视化链路（后端 `GET /api/test-runs/{run_id}`、批次详情增强字段；前端新增批次列表页/批次详情页/执行详情页）
+- 新增测试覆盖：`test_get_test_run_detail_returns_case_metadata`、`test_non_owner_cannot_view_foreign_test_run_detail`，并增强 `test_suite_batch_runs_api.py` 的批次详情字段断言
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_runs_api.py tests/backend/test_suite_batch_runs_api.py`（6 passed）
+- 前端构建验证通过：`npm run build`（frontend）
+
+- 新增阶段 2 执行清单文档：`docs/project/stage-2-development-checklist.md`（含已完成/进行中/待完成、优先级、验收标准、测试门禁与单人开发顺序）
 - 基于当前代码基线补齐文档：核对 `app/`、`frontend/src/` 与 `tests/backend` 现状，修正文档中阶段 2 能力评估不一致项
 - 同步补全后端路由现状描述：`auth`、`organizations`、`projects`、`test_cases`、`test_suites`、`environments`、`test_runs`、`audit_logs`
 - 同步更新 `docs/architecture/企业级自动化测试平台系统架构规划.md`：修正“环境变量/套件批量未开始”等过期表述，统一为与当前代码一致的阶段 2 状态与优先级

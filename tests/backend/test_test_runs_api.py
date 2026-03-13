@@ -129,3 +129,91 @@ def test_admin_can_view_foreign_project_runs(client, monkeypatch, create_user_an
     list_resp = client.get(f"/api/test-runs/project/{project_id}", headers=auth_headers(admin_token))
     assert list_resp.status_code == 200
     assert len(list_resp.json()) >= 1
+def test_get_test_run_detail_returns_case_metadata(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner2", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P2", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "Case Detail",
+            "method": "GET",
+            "url": "https://example.com/profile",
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    async def fake_execute_test(_test_case):
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\": true}",
+            "error_message": None,
+            "duration_ms": 18,
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(f"/api/test-runs/test-cases/{case_id}/run", headers=headers)
+    run_id = run_resp.json()["id"]
+
+    detail_resp = client.get(f"/api/test-runs/{run_id}", headers=headers)
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()
+    assert detail["id"] == run_id
+    assert detail["test_case_id"] == case_id
+    assert detail["test_case_name"] == "Case Detail"
+    assert detail["test_case_method"] == "GET"
+    assert detail["test_case_url"] == "https://example.com/profile"
+    assert detail["test_case_expected_status"] == 200
+
+
+def test_non_owner_cannot_view_foreign_test_run_detail(client, monkeypatch, create_user_and_login, auth_headers):
+    owner_token = create_user_and_login("owner3", "pwd")
+    attacker_token = create_user_and_login("attacker3", "pwd")
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=auth_headers(owner_token),
+        json={"name": "P3", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=auth_headers(owner_token),
+        json={
+            "name": "Case 3",
+            "method": "GET",
+            "url": "https://example.com",
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    async def fake_execute_test(_test_case):
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\": true}",
+            "error_message": None,
+            "duration_ms": 12,
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(f"/api/test-runs/test-cases/{case_id}/run", headers=auth_headers(owner_token))
+    run_id = run_resp.json()["id"]
+
+    detail_resp = client.get(f"/api/test-runs/{run_id}", headers=auth_headers(attacker_token))
+    assert detail_resp.status_code == 403
+    assert detail_resp.json()["error"]["code"] == "FORBIDDEN"

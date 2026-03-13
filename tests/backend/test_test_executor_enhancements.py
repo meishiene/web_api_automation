@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 
 from app.services.test_executor import execute_test
 
@@ -89,3 +89,81 @@ def test_execute_test_replaces_runtime_variables_and_extracts_values(monkeypatch
     assert sent["url"] == "https://api.example.com/login"
     assert sent["headers"]["X-User"] == "owner"
     assert sent["json"]["username"] == "owner"
+
+
+def test_execute_test_supports_schema_assertion_success(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        '{"user":{"id":7,"name":"Tom"}}',
+        json_data={"user": {"id": 7, "name": "Tom"}},
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/user",
+        expected_status=200,
+        assertion_rules=(
+            '{"schema":{"type":"object","required":["user"],'
+            '"properties":{"user":{"type":"object","required":["id","name"],'
+            '"properties":{"id":{"type":"integer"},"name":{"type":"string"}}}}}}'
+        ),
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "success"
+
+
+def test_execute_test_schema_assertion_failed_when_payload_mismatch(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        '{"user":{"id":"oops"}}',
+        json_data={"user": {"id": "oops"}},
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/user",
+        expected_status=200,
+        assertion_rules='{"schema":{"type":"object","properties":{"user":{"type":"object","properties":{"id":{"type":"integer"}}}}}}',
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "failed"
+    assert "Schema assertion failed" in (result["error_message"] or "")
+
+
+def test_execute_test_schema_assertion_rejects_invalid_schema_rule(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        '{"user":{"id":7}}',
+        json_data={"user": {"id": 7}},
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/user",
+        expected_status=200,
+        assertion_rules='{"schema":{"type":"object","required":"user"}}',
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "failed"
+    assert "Invalid schema assertion rule" in (result["error_message"] or "")

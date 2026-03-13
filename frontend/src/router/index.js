@@ -21,6 +21,21 @@ const routes = [
     name: 'TestCaseList',
     component: () => import('@/views/TestCaseList.vue'),
   },
+  {
+    path: '/project/:projectId/batches',
+    name: 'BatchRunList',
+    component: () => import('@/views/BatchRunList.vue'),
+  },
+  {
+    path: '/project/:projectId/batches/:batchId',
+    name: 'BatchRunDetail',
+    component: () => import('@/views/BatchRunDetail.vue'),
+  },
+  {
+    path: '/project/:projectId/runs/:runId',
+    name: 'TestRunDetail',
+    component: () => import('@/views/TestRunDetail.vue'),
+  },
 ]
 
 const router = createRouter({

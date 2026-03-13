@@ -1,0 +1,1 @@
+import{r as e}from"./_plugin-vue_export-helper-DYdARb5z.js";const r=t=>e.get(`/api/test-runs/batches/project/${t}`),a=t=>e.get(`/api/test-runs/batches/${t}`),n=t=>e.get(`/api/test-runs/${t}`);export{a,n as b,r as g};

@@ -12,3 +12,10 @@ class TestRunResponse(ORMModel):
     error_message: Optional[str]
     duration_ms: int
     created_at: int
+
+
+class TestRunDetailResponse(TestRunResponse):
+    test_case_name: str
+    test_case_method: str
+    test_case_url: str
+    test_case_expected_status: int

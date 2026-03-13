@@ -1,4 +1,4 @@
-﻿from typing import List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -29,9 +29,14 @@ class BatchRunItemResponse(ORMModel):
     id: int
     batch_run_id: int
     test_case_id: int
+    test_case_name: str
+    test_case_method: str
+    test_case_url: str
     test_run_id: Optional[int]
     order_index: int
     status: str
+    actual_status: Optional[int]
+    duration_ms: Optional[int]
     error_message: Optional[str]
     created_at: int
 
