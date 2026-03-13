@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+﻿from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.models.lifecycle import unix_timestamp
@@ -28,14 +28,18 @@ class ApiTestCase(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    method = Column(String(10), nullable=False)  # GET, POST, PUT, DELETE
+    method = Column(String(10), nullable=False)
     url = Column(String(500), nullable=False)
-    headers = Column(Text)  # JSON string
-    body = Column(Text)      # JSON string
+    headers = Column(Text)
+    body = Column(Text)
     expected_status = Column(Integer, nullable=False, default=200)
-    expected_body = Column(Text)  # JSON string, optional
+    expected_body = Column(Text)
+    assertion_rules = Column(Text)
+    extraction_rules = Column(Text)
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
     updated_at = Column(Integer, nullable=False, default=unix_timestamp, onupdate=unix_timestamp)
 
     project = relationship("Project", back_populates="test_cases")
     test_runs = relationship("TestRun", back_populates="test_case", cascade="all, delete-orphan")
+    suite_links = relationship("ApiTestSuiteCase", back_populates="test_case", cascade="all, delete-orphan")
+    batch_run_items = relationship("ApiBatchRunItem", back_populates="test_case")

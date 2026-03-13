@@ -1,4 +1,4 @@
-# 后续开发模块结构
+﻿# 后续开发模块结构
 
 本目录基于当前项目文档整理，用于承载后续企业级能力建设的模块化开发说明。
 
@@ -21,10 +21,11 @@
 
 ## 当前阶段匹配（依据 `project-progress.md`）
 
-- 当前总阶段：阶段 1（平台基础重构）
+- 当前总阶段：阶段 2（API 平台化）
 - 默认可执行模块：
-  - `01-platform-foundation`
-  - `02-user-org-auth`（仅阶段 1 范围内任务）
+  - `02-user-org-auth`（仅阶段 2 范围内任务）
+  - `03-project-assets-env`
+  - `04-api-testing`
 - 其余模块默认进入“设计/预研模式”，不应标记为“已完成实现”
 
 ## 模块目录
@@ -50,3 +51,4 @@
 7. `07-scheduling-queue-worker`
 8. `08-reporting-analytics`
 9. `09-enterprise-integrations`
+

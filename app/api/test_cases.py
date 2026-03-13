@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, Request
+﻿from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List
+
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.errors import AppException, ErrorCode
 from app.models.api_test_case import ApiTestCase
 from app.models.project import Project
 from app.models.user import User
-from app.dependencies import get_current_user
-from app.errors import AppException, ErrorCode
-from app.services.access_control import can_manage_test_case, can_view_test_case
-from app.services.audit_service import create_audit_log
 from app.schemas.api_test_case import TestCaseCreateRequest, TestCaseResponse
 from app.schemas.common import MessageResponse
+from app.services.access_control import can_manage_test_case, can_view_test_case
+from app.services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ router = APIRouter()
 def get_test_cases(
     project_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> List[TestCaseResponse]:
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -27,8 +28,7 @@ def get_test_cases(
     if not can_view_test_case(db, user, project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    test_cases = db.query(ApiTestCase).filter(ApiTestCase.project_id == project_id).all()
-    return test_cases
+    return db.query(ApiTestCase).filter(ApiTestCase.project_id == project_id).all()
 
 
 @router.post("/project/{project_id}", response_model=TestCaseResponse)
@@ -37,7 +37,7 @@ def create_test_case(
     test_case: TestCaseCreateRequest,
     request: Request,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> TestCaseResponse:
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -53,7 +53,7 @@ def create_test_case(
     if duplicated_name:
         raise AppException(400, ErrorCode.TEST_CASE_ALREADY_EXISTS, "Test case name already exists")
 
-    now = int(__import__('time').time())
+    now = int(__import__("time").time())
     new_test_case = ApiTestCase(
         name=test_case.name,
         project_id=project_id,
@@ -63,8 +63,10 @@ def create_test_case(
         body=test_case.body,
         expected_status=test_case.expected_status,
         expected_body=test_case.expected_body,
+        assertion_rules=test_case.assertion_rules,
+        extraction_rules=test_case.extraction_rules,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
     db.add(new_test_case)
     db.commit()
@@ -87,11 +89,9 @@ def update_test_case(
     test_case: TestCaseCreateRequest,
     request: Request,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> TestCaseResponse:
-    existing_case = db.query(ApiTestCase).join(Project).filter(
-        ApiTestCase.id == case_id
-    ).first()
+    existing_case = db.query(ApiTestCase).join(Project).filter(ApiTestCase.id == case_id).first()
     if not existing_case:
         raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
     if not can_manage_test_case(db, user, existing_case.project):
@@ -116,7 +116,9 @@ def update_test_case(
     existing_case.body = test_case.body
     existing_case.expected_status = test_case.expected_status
     existing_case.expected_body = test_case.expected_body
-    existing_case.updated_at = int(__import__('time').time())
+    existing_case.assertion_rules = test_case.assertion_rules
+    existing_case.extraction_rules = test_case.extraction_rules
+    existing_case.updated_at = int(__import__("time").time())
 
     db.commit()
     db.refresh(existing_case)
@@ -137,11 +139,9 @@ def delete_test_case(
     case_id: int,
     request: Request,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    existing_case = db.query(ApiTestCase).join(Project).filter(
-        ApiTestCase.id == case_id
-    ).first()
+    existing_case = db.query(ApiTestCase).join(Project).filter(ApiTestCase.id == case_id).first()
     if not existing_case:
         raise AppException(404, ErrorCode.TEST_CASE_NOT_FOUND, "Test case not found")
     if not can_manage_test_case(db, user, existing_case.project):

@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -30,6 +30,12 @@ class ErrorCode:
     PROJECT_ORGANIZATION_MISMATCH = "PROJECT_ORGANIZATION_MISMATCH"
     TEST_CASE_NOT_FOUND = "TEST_CASE_NOT_FOUND"
     TEST_CASE_ALREADY_EXISTS = "TEST_CASE_ALREADY_EXISTS"
+    TEST_SUITE_NOT_FOUND = "TEST_SUITE_NOT_FOUND"
+    TEST_SUITE_ALREADY_EXISTS = "TEST_SUITE_ALREADY_EXISTS"
+    TEST_SUITE_CASE_NOT_FOUND = "TEST_SUITE_CASE_NOT_FOUND"
+    ENVIRONMENT_NOT_FOUND = "ENVIRONMENT_NOT_FOUND"
+    VARIABLE_NOT_FOUND = "VARIABLE_NOT_FOUND"
+    BATCH_RUN_NOT_FOUND = "BATCH_RUN_NOT_FOUND"
 
 
 DEFAULT_HTTP_ERROR_CODES = {
@@ -177,3 +183,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
+

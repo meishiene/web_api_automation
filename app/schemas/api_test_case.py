@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+﻿from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -13,6 +13,8 @@ class TestCaseCreateRequest(BaseModel):
     body: Optional[str] = None
     expected_status: int = Field(default=200, ge=100, lt=600)
     expected_body: Optional[str] = None
+    assertion_rules: Optional[str] = None
+    extraction_rules: Optional[str] = None
 
     @field_validator("name", "url")
     @classmethod
@@ -40,5 +42,7 @@ class TestCaseResponse(ORMModel):
     body: Optional[str]
     expected_status: int
     expected_body: Optional[str]
+    assertion_rules: Optional[str]
+    extraction_rules: Optional[str]
     created_at: int
     updated_at: int

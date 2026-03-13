@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text
+﻿from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.models.lifecycle import unix_timestamp
@@ -27,11 +27,12 @@ class TestRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     test_case_id = Column(Integer, ForeignKey("api_test_cases.id", ondelete="CASCADE"), nullable=False)
-    status = Column(String(20), nullable=False)  # success, failed, error
+    status = Column(String(20), nullable=False)
     actual_status = Column(Integer)
-    actual_body = Column(Text)  # JSON string
+    actual_body = Column(Text)
     error_message = Column(Text)
-    duration_ms = Column(Integer)  # execution duration in milliseconds
+    duration_ms = Column(Integer)
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
 
     test_case = relationship("ApiTestCase", back_populates="test_runs")
+    batch_run_items = relationship("ApiBatchRunItem", back_populates="test_run")

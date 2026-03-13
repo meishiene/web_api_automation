@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint
+﻿from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.models.lifecycle import unix_timestamp
@@ -25,5 +25,9 @@ class Project(Base):
     organization = relationship("Organization", back_populates="projects")
     members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
     test_cases = relationship("ApiTestCase", back_populates="project", cascade="all, delete-orphan")
+    test_suites = relationship("ApiTestSuite", back_populates="project", cascade="all, delete-orphan")
+    environments = relationship("ProjectEnvironment", back_populates="project", cascade="all, delete-orphan")
+    project_variables = relationship("ProjectVariable", back_populates="project", cascade="all, delete-orphan")
+    batch_runs = relationship("ApiBatchRun", back_populates="project", cascade="all, delete-orphan")
     schedule_tasks = relationship("ScheduleTask", back_populates="project", cascade="all, delete-orphan")
     run_queue_items = relationship("RunQueue", back_populates="project", cascade="all, delete-orphan")

@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 from pathlib import Path
 
@@ -6,6 +6,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
+
 from app.config import settings
 
 database_url = settings.resolved_database_url
@@ -30,16 +31,24 @@ def get_db():
 
 def init_db():
     from app.models.user import Base
+    from app.models.api_batch_run import ApiBatchRun
+    from app.models.api_batch_run_item import ApiBatchRunItem
+    from app.models.api_test_case import ApiTestCase
+    from app.models.api_test_suite import ApiTestSuite
+    from app.models.api_test_suite_case import ApiTestSuiteCase
     from app.models.audit_log import AuditLog
     from app.models.audit_log_archive import AuditLogArchive
-    from app.models.project import Project
-    from app.models.project_member import ProjectMember
+    from app.models.environment_variable import EnvironmentVariable
     from app.models.organization import Organization
     from app.models.organization_member import OrganizationMember
-    from app.models.api_test_case import ApiTestCase
-    from app.models.test_run import TestRun
-    from app.models.schedule_task import ScheduleTask
+    from app.models.project import Project
+    from app.models.project_environment import ProjectEnvironment
+    from app.models.project_member import ProjectMember
+    from app.models.project_variable import ProjectVariable
     from app.models.run_queue import RunQueue
+    from app.models.schedule_task import ScheduleTask
+    from app.models.test_run import TestRun
+
     Base.metadata.create_all(bind=engine)
 
 
