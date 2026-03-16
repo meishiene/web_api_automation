@@ -52,6 +52,7 @@ def init_db():
     from app.models.web_locator import WebLocator
     from app.models.web_step import WebStep
     from app.models.web_test_case import WebTestCase
+    from app.models.web_test_run import WebTestRun
 
     Base.metadata.create_all(bind=engine)
 

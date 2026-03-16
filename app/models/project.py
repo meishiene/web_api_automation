@@ -33,3 +33,4 @@ class Project(Base):
     run_queue_items = relationship("RunQueue", back_populates="project", cascade="all, delete-orphan")
     web_test_cases = relationship("WebTestCase", back_populates="project", cascade="all, delete-orphan")
     web_locators = relationship("WebLocator", back_populates="project", cascade="all, delete-orphan")
+    web_test_runs = relationship("WebTestRun", back_populates="project", cascade="all, delete-orphan")

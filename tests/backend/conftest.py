@@ -29,6 +29,7 @@ from app.models import test_run  # noqa: F401
 from app.models import web_locator  # noqa: F401
 from app.models import web_step  # noqa: F401
 from app.models import web_test_case  # noqa: F401
+from app.models import web_test_run  # noqa: F401
 from app.models import user  # noqa: F401
 
 SQLALCHEMY_DATABASE_URL = "sqlite://"

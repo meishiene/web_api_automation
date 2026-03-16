@@ -142,7 +142,7 @@
   - 验证通过：`.\.venv\Scripts\python -m pytest`（全量通过）
 
 ### S3-02：Playwright 执行引擎接入（单用例执行）
-- 状态：待开始
+- 状态：已完成
 - 交付物：
   - Playwright 执行器封装（浏览器启动/复用策略可先简化）
   - Web 单用例执行 API（最小闭环：执行一个 WebTestCase 并落库结果/状态）
@@ -152,6 +152,27 @@
   - 执行失败场景的产物生成测试（至少截图链路）
 - DoD：
   - 可通过 API 触发 Web 单用例执行，并能在平台侧查询到执行结果与关键失败信息
+
+#### 交付物落地情况（2026-03-16）
+
+- 执行模型与迁移：
+  - `app/models/web_test_run.py`（`web_test_runs`）
+  - `migrations/versions/11eb5f289eaf_phase3_web_test_runs.py`
+- 执行服务：
+  - `app/services/web_executor.py`
+  - 基于 Playwright 的最小步骤执行（open/click/input/wait/assert/screenshot）
+  - 失败场景自动尝试写入 `failure.png`
+- 执行 API：
+  - `app/api/web_test_runs.py`
+  - 路由前缀：`/api/web-test-runs`
+    - `POST /api/web-test-runs/web-test-cases/{case_id}/run`
+    - `GET /api/web-test-runs/project/{project_id}`
+    - `GET /api/web-test-runs/{run_id}`
+- 产物归档：
+  - `artifacts/web-test-runs/{run_id}/...`
+- 最小测试集：
+  - 新增：`tests/backend/test_web_test_runs_api.py`
+  - 验证通过：`.\.venv\Scripts\python -m pytest`
 
 ### S3-03：前端最小页面闭环（管理 + 执行 + 查看）
 - 状态：待开始
@@ -180,7 +201,7 @@
 | --- | --- | --- |
 | S3-00 | 已完成 | 明确最小闭环路径、后端目录/命名、接口边界、产物归档约定 |
 | S3-01 | 已完成 | Web 领域模型 + 迁移 + 最小 CRUD API + 最小测试集 |
-| S3-02 | 待开始 |  |
+| S3-02 | 已完成 | Playwright 执行器 + 单用例执行接口 + 结果/产物查询 |
 | S3-03 | 待开始 |  |
 | S3-04 | 待开始 |  |
 
@@ -196,3 +217,4 @@
 - 新增阶段 3 开发清单：用于后续阶段 3 迭代的进度追踪与门禁对齐
 - 完成 S3-00：明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定
 - 完成 S3-01：落地 Web 领域模型与迁移，并提供最小 Web 用例 CRUD API（含测试门禁）
+- 完成 S3-02：落地 Playwright 执行引擎最小闭环（单用例执行）与 Web 执行结果/产物查询接口

@@ -24,6 +24,7 @@ FastAPI 应用
   ├─ app/api/*.py                    路由层
   ├─ app/dependencies.py             认证依赖
   ├─ app/services/test_executor.py   测试执行服务
+  ├─ app/services/web_executor.py    Web 执行服务
   ├─ app/services/variable_resolver.py 变量解析服务
   ├─ app/services/audit_service.py   审计服务
   └─ app/models/*.py                 ORM 模型
@@ -43,6 +44,7 @@ SQLite / PostgreSQL
   ├─ web_test_cases
   ├─ web_steps
   ├─ web_locators
+  ├─ web_test_runs
   ├─ project_environments
   ├─ project_variables
   ├─ environment_variables
@@ -68,6 +70,7 @@ SQLite / PostgreSQL
   - `/api/environments`
   - `/api/test-runs`
   - `/api/web-test-cases`
+  - `/api/web-test-runs`
   - `/api/audit-logs`
 - 提供健康检查：`GET /ping`
 - 启动阶段执行 `auto_migrate_db()`（非生产）和 `init_db()`
@@ -94,6 +97,8 @@ SQLite / PostgreSQL
   - 批次查询：`GET /api/test-runs/batches/project/{project_id}`
   - 批次明细：`GET /api/test-runs/batches/{batch_id}`
 - `app/api/audit_logs.py`：审计查询与治理执行
+- `app/api/web_test_cases.py`：Web 用例管理（阶段 3）
+- `app/api/web_test_runs.py`：Web 单用例执行与结果查询（阶段 3）
 
 ### Schema / DTO
 - 路由 DTO 统一收敛在 `app/schemas/`
@@ -111,6 +116,8 @@ SQLite / PostgreSQL
   - 合并运行时变量：项目变量 + 变量组 + 环境变量（环境覆盖变量组，变量组覆盖项目）；执行过程中链路提取变量可继续覆盖
 - `app/services/audit_service.py`
   - 关键写操作审计落库
+- `app/services/web_executor.py`
+  - Web 步骤执行与失败截图产物输出（`artifacts/web-test-runs/{run_id}/`）
 
 ## 数据库迁移
 - Alembic：`alembic.ini` + `migrations/`

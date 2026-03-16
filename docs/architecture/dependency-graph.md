@@ -11,6 +11,7 @@ app/main.py
   ├─ app.api.environments
   ├─ app.api.test_runs
   ├─ app.api.web_test_cases
+  ├─ app.api.web_test_runs
   └─ app.api.audit_logs
 
 app.api.test_suites
@@ -41,6 +42,13 @@ app.api.test_runs
 app.services.test_executor
   ├─ httpx.AsyncClient
   └─ assertion/variable/extraction helpers
+
+app.api.web_test_runs
+  ├─ app.models.web_test_case
+  ├─ app.models.web_test_run
+  ├─ app.services.web_executor
+  ├─ app.services.access_control
+  └─ app.services.audit_service
 ```
 
 ## 前端依赖关系
