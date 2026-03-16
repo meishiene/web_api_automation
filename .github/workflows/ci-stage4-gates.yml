@@ -1,0 +1,64 @@
+name: CI (Stage-4 Gates)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend Tests + Migration Chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pytest (Full)
+        env:
+          APP_ENV: test
+        run: |
+          python -m pytest
+
+      - name: Alembic Migration Chain Check
+        env:
+          APP_ENV: local
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade f2a1c4d8b9e3
+          python -m alembic upgrade head
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          npm ci --prefix frontend
+
+      - name: Build
+        run: |
+          npm run build
+

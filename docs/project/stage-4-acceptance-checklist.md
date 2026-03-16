@@ -72,6 +72,7 @@
 - Frontend build gate: `npm run build` -> **blocked** (spawn EPERM in this environment; esbuild cannot be spawned).
 - Legacy SQLite revision repair: `scripts/legacy_sqlite_revision_repair.py --db test_platform.db --apply` -> **applied**.
 - Migration chain check: `alembic upgrade head -> downgrade f2a1c4d8b9e3 -> upgrade head` -> **passed**.
+- CI gate (authoritative for frontend build in restricted dev environments): `.github/workflows/ci-stage4-gates.yml` should be green for both `Backend Tests + Migration Chain` and `Frontend Build`.
 
 ## 8. Risk Closure Matrix (S4-05)
 

@@ -243,6 +243,7 @@
 - Real-consumption strategy is now explicit: R1~R5 (loop, idempotency, retry, recovery, convergence).
 - S4-05 full regression and risk closure checklist executed and closed.
 - S4-05 continued: landed R1 runtime path (`app/services/queue_worker_runtime.py`) and standalone worker loop script (`scripts/run_queue_worker_loop.py`).
+- S4-05 gate hardening: added CI workflow `.github/workflows/ci-stage4-gates.yml` to validate backend regression + frontend build in environments where Node child-process spawn is restricted.
 ### 2026-03-16
 - 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
 - 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`

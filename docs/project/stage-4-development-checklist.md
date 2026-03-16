@@ -171,6 +171,7 @@
 - 最小测试集：
   - 后端回归：`.\.venv\Scripts\python -m pytest`
   - 前端构建：`npm run build`（frontend）
+  - CI 门禁：`.github/workflows/ci-stage4-gates.yml`（backend + frontend）
 - DoD：
   - 阶段 4 核心能力可稳定运行，具备进入阶段 5 的前置条件
 
