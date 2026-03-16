@@ -157,3 +157,14 @@ SQLite / PostgreSQL
 - 执行、变量、审计三条链路已贯通
 - 前端已落地批次列表/批次详情/执行详情页面与 Web 执行相关页面，后续仍需持续增强展示维度与报告能力
 - 阶段 4 已启动（开发清单已建立），调度、队列、Worker 尚未打通实现链路
+
+
+## 2026-03-16 ?? 4 ??
+
+- Stage 4 status: S4-01~S4-04 completed; S4-05 acceptance/cutover in progress.
+
+
+## Stage-4 Acceptance And Real-Consumption Strategy (2026-03-16)
+
+- Acceptance rubric: A4-01~A4-05 + regression/build gates (see `docs/project/stage-4-acceptance-checklist.md`).
+- Real-consumption strategy: R1~R5 prioritizing worker loop and idempotent claim before retry/recovery enhancements.

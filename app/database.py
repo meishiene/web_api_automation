@@ -55,6 +55,7 @@ def init_db():
     from app.models.web_step import WebStep
     from app.models.web_test_case import WebTestCase
     from app.models.web_test_run import WebTestRun
+    from app.models.worker_heartbeat import WorkerHeartbeat
 
     Base.metadata.create_all(bind=engine)
 

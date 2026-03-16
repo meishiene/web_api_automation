@@ -29,7 +29,7 @@
 | Web 测试能力 | 阶段 3 收尾中（领域模型、用例管理、单用例执行、前端最小闭环与 API/Web 统一结果展示已落地） | 45% |
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
-| 调度与队列 | 阶段 4 已启动并完成统一执行编排骨架 + schedule_tasks 最小 API 与触发入队链路 | 22% |
+| 调度与队列 | 阶段 4 已完成 S4-04：调度/队列/Worker 最小可视化已落地；待推进阶段验收与切换 | 36% |
 | 报告与分析 | 仅有基础结果记录 | 5% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
 | 企业集成 | 未开始 | 0% |
@@ -42,7 +42,7 @@
 | 阶段 1 | 平台基础重构 | 暂停 | 已完成测试基线、认证升级、迁移基线、DTO 统一、模型关系映射、模型治理细则、审计治理闭环、最小 RBAC 与生产迁移脚本；生产窗口执行与治理运营能力暂挂 |
 | 阶段 2 | API 平台化 | 收尾中 | 核心能力已落地并通过验收回归，进入收尾与阶段切换准备 |
 | 阶段 3 | Web 测试平台建设 | 收尾中 | 阶段 3 首批闭环（S3-00~S3-04）已完成，进入稳定性收敛与遗留优化 |
-| 阶段 4 | 调度与分布式执行 | 启动中 | 已建立阶段 4 开发清单与门禁，进入首批骨架建设准备 |
+| 阶段 4 | 调度与分布式执行 | 启动中 | 已完成 S4-01~S4-04（编排骨架、调度最小 API、队列与 Worker 最小闭环、最小可视化），待推进阶段验收 |
 | 阶段 5 | 报告分析与治理 | 未开始 | 报告中心、趋势分析、治理待建设 |
 | 阶段 6 | 企业集成与生态完善 | 未开始 | CI/CD、SSO、通知、缺陷集成待建设 |
 
@@ -89,6 +89,9 @@
 - 已落地阶段 4 首批统一执行编排骨架：`execution_tasks/execution_jobs` 模型、统一编排入口与状态映射
 - API/Web 单用例执行已接入统一编排入口（同步执行模式，队列/Worker 待后续阶段 4 任务）
 - 已落地阶段 4 调度器最小可用：`schedule_tasks` 最小 API 与手动触发入队链路（`run_queue`）
+- 已落地阶段 4 队列与 Worker 最小闭环：`/api/run-queue/claim`、`/api/run-queue/{id}/complete`、`/api/run-queue/worker/execute-once`、`/api/run-queue/worker/heartbeat`
+- 已新增 `worker_heartbeats` 模型与迁移，支持项目级 Worker 心跳状态追踪
+- 已落地阶段 4 执行管理最小可视化：调度/队列/Worker 监控页 `SchedulingDashboard` 与路由入口
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -144,11 +147,15 @@
 
 ### 6.5 调度与队列
 - 数据模型已存在
-- 尚无调度服务、消费服务、Worker 体系和前端管理页面
+- 已落地最小调度触发与入队链路（`schedule_tasks` -> `run_queue`）
+- 已落地最小 Worker 闭环：任务领取、占位执行、状态回写与心跳上报
+- 已落地前端调度/队列/Worker 最小管理页面（列表与详情）
 - 已建立阶段 4 SSOT 与任务分解（S4-00 已完成）
 - 已完成 S4-01：统一执行编排骨架（ExecutionTask/ExecutionJob + API/Web 单用例接入）
 - 已完成 S4-02：`schedule_tasks` 最小 API 与 trigger 入队链路
-- 待推进 S4-03~S4-05：队列/Worker 消费、可视化与阶段验收
+- 已完成 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费占位）
+- 已完成 S4-04：执行管理最小可视化（Scheduling Dashboard）
+- 待推进 S4-05：阶段验收与切换准备
 
 ### 6.6 审计治理
 - 已提供审计日志查询接口（按用户、动作、结果、request_id、时间范围筛选）
@@ -226,9 +233,14 @@
 - 已完成阶段 4 SSOT 建立：`docs/project/stage-4-development-checklist.md`
 - 已完成 S4-01：统一执行编排骨架（Execution Task/Job + API/Web 适配层）
 - 已完成 S4-02：调度器最小可用（schedule_tasks 触发链路）
-- 待推进 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费）
+- 已完成 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费占位）
+- 已完成 S4-04：执行管理最小可视化（前端）
+- 待推进 S4-05：阶段验收与切换准备
 
 ## 10. 最近更新记录
+- S4-05 started: acceptance criteria A4-01~A4-05 and quality gates are now explicit.
+- Real-consumption strategy is now explicit: R1~R5 (loop, idempotency, retry, recovery, convergence).
+- Pending: execute S4-05 full regression and risk closure checklist.
 ### 2026-03-16
 - 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
 - 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`
@@ -252,6 +264,12 @@
 - 阶段 4 测试门禁：新增 `tests/backend/test_execution_orchestration_skeleton.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_execution_orchestration_skeleton.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py tests/backend/test_unified_results_api.py`（14 passed）
 - 阶段 4 推进：完成 S4-02（调度器最小可用），新增 `schedule_tasks` 最小 API 与 `trigger -> run_queue` 入队链路
 - 阶段 4 测试门禁：新增 `tests/backend/test_schedule_tasks_api.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_schedule_tasks_api.py tests/backend/test_execution_orchestration_skeleton.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`（14 passed）
+- 阶段 4 推进：完成 S4-03（队列与 Worker 最小闭环），新增 `run_queue` 领取/回写接口、Worker 占位执行接口与心跳接口（`/api/run-queue/*`）
+- 阶段 4 数据模型：新增 `worker_heartbeats` 与迁移 `2c1b7f9a4d10_phase4_worker_heartbeat_minimal_loop`
+- 阶段 4 测试门禁：新增 `tests/backend/test_queue_worker_api.py`，并通过最小回归 `.\.venv\Scripts\python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_schedule_tasks_api.py`（6 passed）
+- 阶段 4 推进：完成 S4-04（执行管理最小可视化），新增 `SchedulingDashboard` 页面与项目内导航入口
+- 阶段 4 API 补齐：新增队列只读查询接口 `GET /api/run-queue/project/{project_id}`、`GET /api/run-queue/{queue_item_id}`、`GET /api/run-queue/worker/heartbeats/project/{project_id}`
+- 阶段 4 测试门禁：后端最小回归继续通过（6 passed）；前端构建验证通过 `npm run build`（frontend）
 - 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
 - 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）
@@ -273,6 +291,9 @@
 - 完成告警联动闭环验证：通过阈值触发告警并回调 webhook（HTTP 200），联调产物写入 `artifacts/audit-governance/`
 - 完成定时任务注册命令校验（DryRun）：`scripts/setup-audit-governance-schedule.ps1` 可正确生成 `schtasks /Create` 命令
 - 说明：以上为“演练/联调验证”完成，阶段 1 仍保持“暂停态风险托管”；真实生产环境任务注册与窗口执行闭环仍待落地
+
+- S4-05 kickoff: added `docs/project/stage-4-acceptance-checklist.md` with A4-01~A4-05 acceptance rubric.
+- Defined R1~R5 strategy for real worker consumption (loop, idempotent claim, retry/dead-letter, stale recovery, orchestration convergence).
 
 ### 2026-03-13
 - 完成阶段 2 S2-04：落地用例分组/标签/筛选/搜索（新增 `case_group/tags` 字段、查询参数 `keyword/case_group/tag`、前端筛选交互）
@@ -430,3 +451,5 @@
 - 如果某项能力只有模型或页面占位，不应标记为完成
 - 进度更新应写明日期和具体变化
 - 若文档与代码冲突，以代码事实为准，并尽快修正文档
+
+- S4-05 execution run completed: backend full regression passed (95 passed), frontend build passed, migration chain check failed due to Alembic revision drift (`audit_logs_archive already exists`).

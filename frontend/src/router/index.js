@@ -42,6 +42,11 @@ const routes = [
     component: () => import('@/views/EnvironmentManager.vue'),
   },
   {
+    path: '/project/:projectId/scheduling',
+    name: 'SchedulingDashboard',
+    component: () => import('@/views/SchedulingDashboard.vue'),
+  },
+  {
     path: '/project/:projectId/batches/:batchId',
     name: 'BatchRunDetail',
     component: () => import('@/views/BatchRunDetail.vue'),

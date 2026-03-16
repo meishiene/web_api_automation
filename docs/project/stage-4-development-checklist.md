@@ -102,7 +102,7 @@
   - 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_schedule_tasks_api.py tests/backend/test_execution_orchestration_skeleton.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`
 
 ### S4-03：队列与 Worker 最小闭环（07 模块）
-- 状态：待开始
+- 状态：已完成
 - 交付物：
   - `run_queue` 入队/出队机制
   - Worker 心跳与任务领取
@@ -114,8 +114,27 @@
 - DoD：
   - 至少一条任务可通过队列由 Worker 执行并回写状态
 
+#### 交付物落地情况（2026-03-16）
+
+- 最小 API：
+  - `POST /api/run-queue/claim`（领取队列任务并置为 `running`）
+  - `POST /api/run-queue/{queue_item_id}/complete`（Worker 回写终态 `success/failed/error`）
+  - `POST /api/run-queue/worker/execute-once`（Worker 占位执行闭环：领取 + 回写）
+  - `POST /api/run-queue/worker/heartbeat`（Worker 心跳上报）
+- 数据模型：
+  - 新增 `worker_heartbeats`（项目级 Worker 心跳状态）
+  - 新增迁移：`migrations/versions/2c1b7f9a4d10_phase4_worker_heartbeat_minimal_loop.py`
+- 代码落地：
+  - `app/api/queue_worker.py`
+  - `app/schemas/queue_worker.py`
+  - `app/models/worker_heartbeat.py`
+  - `app/main.py`（注册 `/api/run-queue` 路由）
+- 最小测试集：
+  - 新增：`tests/backend/test_queue_worker_api.py`
+  - 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_schedule_tasks_api.py`
+
 ### S4-04：执行管理最小可视化（前端）
-- 状态：待开始
+- 状态：已完成
 - 交付物：
   - 调度任务列表页（状态、下次触发、最近结果）
   - 队列任务/Worker 状态页（最小监控）
@@ -124,6 +143,24 @@
   - `npm run build`（frontend）
 - DoD：
   - 可在前端查看并追踪阶段 4 新增核心对象状态
+
+#### 交付物落地情况（2026-03-16）
+
+- 最小可视化页面：
+  - `frontend/src/views/SchedulingDashboard.vue`（队列任务列表 + Worker 心跳列表 + 队列详情弹窗）
+- 前端路由与入口：
+  - `frontend/src/router/index.js` 新增 `/project/:projectId/scheduling`
+  - `frontend/src/views/TestCaseList.vue` 新增“调度与Worker”入口按钮
+  - `frontend/src/App.vue` 侧栏新增“调度与Worker”导航项
+- 前端 API 封装：
+  - `frontend/src/api/queueWorker.js`（队列列表/详情、Worker 心跳查询）
+- 后端查询接口支撑：
+  - `GET /api/run-queue/project/{project_id}`
+  - `GET /api/run-queue/{queue_item_id}`
+  - `GET /api/run-queue/worker/heartbeats/project/{project_id}`
+- 最小测试集：
+  - 后端回归：`.\.venv\Scripts\python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_schedule_tasks_api.py`
+  - 前端构建：`npm run build`（frontend）
 
 ### S4-05：阶段验收与切换准备
 - 状态：待开始
@@ -136,6 +173,10 @@
 - DoD：
   - 阶段 4 核心能力可稳定运行，具备进入阶段 5 的前置条件
 
+
+#### Delivery Status (2026-03-16, criteria defined)
+
+
 ## 3. 进度看板（手工维护，保守标记）
 
 | 条目 | 状态 | 备注 |
@@ -143,9 +184,9 @@
 | S4-00 | 已完成 | 阶段 4 SSOT 建立，边界与顺序明确 |
 | S4-01 | 已完成 | 执行任务/作业模型 + 编排入口 + API/Web 单用例接入 |
 | S4-02 | 已完成 | schedule_tasks 最小 API + trigger 入队链路 + 审计 |
-| S4-03 | 待开始 | 队列与 Worker 最小闭环 |
-| S4-04 | 待开始 | 执行管理最小可视化 |
-| S4-05 | 待开始 | 阶段验收与切换准备 |
+| S4-03 | 已完成 | run_queue 领取/回写 + Worker 心跳 + 占位执行闭环 |
+| S4-04 | 已完成 | 调度/队列/Worker 最小可视化页面与路由入口已落地 |
+| S4-05 | in_progress | Acceptance criteria and real-consumption strategy defined; waiting full regression and risk closure |
 
 ## 4. 阶段 4 完成定义（DoD）
 
@@ -163,3 +204,13 @@
 - 完成 S4-01 测试门禁：新增编排骨架测试并通过相关回归（14 passed）
 - 完成 S4-02：落地 `schedule_tasks` 最小 API 与触发入队链路（`run_queue`）
 - 完成 S4-02 测试门禁：新增调度任务 API 测试并通过相关回归（14 passed）
+- 完成 S4-03：落地队列领取、Worker 占位执行回写与心跳接口（`/api/run-queue/*`）
+- 完成 S4-03 测试门禁：新增队列/Worker 闭环测试并通过最小回归（6 passed）
+- 完成 S4-04：落地执行管理最小可视化页面（Scheduling Dashboard）及入口路由
+- 完成 S4-04 测试门禁：后端最小回归通过（6 passed）+ 前端构建通过（vite build）
+
+- S4-05 started: phase-4 acceptance criteria documented in `stage-4-acceptance-checklist.md`.
+- Real-consumption strategy defined: R1~R5 (worker loop, idempotent claim, retry/recovery, execution convergence).
+
+
+- S4-05 execution: full regression passed (backend 95 passed, frontend build passed); migration chain check blocked by Alembic revision drift (open risk).

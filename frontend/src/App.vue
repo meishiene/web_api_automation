@@ -43,6 +43,20 @@
               </span>
               <span>当前项目</span>
             </router-link>
+
+            <router-link
+              v-if="currentProjectId"
+              :to="`/project/${currentProjectId}/scheduling`"
+              class="nav-item"
+              active-class="active"
+            >
+              <span class="nav-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 12h5l2-6 2 12 2-6h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span>调度与Worker</span>
+            </router-link>
           </nav>
 
           <div class="sidebar-footer">
@@ -100,11 +114,13 @@ const username = computed(() => currentUsername.value || (currentUserId.value ? 
 const userInitials = computed(() => (username.value ? username.value.slice(0, 1).toUpperCase() : 'U'))
 
 const pageTitle = computed(() => {
+  if (route.path.includes('/scheduling')) return 'Scheduling'
   if (route.path.startsWith('/project/')) return '测试用例'
   return '项目管理'
 })
 
 const pageSubtitle = computed(() => {
+  if (route.path.includes('/scheduling')) return 'Monitor run_queue and worker heartbeats'
   if (route.path.startsWith('/project/')) return '维护接口用例并执行测试'
   return '统一管理你的 API 自动化测试项目'
 })
