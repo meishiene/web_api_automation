@@ -184,6 +184,7 @@
 ### P1：执行与断言增强（进行中）
 - 已落地断言能力（JSONPath / 正则 / 包含 / Schema）
 - 已落地响应数据提取与链路变量传递
+- 已落地 API 用例分组/标签/筛选/搜索（后端查询参数 + 前端筛选入口）
 - 执行详情页与批次结果页面已落地，后续需持续增强展示维度
 
 ### P2：阶段 1 遗留风险托管（暂停态）
@@ -193,16 +194,22 @@
 
 ## 10. 最近更新记录
 ### 2026-03-13
-- 完成阶段 2 S2-02：执行引擎新增 Schema 断言能力（规则校验 + 递归校验，覆盖 type/required/properties/items/enum/const/边界约束）
-- 新增测试：`test_execute_test_supports_schema_assertion_success`、`test_execute_test_schema_assertion_failed_when_payload_mismatch`、`test_execute_test_schema_assertion_rejects_invalid_schema_rule`
-- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_executor_enhancements.py`（5 passed）
-- 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py`（6 passed）
-
+- 完成阶段 2 S2-04：落地用例分组/标签/筛选/搜索（新增 `case_group/tags` 字段、查询参数 `keyword/case_group/tag`、前端筛选交互）
+- 新增迁移：`a7c3d9e1f2b4_phase2_test_case_group_tags`（`api_test_cases.case_group/tags`）
+- 新增测试：`test_test_case_group_tags_and_filters`、`test_update_test_case_group_and_tags`
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_cases_api.py tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py tests/backend/test_test_executor_enhancements.py`（18 passed）
+- 前端构建验证通过：`npm run build`（frontend）
+- 完成阶段 2 S2-02：执行引擎新增 Schema 断言能力（规则校验 + 递归校验，覆盖 type/required/properties/items/enum/const/边界约束）
+- 完成阶段 2 S2-03：落地失败重试与幂等保护（`retry_count/retry_on/idempotency_key`），并保证重试场景仅持久化最终执行结果
+- 新增测试：`test_run_suite_retries_error_then_success`、`test_run_suite_with_same_idempotency_key_reuses_batch`
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py tests/backend/test_test_executor_enhancements.py`（13 passed）
+- 新增测试：`test_execute_test_supports_schema_assertion_success`、`test_execute_test_schema_assertion_failed_when_payload_mismatch`、`test_execute_test_schema_assertion_rejects_invalid_schema_rule`
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_executor_enhancements.py`（5 passed）
+- 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py`（6 passed）
 - 完成阶段 2 S2-01：新增执行详情与批次结果可视化链路（后端 `GET /api/test-runs/{run_id}`、批次详情增强字段；前端新增批次列表页/批次详情页/执行详情页）
 - 新增测试覆盖：`test_get_test_run_detail_returns_case_metadata`、`test_non_owner_cannot_view_foreign_test_run_detail`，并增强 `test_suite_batch_runs_api.py` 的批次详情字段断言
 - 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_runs_api.py tests/backend/test_suite_batch_runs_api.py`（6 passed）
 - 前端构建验证通过：`npm run build`（frontend）
-
 - 新增阶段 2 执行清单文档：`docs/project/stage-2-development-checklist.md`（含已完成/进行中/待完成、优先级、验收标准、测试门禁与单人开发顺序）
 - 基于当前代码基线补齐文档：核对 `app/`、`frontend/src/` 与 `tests/backend` 现状，修正文档中阶段 2 能力评估不一致项
 - 同步补全后端路由现状描述：`auth`、`organizations`、`projects`、`test_cases`、`test_suites`、`environments`、`test_runs`、`audit_logs`

@@ -1,4 +1,4 @@
-﻿from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.models.lifecycle import unix_timestamp
@@ -19,10 +19,15 @@ class ApiTestCase(Base):
             "expected_status >= 100 AND expected_status < 600",
             name="ck_api_test_cases_expected_status_range",
         ),
+        CheckConstraint(
+            "case_group IS NULL OR length(trim(case_group)) > 0",
+            name="ck_api_test_cases_case_group_not_blank",
+        ),
         CheckConstraint("created_at >= 0", name="ck_api_test_cases_created_at_non_negative"),
         CheckConstraint("updated_at >= 0", name="ck_api_test_cases_updated_at_non_negative"),
         Index("ix_api_test_cases_project_id", "project_id"),
         Index("ix_api_test_cases_project_id_updated_at", "project_id", "updated_at"),
+        Index("ix_api_test_cases_project_id_case_group", "project_id", "case_group"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -30,6 +35,8 @@ class ApiTestCase(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     method = Column(String(10), nullable=False)
     url = Column(String(500), nullable=False)
+    case_group = Column(String(100), nullable=True)
+    tags = Column(Text, nullable=True)
     headers = Column(Text)
     body = Column(Text)
     expected_status = Column(Integer, nullable=False, default=200)

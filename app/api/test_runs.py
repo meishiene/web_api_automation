@@ -1,6 +1,8 @@
+import time
+from typing import Any, Dict, List, Set
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -23,6 +25,9 @@ from app.services.variable_resolver import resolve_runtime_variables
 
 router = APIRouter()
 
+_IDEMPOTENCY_TTL_SECONDS = 1800
+_idempotency_cache: Dict[str, tuple[int, int]] = {}
+
 
 def _persist_test_run(db: Session, case_id: int, result: dict) -> TestRun:
     test_run = TestRun(
@@ -32,11 +37,61 @@ def _persist_test_run(db: Session, case_id: int, result: dict) -> TestRun:
         actual_body=result["actual_body"],
         error_message=result.get("error_message"),
         duration_ms=result.get("duration_ms"),
-        created_at=int(__import__("time").time()),
+        created_at=int(time.time()),
     )
     db.add(test_run)
     db.flush()
     return test_run
+
+
+def _validate_retry_options(retry_count: int, retry_on: Set[str]) -> None:
+    allowed = {"failed", "error"}
+    if not retry_on:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "retry_on cannot be empty")
+    unsupported = retry_on - allowed
+    if unsupported:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, f"retry_on contains unsupported status: {sorted(unsupported)}")
+    if retry_count == 0 and retry_on != {"error"}:
+        # Avoid confusion for callers: custom retry_on only has effect with retry_count > 0.
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "retry_on requires retry_count > 0")
+
+
+def _purge_expired_idempotency(now_ts: int) -> None:
+    expired_keys = [
+        key for key, (_batch_id, created_at) in _idempotency_cache.items() if now_ts - created_at > _IDEMPOTENCY_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        _idempotency_cache.pop(key, None)
+
+
+def _build_idempotency_cache_key(
+    user_id: int,
+    suite_id: int,
+    environment_id: int | None,
+    retry_count: int,
+    retry_on: Set[str],
+    idempotency_key: str,
+) -> str:
+    retry_signature = ",".join(sorted(retry_on))
+    return f"{user_id}:{suite_id}:{environment_id}:{retry_count}:{retry_signature}:{idempotency_key}"
+
+
+async def _execute_with_retry(
+    test_case: ApiTestCase,
+    runtime_variables: Dict[str, Any],
+    retry_count: int,
+    retry_on: Set[str],
+) -> tuple[dict, int]:
+    attempts = 0
+    last_result: dict | None = None
+    while attempts <= retry_count:
+        last_result = await execute_test(test_case, runtime_variables=runtime_variables)
+        if last_result.get("status") not in retry_on:
+            break
+        if attempts >= retry_count:
+            break
+        attempts += 1
+    return last_result or {}, attempts
 
 
 @router.post("/test-cases/{case_id}/run", response_model=TestRunResponse)
@@ -85,6 +140,9 @@ async def run_test_suite(
     if not can_execute_test_run(db, user, suite.project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
+    retry_on = set(payload.retry_on or ["error"])
+    _validate_retry_options(payload.retry_count, retry_on)
+
     environment = None
     if payload.environment_id is not None:
         environment = (
@@ -104,7 +162,37 @@ async def run_test_suite(
     if not links:
         raise AppException(400, ErrorCode.VALIDATION_ERROR, "Test suite has no test cases")
 
-    now = int(__import__("time").time())
+    now = int(time.time())
+    _purge_expired_idempotency(now)
+
+    cache_key = None
+    if payload.idempotency_key:
+        normalized = payload.idempotency_key.strip()
+        cache_key = _build_idempotency_cache_key(
+            user_id=user.id,
+            suite_id=suite.id,
+            environment_id=payload.environment_id,
+            retry_count=payload.retry_count,
+            retry_on=retry_on,
+            idempotency_key=normalized,
+        )
+        cached = _idempotency_cache.get(cache_key)
+        if cached:
+            cached_batch_id, _cached_at = cached
+            existing = db.query(ApiBatchRun).filter(ApiBatchRun.id == cached_batch_id).first()
+            if existing:
+                create_audit_log(
+                    db=db,
+                    request=request,
+                    action="test_suite.run",
+                    resource_type="api_test_suite",
+                    resource_id=str(suite.id),
+                    user_id=user.id,
+                    details={"reused_batch_id": existing.id, "idempotency_key": normalized},
+                )
+                return existing
+            _idempotency_cache.pop(cache_key, None)
+
     batch = ApiBatchRun(
         project_id=suite.project_id,
         suite_id=suite.id,
@@ -124,8 +212,17 @@ async def run_test_suite(
     runtime_variables = resolve_runtime_variables(db, suite.project_id, payload.environment_id)
 
     for link in links:
-        result = await execute_test(link.test_case, runtime_variables=runtime_variables)
+        result, retry_used = await _execute_with_retry(
+            test_case=link.test_case,
+            runtime_variables=runtime_variables,
+            retry_count=payload.retry_count,
+            retry_on=retry_on,
+        )
         test_run = _persist_test_run(db, link.test_case_id, result)
+
+        item_error = result.get("error_message")
+        if retry_used > 0 and item_error:
+            item_error = f"{item_error} (retried {retry_used} time(s))"
 
         item = ApiBatchRunItem(
             batch_run_id=batch.id,
@@ -133,8 +230,8 @@ async def run_test_suite(
             test_run_id=test_run.id,
             order_index=link.order_index,
             status=result["status"],
-            error_message=result.get("error_message"),
-            created_at=int(__import__("time").time()),
+            error_message=item_error,
+            created_at=int(time.time()),
         )
         db.add(item)
 
@@ -153,9 +250,12 @@ async def run_test_suite(
     else:
         batch.status = "success"
 
-    batch.finished_at = int(__import__("time").time())
+    batch.finished_at = int(time.time())
     db.commit()
     db.refresh(batch)
+
+    if cache_key:
+        _idempotency_cache[cache_key] = (batch.id, int(time.time()))
 
     create_audit_log(
         db=db,
@@ -171,6 +271,9 @@ async def run_test_suite(
             "passed_cases": batch.passed_cases,
             "failed_cases": batch.failed_cases,
             "error_cases": batch.error_cases,
+            "retry_count": payload.retry_count,
+            "retry_on": sorted(list(retry_on)),
+            "idempotency_key": payload.idempotency_key,
         },
     )
 
@@ -268,6 +371,7 @@ def get_batch_run_detail(
         created_at=batch.created_at,
         items=items,
     )
+
 
 @router.get("/{run_id}", response_model=TestRunDetailResponse)
 def get_test_run_detail(

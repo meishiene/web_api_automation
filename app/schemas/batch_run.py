@@ -1,12 +1,15 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
 
 
 class SuiteRunRequest(BaseModel):
     environment_id: Optional[int] = None
+    retry_count: int = Field(default=0, ge=0, le=3)
+    retry_on: List[str] = Field(default_factory=lambda: ["error"])
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=64)
 
 
 class BatchRunResponse(ORMModel):

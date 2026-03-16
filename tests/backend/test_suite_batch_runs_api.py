@@ -125,3 +125,142 @@ def test_run_suite_generates_batch_and_uses_env_variables(client, monkeypatch, c
     assert calls[0]["vars"]["base_url"] == "https://staging.example.com"
     assert calls[0]["vars"]["username"] == "owner"
     assert calls[1]["vars"]["auth_token"] == "abc-token"
+def test_run_suite_retries_error_then_success(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_retry", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-retry", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "case-retry",
+            "method": "GET",
+            "url": "https://example.com/retry",
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    suite_resp = client.post(
+        f"/api/test-suites/project/{project_id}",
+        headers=headers,
+        json={"name": "retry-suite", "description": "desc"},
+    )
+    suite_id = suite_resp.json()["id"]
+    assert client.post(f"/api/test-suites/{suite_id}/cases/{case_id}", headers=headers, json={"order_index": 1}).status_code == 200
+
+    calls = {"count": 0}
+
+    async def fake_execute_test(test_case, runtime_variables=None):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "status": "error",
+                "actual_status": None,
+                "actual_body": None,
+                "error_message": "temporary network error",
+                "duration_ms": 8,
+                "extracted_variables": {},
+            }
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\":true}",
+            "error_message": None,
+            "duration_ms": 9,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(
+        f"/api/test-runs/suites/{suite_id}/run",
+        headers=headers,
+        json={"retry_count": 1, "retry_on": ["error"]},
+    )
+    assert run_resp.status_code == 200
+    body = run_resp.json()
+    assert body["status"] == "success"
+    assert body["passed_cases"] == 1
+    assert body["error_cases"] == 0
+    assert calls["count"] == 2
+
+    runs_resp = client.get(f"/api/test-runs/project/{project_id}", headers=headers)
+    assert runs_resp.status_code == 200
+    runs = runs_resp.json()
+    assert len(runs) == 1
+    assert runs[0]["status"] == "success"
+
+
+def test_run_suite_with_same_idempotency_key_reuses_batch(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_idem", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-idem", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "case-idem",
+            "method": "GET",
+            "url": "https://example.com/idem",
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    suite_resp = client.post(
+        f"/api/test-suites/project/{project_id}",
+        headers=headers,
+        json={"name": "idem-suite", "description": "desc"},
+    )
+    suite_id = suite_resp.json()["id"]
+    assert client.post(f"/api/test-suites/{suite_id}/cases/{case_id}", headers=headers, json={"order_index": 1}).status_code == 200
+
+    calls = {"count": 0}
+
+    async def fake_execute_test(test_case, runtime_variables=None):
+        calls["count"] += 1
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\":true}",
+            "error_message": None,
+            "duration_ms": 7,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    first = client.post(
+        f"/api/test-runs/suites/{suite_id}/run",
+        headers=headers,
+        json={"idempotency_key": "run-key-001"},
+    )
+    second = client.post(
+        f"/api/test-runs/suites/{suite_id}/run",
+        headers=headers,
+        json={"idempotency_key": "run-key-001"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert calls["count"] == 1
+
+    batches_resp = client.get(f"/api/test-runs/batches/project/{project_id}", headers=headers)
+    assert batches_resp.status_code == 200
+    assert len(batches_resp.json()) == 1

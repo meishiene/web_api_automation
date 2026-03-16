@@ -41,12 +41,18 @@
         </div>
         <div class="panel-tools">
           <button class="secondary-btn" @click="goToBatchRuns">查看批次结果</button>
+          <button class="secondary-btn" @click="handleExportCases">导出 JSON</button>
+          <button class="secondary-btn" @click="handleImportCases">导入 JSON</button>
           <div class="search-box">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 100-14.4 7.2 7.2 0 000 14.4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
-            <input v-model.trim="keyword" placeholder="搜索用例名称或 URL..." />
+            <input v-model.trim="keyword" @keyup.enter="applyFilters" placeholder="关键词（名称/URL）" />
           </div>
+          <input class="inline-input" v-model.trim="caseGroupFilter" @keyup.enter="applyFilters" placeholder="分组" />
+          <input class="inline-input" v-model.trim="tagFilter" @keyup.enter="applyFilters" placeholder="标签" />
+          <button class="secondary-btn" @click="applyFilters">筛选</button>
+          <button class="secondary-btn" @click="resetFilters">重置</button>
         </div>
       </div>
 
@@ -57,8 +63,8 @@
 
       <div v-else-if="filteredTestCases.length === 0" class="state-block empty">
         <div class="empty-icon">API</div>
-        <h4>{{ keyword ? '没有匹配到用例' : '还没有测试用例' }}</h4>
-        <p>{{ keyword ? '试试其他关键词，或者新建一个测试用例。' : '先创建一个用例，再进行接口执行。' }}</p>
+        <h4>{{ hasAnyFilter ? '没有匹配到用例' : '还没有测试用例' }}</h4>
+        <p>{{ hasAnyFilter ? '试试其他筛选条件，或者新建一个测试用例。' : '先创建一个用例，再进行接口执行。' }}</p>
         <button @click="openCreateModal" class="primary-btn">立即创建</button>
       </div>
 
@@ -70,6 +76,8 @@
               <th>方法</th>
               <th>URL</th>
               <th>期望状态</th>
+              <th>分组</th>
+              <th>标签</th>
               <th>更新时间</th>
               <th>操作</th>
             </tr>
@@ -91,10 +99,13 @@
               <td>
                 <span class="status-code">{{ tc.expected_status }}</span>
               </td>
+              <td>{{ tc.case_group || '--' }}</td>
+              <td>{{ (tc.tags && tc.tags.length) ? tc.tags.join(', ') : '--' }}</td>
               <td>{{ formatDate(tc.updated_at || tc.created_at) }}</td>
               <td>
                 <div class="row-actions">
                   <button class="table-btn subtle" @click="runTestCase(tc)">运行</button>
+                  <button class="table-btn edit" @click="copyCase(tc)">复制</button>
                   <button class="table-btn edit" @click="editTestCase(tc)">编辑</button>
                   <button class="table-btn danger" @click="deleteTestCaseById(tc.id)">删除</button>
                 </div>
@@ -135,6 +146,16 @@
           <label class="field-block full-row">
             <span>请求 URL</span>
             <input v-model="testCaseForm.url" type="text" placeholder="https://api.example.com/users/1" />
+          </label>
+
+          <label class="field-block">
+            <span>分组</span>
+            <input v-model="testCaseForm.case_group" type="text" placeholder="例如：smoke" />
+          </label>
+
+          <label class="field-block">
+            <span>标签（逗号分隔）</span>
+            <input v-model="testCaseForm.tags" type="text" placeholder="auth, login" />
           </label>
 
           <label class="field-block">
@@ -216,9 +237,12 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   getTestCases,
   createTestCase,
+  copyTestCase as copyTestCaseApi,
   updateTestCase,
   deleteTestCase as deleteTestCaseApi,
-  runTestCase as runTestCaseApi
+  runTestCase as runTestCaseApi,
+  exportTestCases,
+  importTestCases
 } from '@/api/testCases'
 import { getProjects } from '@/api/projects'
 
@@ -235,6 +259,8 @@ const saving = ref(false)
 const formError = ref('')
 const testResult = ref(null)
 const keyword = ref('')
+const caseGroupFilter = ref('')
+const tagFilter = ref('')
 
 const defaultForm = () => ({
   name: '',
@@ -243,20 +269,17 @@ const defaultForm = () => ({
   headers: '{}',
   body: '{}',
   expected_status: 200,
-  expected_body: '{}'
+  expected_body: '{}',
+  case_group: '',
+  tags: ''
 })
 
 const testCaseForm = ref(defaultForm())
 const projectName = ref('项目')
 const lastRunAt = ref(null)
 
-const filteredTestCases = computed(() => {
-  if (!keyword.value) return testCases.value
-  return testCases.value.filter(tc =>
-    tc.name?.toLowerCase().includes(keyword.value.toLowerCase()) ||
-    tc.url?.toLowerCase().includes(keyword.value.toLowerCase())
-  )
-})
+const filteredTestCases = computed(() => testCases.value)
+const hasAnyFilter = computed(() => !!(keyword.value || caseGroupFilter.value || tagFilter.value))
 
 const getCount = computed(() => filteredTestCases.value.filter(tc => tc.method === 'GET').length)
 const postCount = computed(() => filteredTestCases.value.filter(tc => tc.method === 'POST').length)
@@ -292,7 +315,11 @@ const fetchProjectName = async () => {
 const fetchTestCases = async () => {
   loading.value = true
   try {
-    testCases.value = await getTestCases(projectId.value)
+    testCases.value = await getTestCases(projectId.value, {
+      keyword: keyword.value || undefined,
+      case_group: caseGroupFilter.value || undefined,
+      tag: tagFilter.value || undefined,
+    })
   } catch (err) {
     alert('获取测试用例失败')
   } finally {
@@ -324,7 +351,12 @@ const handleSaveTestCase = async () => {
       headers: testCaseForm.value.headers || '{}',
       body: testCaseForm.value.body || '{}',
       expected_status: parseInt(testCaseForm.value.expected_status, 10) || 200,
-      expected_body: testCaseForm.value.expected_body || '{}'
+      expected_body: testCaseForm.value.expected_body || '{}',
+      case_group: testCaseForm.value.case_group?.trim() || null,
+      tags: (testCaseForm.value.tags || '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
     }
 
     if (isEditing.value) {
@@ -353,7 +385,9 @@ const editTestCase = (tc) => {
     headers: editorValue(tc.headers),
     body: editorValue(tc.body),
     expected_status: tc.expected_status || 200,
-    expected_body: editorValue(tc.expected_body)
+    expected_body: editorValue(tc.expected_body),
+    case_group: tc.case_group || '',
+    tags: Array.isArray(tc.tags) ? tc.tags.join(', ') : ''
   }
   showCreateModal.value = true
 }
@@ -378,6 +412,60 @@ const runTestCase = async (tc) => {
   } catch (err) {
     alert('运行测试失败')
   }
+}
+const copyCase = async (tc) => {
+  const customName = prompt('请输入复制后的用例名称（可留空自动生成）', `${tc.name}-copy`)
+  if (customName === null) return
+
+  try {
+    await copyTestCaseApi(projectId.value, tc.id, { name: customName.trim() || undefined })
+    await fetchTestCases()
+  } catch (err) {
+    alert(err.response?.data?.detail || '复制失败')
+  }
+}
+
+const handleExportCases = async () => {
+  try {
+    const payload = await exportTestCases(projectId.value)
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `test-cases-project-${projectId.value}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    alert('导出失败')
+  }
+}
+
+const handleImportCases = async () => {
+  const raw = prompt('请粘贴导入 JSON（结构需包含 cases 数组）')
+  if (!raw) return
+
+  try {
+    const parsed = JSON.parse(raw)
+    const result = await importTestCases(projectId.value, {
+      cases: parsed.cases || [],
+      skip_duplicates: true,
+    })
+    alert(`导入完成：成功 ${result.imported}，跳过 ${result.skipped}`)
+    await fetchTestCases()
+  } catch (err) {
+    alert(err.response?.data?.detail || '导入失败，请检查 JSON 格式')
+  }
+}
+
+const applyFilters = () => {
+  fetchTestCases()
+}
+
+const resetFilters = () => {
+  keyword.value = ''
+  caseGroupFilter.value = ''
+  tagFilter.value = ''
+  fetchTestCases()
 }
 
 const goToBatchRuns = () => {
@@ -532,6 +620,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.inline-input {
+  min-width: 120px;
+  height: 48px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: var(--bg-card-soft);
+  color: var(--text-main);
 }
 
 .search-box {
@@ -947,7 +1045,17 @@ onMounted(() => {
     align-items: flex-start;
   }
 
-  .search-box {
+  .inline-input {
+  min-width: 120px;
+  height: 48px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: var(--bg-card-soft);
+  color: var(--text-main);
+}
+
+.search-box {
     min-width: 0;
     width: 100%;
   }

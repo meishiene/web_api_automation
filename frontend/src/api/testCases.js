@@ -1,11 +1,23 @@
 import request from '@/utils/request'
 
-export const getTestCases = (projectId) => {
-  return request.get(`/api/test-cases/project/${projectId}`)
+export const getTestCases = (projectId, params = {}) => {
+  return request.get(`/api/test-cases/project/${projectId}`, { params })
+}
+
+export const exportTestCases = (projectId) => {
+  return request.get(`/api/test-cases/project/${projectId}/export`)
+}
+
+export const importTestCases = (projectId, data) => {
+  return request.post(`/api/test-cases/project/${projectId}/import`, data)
 }
 
 export const createTestCase = (projectId, data) => {
   return request.post(`/api/test-cases/project/${projectId}`, data)
+}
+
+export const copyTestCase = (projectId, id, data = {}) => {
+  return request.post(`/api/test-cases/${id}/copy`, data)
 }
 
 export const updateTestCase = (projectId, id, data) => {
