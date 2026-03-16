@@ -9,3 +9,6 @@ __pycache__/
 
 # Local scratch
 tmp/
+
+# Git credential manager diagnostics (may contain sensitive info)
+gcm-diagnose.log
