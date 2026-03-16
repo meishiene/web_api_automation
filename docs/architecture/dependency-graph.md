@@ -10,6 +10,7 @@ app/main.py
   ├─ app.api.test_suites
   ├─ app.api.environments
   ├─ app.api.schedule_tasks
+  ├─ app.api.queue_worker
   ├─ app.api.test_runs
   ├─ app.api.web_test_cases
   ├─ app.api.web_test_runs
@@ -33,6 +34,13 @@ app.api.environments
 app.api.schedule_tasks
   ├─ app.models.schedule_task
   ├─ app.models.run_queue
+  ├─ app.services.access_control
+  └─ app.services.audit_service
+
+app.api.queue_worker
+  ├─ app.models.run_queue
+  ├─ app.models.worker_heartbeat
+  ├─ app.services.queue_worker_runtime
   ├─ app.services.access_control
   └─ app.services.audit_service
 
@@ -127,8 +135,9 @@ views/*.vue（阶段 3 已落地页面）
 - `execute_test()` 是单用例与套件执行共享引擎
 - `resolve_runtime_variables()` 统一变量优先级合并（project < variable groups < environment < extracted runtime vars）
 
-## 预留模块
+## 阶段 4 模块状态
 - `app/models/schedule_task.py`
 - `app/models/run_queue.py`
+- `app/models/worker_heartbeat.py`
 
-两者仍未接入业务链路。
+上述模型已接入最小业务链路（调度触发入队、队列领取/回写、Worker 心跳与最小可视化）；重试/租约/死信等工程化能力仍在后续迭代范围内。

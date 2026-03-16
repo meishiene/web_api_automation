@@ -1,5 +1,8 @@
+import json
+
 from app.models.run_queue import RunQueue
 from app.models.worker_heartbeat import WorkerHeartbeat
+from app.models import test_run as test_run_model
 
 
 def _create_project(client, headers, name: str = "P-queue-worker") -> int:
@@ -113,12 +116,46 @@ def test_queue_claim_complete_and_worker_heartbeat(client, create_user_and_login
     assert heartbeat_list["items"][0]["worker_id"] == "worker-a"
 
 
-def test_worker_execute_once_placeholder_consumes_queue_item(client, create_user_and_login, auth_headers, db_session):
+def _create_test_case(client, headers, project_id: int, name: str = "Queue API Case", url: str = "https://example.com"):
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": name,
+            "method": "GET",
+            "url": url,
+            "expected_status": 200,
+        },
+    )
+    assert resp.status_code == 200
+    return resp.json()["id"]
+
+
+def test_worker_execute_once_consumes_queue_item_with_real_execution(
+    client,
+    monkeypatch,
+    create_user_and_login,
+    auth_headers,
+    db_session,
+):
     token = create_user_and_login("owner_queue_execute_once", "pwd")
     headers = auth_headers(token)
     project_id = _create_project(client, headers, name="P-queue-execute-once")
-    task_id = _create_schedule_task(client, headers, project_id, "queue-execute-once", 303)
+    case_id = _create_test_case(client, headers, project_id, name="Queue Execute Once Case")
+    task_id = _create_schedule_task(client, headers, project_id, "queue-execute-once", case_id)
     queue_item_id = _trigger_task(client, headers, task_id)
+
+    async def fake_execute_test(_test_case, runtime_variables=None):
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\": true}",
+            "error_message": None,
+            "duration_ms": 8,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.services.queue_worker_runtime.execute_test", fake_execute_test)
 
     execute_resp = client.post(
         "/api/run-queue/worker/execute-once",
@@ -127,7 +164,6 @@ def test_worker_execute_once_placeholder_consumes_queue_item(client, create_user
             "project_id": project_id,
             "worker_id": "worker-b",
             "run_type": "api",
-            "result_status": "success",
         },
     )
     assert execute_resp.status_code == 200
@@ -141,6 +177,13 @@ def test_worker_execute_once_placeholder_consumes_queue_item(client, create_user
     assert queue_item.status == "success"
     assert queue_item.worker_id == "worker-b"
     assert queue_item.finished_at is not None
+    payload = json.loads(queue_item.payload or "{}")
+    assert payload.get("result", {}).get("run_id") is not None
+    assert payload.get("result", {}).get("target_type") == "test_case"
+
+    test_runs = db_session.query(test_run_model.TestRun).filter(test_run_model.TestRun.test_case_id == case_id).all()
+    assert len(test_runs) == 1
+    assert test_runs[0].status == "success"
 
 
 def test_non_owner_cannot_claim_or_heartbeat(client, create_user_and_login, auth_headers):

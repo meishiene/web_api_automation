@@ -92,6 +92,7 @@ SQLite / PostgreSQL
 - `app/api/test_suites.py`：套件 CRUD、套件用例编排
 - `app/api/environments.py`：环境与变量管理（项目级/环境级）
 - `app/api/schedule_tasks.py`：调度任务管理与触发入队（阶段 4）
+- `app/api/queue_worker.py`：队列领取/回写、Worker 心跳与执行一次消费（阶段 4）
 - `app/api/test_runs.py`：
   - 单用例执行：`POST /api/test-runs/test-cases/{case_id}/run`
   - 套件执行：`POST /api/test-runs/suites/{suite_id}/run`
@@ -121,6 +122,8 @@ SQLite / PostgreSQL
   - 关键写操作审计落库
 - `app/services/web_executor.py`
   - Web 步骤执行与失败截图产物输出（`artifacts/web-test-runs/{run_id}/`）
+- `app/services/queue_worker_runtime.py`
+  - 队列消费运行时服务（`claim -> execute -> complete -> heartbeat`）
 - `app/services/execution_orchestrator.py`
   - 统一执行任务/作业编排骨架（ExecutionTask/ExecutionJob）
   - API/Web 适配协议接入与统一状态映射
@@ -156,15 +159,16 @@ SQLite / PostgreSQL
 - 已从“单用例执行”演进到“套件 + 批次 + 变量链路”的阶段 2 首批能力
 - 执行、变量、审计三条链路已贯通
 - 前端已落地批次列表/批次详情/执行详情页面与 Web 执行相关页面，后续仍需持续增强展示维度与报告能力
-- 阶段 4 已启动（开发清单已建立），调度、队列、Worker 尚未打通实现链路
+- 阶段 4 已启动（开发清单已建立），调度、队列、Worker 最小闭环已打通，正在推进验收与切换准备
+- Worker 真实消费路径已落地：`execute-once` 走 `claim -> execute -> complete -> heartbeat`，并提供独立循环脚本 `scripts/run_queue_worker_loop.py`
 
 
-## 2026-03-16 ?? 4 ??
+## 2026-03-16 阶段 4 更新
 
-- Stage 4 status: S4-01~S4-04 completed; S4-05 acceptance/cutover in progress.
+- 阶段 4 状态：S4-01~S4-04 已完成；S4-05 验收中（前端构建门禁需在可运行构建的环境/CI复核）；R1 主循环最小实现已落地，R2~R5 转后续迭代。
 
 
-## Stage-4 Acceptance And Real-Consumption Strategy (2026-03-16)
+## 阶段 4 验收与真实消费策略（2026-03-16）
 
-- Acceptance rubric: A4-01~A4-05 + regression/build gates (see `docs/project/stage-4-acceptance-checklist.md`).
-- Real-consumption strategy: R1~R5 prioritizing worker loop and idempotent claim before retry/recovery enhancements.
+- 验收标准：A4-01~A4-05 + 回归/构建门禁（见 `docs/project/stage-4-acceptance-checklist.md`）。
+- 真实消费策略：按 R1~R5 推进，优先打通 Worker Loop 与幂等认领，再补重试/恢复增强能力。

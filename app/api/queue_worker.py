@@ -27,6 +27,11 @@ from app.schemas.queue_worker import (
 )
 from app.services.access_control import can_manage_project, can_view_project
 from app.services.audit_service import create_audit_log
+from app.services.queue_worker_runtime import (
+    claim_one_queue_item,
+    consume_queue_item_once,
+    upsert_worker_heartbeat,
+)
 
 router = APIRouter()
 
@@ -36,38 +41,6 @@ def _project_or_404(db: Session, project_id: int) -> Project:
     if not project:
         raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
     return project
-
-
-def _claim_one_queue_item(
-    db: Session,
-    project_id: int,
-    worker_id: str,
-    run_type: Optional[str],
-) -> Optional[RunQueue]:
-    query = db.query(RunQueue).filter(
-        RunQueue.project_id == project_id,
-        RunQueue.status == "queued",
-    )
-    if run_type:
-        query = query.filter(RunQueue.run_type == run_type)
-
-    queue_item = (
-        query.order_by(
-            RunQueue.priority.asc(),
-            RunQueue.created_at.asc(),
-            RunQueue.id.asc(),
-        )
-        .first()
-    )
-    if not queue_item:
-        return None
-
-    queue_item.status = "running"
-    queue_item.worker_id = worker_id
-    queue_item.started_at = int(time.time())
-    db.commit()
-    db.refresh(queue_item)
-    return queue_item
 
 
 def _queue_item_response(queue_item: RunQueue) -> RunQueueItemResponse:
@@ -144,7 +117,7 @@ def claim_queue_item(
     if not can_manage_project(db, user, project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    queue_item = _claim_one_queue_item(
+    queue_item = claim_one_queue_item(
         db=db,
         project_id=payload.project_id,
         worker_id=payload.worker_id.strip(),
@@ -223,7 +196,7 @@ def complete_queue_item(
 
 
 @router.post("/worker/execute-once", response_model=WorkerExecuteOnceResponse)
-def worker_execute_once(
+async def worker_execute_once(
     payload: WorkerExecuteOnceRequest,
     request: Request,
     user: User = Depends(get_current_user),
@@ -233,46 +206,32 @@ def worker_execute_once(
     if not can_manage_project(db, user, project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    queue_item = _claim_one_queue_item(
+    result = await consume_queue_item_once(
         db=db,
         project_id=payload.project_id,
         worker_id=payload.worker_id.strip(),
         run_type=payload.run_type,
     )
-    if not queue_item:
+    if not result.get("executed"):
         return WorkerExecuteOnceResponse(executed=False)
-
-    now = int(time.time())
-    queue_item.status = payload.result_status
-    queue_item.finished_at = now
-    queue_item.payload = json.dumps(
-        {
-            "input": _safe_json_loads(queue_item.payload),
-            "placeholder": {
-                "mode": "worker_execute_once",
-                "result_status": payload.result_status,
-            },
-        },
-        ensure_ascii=False,
-        sort_keys=True,
-    )
-    db.commit()
-    db.refresh(queue_item)
 
     create_audit_log(
         db=db,
         request=request,
-        action="run_queue.execute_placeholder",
+        action="run_queue.execute_once",
         resource_type="run_queue",
-        resource_id=str(queue_item.id),
+        resource_id=str(result["queue_item_id"]),
         user_id=user.id,
-        details={"worker_id": payload.worker_id, "result_status": payload.result_status},
+        details={
+            "worker_id": payload.worker_id,
+            "result_status": result.get("status"),
+        },
     )
 
     return WorkerExecuteOnceResponse(
         executed=True,
-        queue_item_id=queue_item.id,
-        status=queue_item.status,
+        queue_item_id=result["queue_item_id"],
+        status=result.get("status"),
     )
 
 
@@ -292,36 +251,14 @@ def worker_heartbeat(
         if not queue_item or queue_item.project_id != payload.project_id:
             raise AppException(400, ErrorCode.VALIDATION_ERROR, "current_queue_item_id not found in project")
 
-    now = int(time.time())
-    heartbeat = (
-        db.query(WorkerHeartbeat)
-        .filter(
-            WorkerHeartbeat.project_id == payload.project_id,
-            WorkerHeartbeat.worker_id == payload.worker_id.strip(),
-        )
-        .first()
+    heartbeat = upsert_worker_heartbeat(
+        db=db,
+        project_id=payload.project_id,
+        worker_id=payload.worker_id.strip(),
+        run_type=payload.run_type,
+        status=payload.status,
+        current_queue_item_id=payload.current_queue_item_id,
     )
-    if heartbeat:
-        heartbeat.run_type = payload.run_type
-        heartbeat.status = payload.status
-        heartbeat.current_queue_item_id = payload.current_queue_item_id
-        heartbeat.last_heartbeat_at = now
-        heartbeat.updated_at = now
-    else:
-        heartbeat = WorkerHeartbeat(
-            project_id=payload.project_id,
-            worker_id=payload.worker_id.strip(),
-            run_type=payload.run_type,
-            status=payload.status,
-            current_queue_item_id=payload.current_queue_item_id,
-            last_heartbeat_at=now,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(heartbeat)
-
-    db.commit()
-    db.refresh(heartbeat)
 
     create_audit_log(
         db=db,

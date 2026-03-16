@@ -119,7 +119,7 @@
 - 最小 API：
   - `POST /api/run-queue/claim`（领取队列任务并置为 `running`）
   - `POST /api/run-queue/{queue_item_id}/complete`（Worker 回写终态 `success/failed/error`）
-  - `POST /api/run-queue/worker/execute-once`（Worker 占位执行闭环：领取 + 回写）
+  - `POST /api/run-queue/worker/execute-once`（Worker 真实执行一次：领取 + 执行 + 回写）
   - `POST /api/run-queue/worker/heartbeat`（Worker 心跳上报）
 - 数据模型：
   - 新增 `worker_heartbeats`（项目级 Worker 心跳状态）
@@ -163,10 +163,11 @@
   - 前端构建：`npm run build`（frontend）
 
 ### S4-05：阶段验收与切换准备
-- 状态：待开始
+- 状态：验收中（前端构建门禁需在可运行构建的环境/CI复核）
 - 交付物：
   - 阶段 4 验收清单文档（`stage-4-acceptance-checklist.md`）
   - 全量回归与风险清单
+  - 真实 Worker 消费主循环（R1）最小可运行实现（服务层 + 脚本）
 - 最小测试集：
   - 后端回归：`.\.venv\Scripts\python -m pytest`
   - 前端构建：`npm run build`（frontend）
@@ -184,9 +185,9 @@
 | S4-00 | 已完成 | 阶段 4 SSOT 建立，边界与顺序明确 |
 | S4-01 | 已完成 | 执行任务/作业模型 + 编排入口 + API/Web 单用例接入 |
 | S4-02 | 已完成 | schedule_tasks 最小 API + trigger 入队链路 + 审计 |
-| S4-03 | 已完成 | run_queue 领取/回写 + Worker 心跳 + 占位执行闭环 |
+| S4-03 | 已完成 | run_queue 领取/回写 + Worker 心跳 + execute-once 真实执行闭环 |
 | S4-04 | 已完成 | 调度/队列/Worker 最小可视化页面与路由入口已落地 |
-| S4-05 | in_progress | Acceptance criteria and real-consumption strategy defined; waiting full regression and risk closure |
+| S4-05 | in_progress | 后端全量回归与迁移链路已通过；前端构建门禁需在可运行构建的环境/CI复核 |
 
 ## 4. 阶段 4 完成定义（DoD）
 
@@ -204,7 +205,7 @@
 - 完成 S4-01 测试门禁：新增编排骨架测试并通过相关回归（14 passed）
 - 完成 S4-02：落地 `schedule_tasks` 最小 API 与触发入队链路（`run_queue`）
 - 完成 S4-02 测试门禁：新增调度任务 API 测试并通过相关回归（14 passed）
-- 完成 S4-03：落地队列领取、Worker 占位执行回写与心跳接口（`/api/run-queue/*`）
+- 完成 S4-03：落地队列领取、Worker 最小执行回写与心跳接口（`/api/run-queue/*`）
 - 完成 S4-03 测试门禁：新增队列/Worker 闭环测试并通过最小回归（6 passed）
 - 完成 S4-04：落地执行管理最小可视化页面（Scheduling Dashboard）及入口路由
 - 完成 S4-04 测试门禁：后端最小回归通过（6 passed）+ 前端构建通过（vite build）
@@ -213,4 +214,9 @@
 - Real-consumption strategy defined: R1~R5 (worker loop, idempotent claim, retry/recovery, execution convergence).
 
 
-- S4-05 execution: full regression passed (backend 95 passed, frontend build passed); migration chain check blocked by Alembic revision drift (open risk).
+- S4-05 execution: backend full regression passed (95 passed) and migration chain recheck passed after legacy SQLite revision repair; frontend build gate is blocked in this environment (spawn EPERM), pending CI/standard dev validation.
+
+- Closed RISK-S4-001: added `scripts/legacy_sqlite_revision_repair.py`, repaired legacy SQLite revision drift, and revalidated migration chain.
+- S4-05 推进：落地 `app/services/queue_worker_runtime.py`，将 `execute-once` 从占位回写升级为真实执行链路（`claim -> execute -> complete -> heartbeat`）。
+- S4-05 推进：新增 `scripts/run_queue_worker_loop.py` 独立 Worker 循环脚本，支持持续消费与优雅退出离线心跳回写。
+- S4-05 测试门禁：更新 `tests/backend/test_queue_worker_api.py` 覆盖真实执行路径，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_schedule_tasks_api.py tests/backend/test_test_runs_api.py tests/backend/test_execution_orchestration_skeleton.py`（14 passed）。

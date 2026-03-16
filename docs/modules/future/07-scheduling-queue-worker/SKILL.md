@@ -21,10 +21,10 @@
 - 已完成项：
   - S4-01：统一执行编排骨架（ExecutionTask/ExecutionJob + API/Web 单用例接入）
   - S4-02：调度器最小可用（`schedule_tasks` 最小 API + trigger 入队）
-  - S4-03：队列与 Worker 最小闭环（任务领取、占位执行回写、心跳上报）
+  - S4-03：队列与 Worker 最小闭环（任务领取、真实执行一次回写、心跳上报）
   - S4-04：执行管理最小可视化（Scheduling Dashboard + 路由入口）
 - 待完成项：
-  - S4-05：阶段验收与切换准备
+  - S4-05：阶段验收与切换准备（验收中：后端回归与迁移链路已通过；前端构建门禁需在可运行构建的环境/CI复核；R2~R5 转后续迭代）
 
 ## 3. 范围边界
 
@@ -41,16 +41,18 @@
 ## 4. 关键任务（当前优先级）
 
 1. 完成 S4-05：阶段验收清单与回归验证
-2. 增强队列消费策略（超时、重试、取消）并补齐测试
-3. 逐步从占位执行迁移到真实 Worker 消费执行
+2. 稳定化真实消费主循环（`claim -> execute -> complete -> heartbeat`）并补齐运维脚本
+3. 增强队列消费策略（超时、重试、取消）并补齐测试
 
 ## 5. 当前交付物
 
 - 调度任务 API：`app/api/schedule_tasks.py`
 - 队列/Worker API：`app/api/queue_worker.py`
+- Worker 运行时：`app/services/queue_worker_runtime.py`
 - 队列模型：`app/models/run_queue.py`
 - Worker 心跳模型：`app/models/worker_heartbeat.py`
 - 队列/Worker Schema：`app/schemas/queue_worker.py`
+- Worker 循环脚本：`scripts/run_queue_worker_loop.py`
 
 ## 6. 测试要求
 

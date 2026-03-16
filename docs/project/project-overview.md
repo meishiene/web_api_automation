@@ -39,9 +39,10 @@ Web API 自动化测试平台起步于 **MVP 级接口测试工具**，当前正
 - **系统外**
   - 被测试的目标 Web API
 
-## 代码中已存在但尚未打通的能力
-- 数据模型中已经存在 `schedule_tasks` 与 `run_queue` 两张表，对应文件：`app/models/schedule_task.py`、`app/models/run_queue.py`
-- 当前版本尚未提供这些能力的 API、服务层实现或前端界面，因此它们属于“预留扩展能力”，不是已完成功能
+## 代码中已存在并已打通最小闭环的能力
+- `schedule_tasks` 与 `run_queue` 已具备最小可用链路：调度触发入队、队列领取/回写、Worker 心跳、最小可视化页面。
+- `execute-once` 已升级为真实执行一次（`claim -> execute -> complete -> heartbeat`），并提供独立循环脚本 `scripts/run_queue_worker_loop.py` 用于持续消费。
+- 当前仍属于阶段 4 最小闭环：租约幂等、重试/死信、卡死回收等工程化能力仍在后续迭代范围内。
 
 ## 当前明确未实现/未打通功能（以阶段规划为准）
 - OAuth / SSO 等企业级认证接入

@@ -4,7 +4,7 @@
 - 验收阶段：阶段 4（调度与分布式执行）
 - 验收日期：2026-03-16（口径定义版）
 - 验收口径：以 `app/`、`frontend/src/`、`tests/backend/` 当前代码事实与测试结果为准
-- 当前阶段状态：S4-01~S4-04 已完成，S4-05 进行中（验收与切换准备）
+- 当前阶段状态：S4-01~S4-04 已完成；S4-05 验收中（前端构建门禁需在可运行构建的环境/CI复核）
 
 ## 2. 功能验收项（必须满足）
 
@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | A4-01 | 统一编排骨架可用 | API/Web 单用例执行均走统一编排入口，`execution_tasks/execution_jobs` 可落库 | `app/services/execution_orchestrator.py`、`tests/backend/test_execution_orchestration_skeleton.py` |
 | A4-02 | 调度最小 API 可用 | `schedule_tasks` 的列表/创建/更新/删除/触发接口可用，触发后可入 `run_queue` | `app/api/schedule_tasks.py`、`tests/backend/test_schedule_tasks_api.py` |
-| A4-03 | 队列与 Worker 最小闭环 | 队列任务可被领取、执行占位、回写终态，Worker 心跳可上报并可查询 | `app/api/queue_worker.py`、`tests/backend/test_queue_worker_api.py` |
+| A4-03 | 队列与 Worker 最小闭环 | 队列任务可被领取、真实执行并回写终态，Worker 心跳可上报并可查询 | `app/api/queue_worker.py`、`tests/backend/test_queue_worker_api.py` |
 | A4-04 | 最小可视化可用 | 前端可查看队列任务、Worker 心跳、队列详情，且可从项目页进入 | `frontend/src/views/SchedulingDashboard.vue` |
 | A4-05 | 文档与阶段口径一致 | 阶段 4 清单、项目进度、07 模块 SKILL、架构文档已同步 | `docs/project/*`、`docs/modules/future/07-scheduling-queue-worker/SKILL.md`、`docs/architecture/*` |
 
@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | 后端最小回归 | `.\.venv\Scripts\python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_schedule_tasks_api.py` | 全部通过 |
 | 后端全量回归 | `.\.venv\Scripts\python -m pytest` | 全部通过（允许非阻塞 warning） |
-| 前端构建 | `npm run build`（frontend） | 构建成功 |
+| 前端构建 | `npm run build`（frontend） | 构建成功（需在可运行构建的环境/CI复核） |
 | 迁移链路（建议） | `alembic upgrade head -> downgrade f2a1c4d8b9e3 -> upgrade head` | 升降级成功 |
 
 ## 4. 非功能验收口径（阶段 4 出口）
@@ -32,7 +32,7 @@
 - 可维护性：接口、模型、迁移、测试、文档四类资产齐备
 - 可切换性：S4-05 完成后可进入阶段 5（报告分析与治理）
 
-## 5. 后续真实消费策略（从占位执行到真实 Worker）
+## 5. 后续真实消费策略（从最小闭环到工程化 Worker）
 
 ### R1：真实消费主循环（优先级 P0）
 - 建立独立 Worker 进程循环：`claim -> execute -> complete -> heartbeat`
@@ -69,19 +69,26 @@
 ## 7. S4-05 Execution Record (2026-03-16)
 
 - Backend full regression: `python -m pytest` -> **95 passed, 2 warnings**.
-- Frontend build gate: `npm run build` -> **passed**.
-- Migration chain check: `alembic upgrade head -> downgrade f2a1c4d8b9e3 -> upgrade head` -> **failed**.
+- Frontend build gate: `npm run build` -> **blocked** (spawn EPERM in this environment; esbuild cannot be spawned).
+- Legacy SQLite revision repair: `scripts/legacy_sqlite_revision_repair.py --db test_platform.db --apply` -> **applied**.
+- Migration chain check: `alembic upgrade head -> downgrade f2a1c4d8b9e3 -> upgrade head` -> **passed**.
 
 ## 8. Risk Closure Matrix (S4-05)
 
 | Risk ID | Description | Current State | Closure Plan | Owner/Phase |
 | --- | --- | --- | --- | --- |
-| RISK-S4-001 | Alembic runtime revision drift: DB current shows `01fcc228897e` while code head is `2c1b7f9a4d10`; upgrade attempts hit `audit_logs_archive already exists`. | Open (blocking migration gate) | Add one-time migration repair playbook/script for legacy SQLite revision stamping and idempotent archive table handling, then rerun migration chain. | S4-05 |
+| RISK-S4-001 | Alembic runtime revision drift on legacy SQLite (`alembic_version` behind schema facts). | Closed | Added one-time repair script `scripts/legacy_sqlite_revision_repair.py`; drift repaired (`01fcc228897e -> e2b4c6a8d901`) and migration chain revalidated. | S4-05 |
 | RISK-S4-002 | FastAPI startup uses deprecated `on_event`, raises warnings in regression. | Open (non-blocking) | Move startup logic to lifespan handler in next maintenance slice. | post-S4 |
-| RISK-S4-003 | Worker execution is still placeholder (`execute-once`) not full daemon loop. | Open (known scope) | Execute R1 plan: real worker loop (`claim->execute->complete->heartbeat`) and retire placeholder from main path. | next phase |
+| RISK-S4-003 | Worker execution is still placeholder (`execute-once`) not full daemon loop. | Closed | Landed real-consumption path: `execute-once` now executes real targets, plus standalone loop script `scripts/run_queue_worker_loop.py` for daemon-style consumption. | S4-05 |
 
 ## 9. S4-05 Gate Decision
 
-- Regression gates passed: **YES** (backend + frontend).
-- Migration gate passed: **NO** (blocked by RISK-S4-001).
-- Stage-4 final acceptance decision: **HOLD** until migration risk is closed.
+- Regression gates passed: **PARTIAL** (backend YES; frontend build blocked in this environment).
+- Migration gate passed: **YES**.
+- Stage-4 final acceptance decision: **HOLD** until frontend build gate is revalidated in CI/standard dev environment.
+
+## 10. S4-05 Continued Progress (2026-03-16)
+
+- R1 first milestone landed: added runtime service `app/services/queue_worker_runtime.py` and wired `POST /api/run-queue/worker/execute-once` to real flow (`claim -> execute -> complete -> heartbeat`).
+- Added standalone worker loop script `scripts/run_queue_worker_loop.py` for continuous consumption with online/offline heartbeat transitions.
+- Regression updated and passed: queue worker tests now validate real execution side-effects (`test_runs` persisted for API case execution).

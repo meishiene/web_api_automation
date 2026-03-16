@@ -106,6 +106,6 @@ frontend/
 - `scripts/db_connectivity_check.py`：数据库连通性和必需表自检
 
 ## 代码与文档对照时的注意点
-- `app/models/schedule_task.py` 与 `app/models/run_queue.py` 已在代码中存在，但尚未形成完整功能
+- `app/models/schedule_task.py` 与 `app/models/run_queue.py` 已接入阶段 4 最小闭环；重试/租约/死信等增强能力仍在后续迭代
 - `frontend/src/api/testCases.js` 中保留了 `getTestResult()` 方法，但后端当前没有对应 `GET /api/test-runs/{runId}` 接口
 - `app/schemas/` 是当前路由层 DTO 的统一入口；新增接口应优先在 `schemas/` 中定义模型

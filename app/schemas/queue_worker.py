@@ -21,7 +21,6 @@ class WorkerExecuteOnceRequest(BaseModel):
     project_id: int
     worker_id: str = Field(..., min_length=1, max_length=100)
     run_type: Optional[str] = Field(default=None, pattern="^(api|web)$")
-    result_status: str = Field(default="success", pattern="^(success|failed|error)$")
 
 
 class WorkerHeartbeatRequest(BaseModel):
