@@ -21,11 +21,12 @@
 
 ## 当前阶段匹配（依据 `project-progress.md`）
 
-- 当前总阶段：阶段 2（API 平台化）
+- 当前总阶段：阶段 2（收尾）+ 阶段 3（启动）
 - 默认可执行模块：
-  - `02-user-org-auth`（仅阶段 2 范围内任务）
-  - `03-project-assets-env`
-  - `04-api-testing`
+  - `05-web-testing`（阶段 3 首批实现）
+  - `02-user-org-auth`（仅缺陷修复/治理收尾）
+  - `03-project-assets-env`（仅缺陷修复/治理收尾）
+  - `04-api-testing`（仅缺陷修复/治理收尾）
 - 其余模块默认进入“设计/预研模式”，不应标记为“已完成实现”
 
 ## 模块目录

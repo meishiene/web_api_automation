@@ -40,6 +40,7 @@
           <p>按方法、URL 和断言配置管理接口测试。</p>
         </div>
         <div class="panel-tools">
+          <button class="secondary-btn" @click="goToEnvironmentManager">环境变量治理</button>
           <button class="secondary-btn" @click="goToBatchRuns">查看批次结果</button>
           <button class="secondary-btn" @click="handleExportCases">导出 JSON</button>
           <button class="secondary-btn" @click="handleImportCases">导入 JSON</button>
@@ -470,6 +471,10 @@ const resetFilters = () => {
 
 const goToBatchRuns = () => {
   router.push(`/project/${projectId.value}/batches`)
+}
+
+const goToEnvironmentManager = () => {
+  router.push(`/project/${projectId.value}/environments`)
 }
 
 const openRunDetail = () => {

@@ -39,6 +39,7 @@ def init_db():
     from app.models.audit_log import AuditLog
     from app.models.audit_log_archive import AuditLogArchive
     from app.models.environment_variable import EnvironmentVariable
+    from app.models.environment_variable_group_binding import EnvironmentVariableGroupBinding
     from app.models.organization import Organization
     from app.models.organization_member import OrganizationMember
     from app.models.project import Project

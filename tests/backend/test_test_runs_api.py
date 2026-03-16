@@ -217,3 +217,65 @@ def test_non_owner_cannot_view_foreign_test_run_detail(client, monkeypatch, crea
     detail_resp = client.get(f"/api/test-runs/{run_id}", headers=auth_headers(attacker_token))
     assert detail_resp.status_code == 403
     assert detail_resp.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_run_detail_contains_runtime_variable_snapshot(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_runtime", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-runtime", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    assert client.post(
+        f"/api/environments/project/{project_id}/variables",
+        headers=headers,
+        json={"key": "base_url", "value": "https://project.example.com", "is_secret": False},
+    ).status_code == 200
+    assert client.post(
+        f"/api/environments/project/{project_id}/variables",
+        headers=headers,
+        json={"key": "api_key", "value": "project-secret", "is_secret": True},
+    ).status_code == 200
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "Case runtime detail",
+            "method": "GET",
+            "url": "{{base_url}}/profile?key={{api_key}}",
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    async def fake_execute_test(_test_case, runtime_variables=None):
+        assert runtime_variables is not None
+        assert runtime_variables["base_url"] == "https://project.example.com"
+        assert runtime_variables["api_key"] == "project-secret"
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\": true}",
+            "error_message": None,
+            "duration_ms": 19,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(f"/api/test-runs/test-cases/{case_id}/run", headers=headers)
+    assert run_resp.status_code == 200
+    run_id = run_resp.json()["id"]
+
+    detail_resp = client.get(f"/api/test-runs/{run_id}", headers=headers)
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()
+    assert detail["runtime_variables"]["base_url"] == "https://project.example.com"
+    assert detail["runtime_variables"]["api_key"] == "******"
+    assert detail["variable_sources"]["base_url"] == "project"
+    assert detail["variable_sources"]["api_key"] == "project"

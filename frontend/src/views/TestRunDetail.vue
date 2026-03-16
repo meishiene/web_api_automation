@@ -7,6 +7,7 @@
         <h2>执行详情</h2>
         <p v-if="detail">{{ detail.test_case_name }}（{{ detail.test_case_method }}）</p>
       </div>
+      <button class="secondary-btn" @click="openEnvironmentManager">环境变量治理</button>
     </div>
 
     <section class="panel-card">
@@ -27,6 +28,13 @@
           <pre>{{ formatJson(detail.actual_body) || '无响应体' }}</pre>
         </article>
 
+        <article v-if="detail.runtime_variables" class="info-card full">
+          <h3>运行时变量快照</h3>
+          <pre>{{ formatJson(detail.runtime_variables) }}</pre>
+          <h3>变量来源</h3>
+          <pre>{{ formatJson(detail.variable_sources) }}</pre>
+        </article>
+
         <article v-if="detail.error_message" class="info-card full">
           <h3>错误信息</h3>
           <pre class="error-pre">{{ detail.error_message }}</pre>
@@ -38,10 +46,11 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getTestRunDetail } from '@/api/testRuns'
 
 const route = useRoute()
+const router = useRouter()
 const projectId = Number(route.params.projectId)
 const runId = Number(route.params.runId)
 
@@ -72,13 +81,17 @@ const fetchDetail = async () => {
   }
 }
 
+const openEnvironmentManager = () => {
+  router.push(`/project/${projectId}/environments`)
+}
+
 onMounted(fetchDetail)
 </script>
 
 <style scoped>
 .run-page { display:flex; flex-direction:column; gap:20px; }
 .hero-card, .panel-card, .info-card { background: rgba(255,255,255,0.84); border:1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
-.hero-card { padding:24px 28px; }
+.hero-card { padding:24px 28px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .panel-card { padding:22px; }
 .back-link { color: var(--text-muted); text-decoration:none; }
 .eyebrow { display:inline-block; margin-top:10px; padding:6px 10px; border-radius:999px; background:var(--primary-soft); color:var(--primary-dark); font-size:12px; font-weight:700; }
@@ -90,5 +103,6 @@ onMounted(fetchDetail)
 .info-card pre { margin:0; white-space:pre-wrap; word-break:break-word; background:#f8fbfb; border-radius:14px; padding:14px; }
 .error-pre { color:#b42318; }
 .state-block { min-height:220px; display:grid; place-items:center; border:1px dashed var(--border-strong); border-radius:16px; color:var(--text-muted); }
+.secondary-btn { background:#f4f7f7; color:var(--text-main); border:1px solid var(--border-color); border-radius:12px; padding:10px 12px; font-weight:700; }
 @media (max-width: 900px) { .content-grid { grid-template-columns: 1fr; } }
 </style>

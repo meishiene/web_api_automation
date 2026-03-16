@@ -27,6 +27,11 @@ const routes = [
     component: () => import('@/views/BatchRunList.vue'),
   },
   {
+    path: '/project/:projectId/environments',
+    name: 'EnvironmentManager',
+    component: () => import('@/views/EnvironmentManager.vue'),
+  },
+  {
     path: '/project/:projectId/batches/:batchId',
     name: 'BatchRunDetail',
     component: () => import('@/views/BatchRunDetail.vue'),

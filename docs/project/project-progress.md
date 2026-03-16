@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 进行中
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 启动中
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -24,10 +24,10 @@
 | 用户与认证 | 已完成 JWT + Refresh Token、最小 RBAC（admin/user）、角色-权限矩阵、项目成员与组织层权限基础能力 | 80% |
 | 项目管理 | 已支持基础 CRUD、项目成员管理与组织归属治理 | 60% |
 | API 用例管理 | 已支持基础 CRUD、套件关联与增强断言配置（阶段 2 首批已落地） | 65% |
-| API 执行能力 | 已支持单条执行与套件批量执行（含批次追踪、变量链路传递） | 55% |
+| API 执行能力 | 已支持单条执行与套件批量执行（含批次追踪、变量链路传递、运行时变量快照） | 60% |
 | 工程化与测试基线 | 已建立测试基线、统一异常错误码、结构化日志、审计治理闭环、Alembic/PG 本地测试落地与模型治理细则 | 90% |
-| Web 测试能力 | 未开始 | 0% |
-| 环境与变量管理 | 已落地项目/环境变量最小闭环（含脱敏展示） | 35% |
+| Web 测试能力 | 阶段 3 已启动（首批能力待落地） | 5% |
+| 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
 | 调度与队列 | 已有预留模型，未打通 | 5% |
 | 报告与分析 | 仅有基础结果记录 | 5% |
@@ -40,8 +40,8 @@
 | --- | --- | --- | --- |
 | 阶段 0 | MVP 雏形 | 已完成 | 已完成最小 API 测试闭环 |
 | 阶段 1 | 平台基础重构 | 暂停 | 已完成测试基线、认证升级、迁移基线、DTO 统一、模型关系映射、模型治理细则、审计治理闭环、最小 RBAC 与生产迁移脚本；生产窗口执行与治理运营能力暂挂 |
-| 阶段 2 | API 平台化 | 进行中 | 已完成首批能力落地（套件、批量、环境变量、断言增强、执行详情与批次结果页），高级能力待建设 |
-| 阶段 3 | Web 测试平台建设 | 未开始 | Playwright 与 Web 用例体系待建设 |
+| 阶段 2 | API 平台化 | 收尾中 | 核心能力已落地并通过验收回归，进入收尾与阶段切换准备 |
+| 阶段 3 | Web 测试平台建设 | 启动中 | 已切换阶段门禁并进入首批能力建设准备 |
 | 阶段 4 | 调度与分布式执行 | 未开始 | Scheduler、Queue、Worker 待建设 |
 | 阶段 5 | 报告分析与治理 | 未开始 | 报告中心、趋势分析、治理待建设 |
 | 阶段 6 | 企业集成与生态完善 | 未开始 | CI/CD、SSO、通知、缺陷集成待建设 |
@@ -82,6 +82,9 @@
 - 已落地批次执行模型与接口：`api_batch_runs`、`api_batch_run_items`、`/api/test-runs/suites/{suite_id}/run`
 - 已落地批次查询接口：`/api/test-runs/batches/project/{project_id}`、`/api/test-runs/batches/{batch_id}`
 - 已落地环境与变量模型及接口：`project_environments`、`project_variables`、`environment_variables`、`/api/environments/*`
+- 已落地变量组复用与环境绑定：`project_variables.group_name`、`environment_variable_group_bindings`、`/api/environments/*/variable-groups/*`
+- 已落地密钥受控读取接口（管理权限 + 审计留痕）：`/api/environments/project/{project_id}/variables/{key}/secret-value`、`/api/environments/{environment_id}/variables/{key}/secret-value`
+- 已落地执行详情运行时变量快照与来源追踪：`test_runs.runtime_variables/variable_sources`、`GET /api/test-runs/{run_id}`
 - 已增强执行引擎：支持运行时变量替换、`contains/regex/jsonpath` 断言、响应数据提取与链路传递
 
 ### 5.2 前端
@@ -91,6 +94,7 @@
 - 已打通项目管理与 API 用例管理主链路
 - 已支持在测试用例页面触发执行并查看最近结果
 - 已支持批次结果页与执行详情页联动（批次列表 -> 批次详情 -> 执行详情）
+- 已新增环境变量治理页并与执行详情联动（变量治理页 -> 执行详情变量快照）
 
 ### 5.3 文档
 - 已补充项目概览文档
@@ -149,12 +153,14 @@
 - 阶段 1 未完成项（生产窗口演练、审计治理生产联调）转为风险托管项
 - 阶段 2 当前处于启动态，功能代码交付将从 API 套件、批量执行、环境变量能力开始
 
+### 6.8 阶段切换状态（2026-03-16）
+- 阶段 2 状态由“进行中”切换为“收尾中”，以阶段验收与收尾优化为主
+- 阶段 3 状态由“未开始”切换为“启动中”，已解除 Web 模块实现门禁并进入首批建设准备
+
 ## 7. 当前未开始内容
 
-- 组织级权限治理深化（组织层级策略、部门/工作区维度）
-- 多环境与变量管理（高级能力：共享变量组、密钥托管）
+- 多环境与变量管理（高级能力：第三方密钥托管系统对接、变量组版本化治理）
 - API 套件与批量执行（高级能力：重试策略、并发编排）
-- Web 自动化测试模块
 - 调度系统与分布式执行
 - 报告中心与趋势分析
 - CI/CD 集成
@@ -176,7 +182,7 @@
 - `frontend/src/views/TestCaseList.vue`
   - 当前承担过多职责，后续应拆分
 
-## 9. 当前阶段优先事项（阶段 2）
+## 9. 当前阶段优先事项（阶段 2 收尾 / 阶段 3 启动）
 
 ### P0：API 平台化首批落地（已完成）
 - 已完成 API 套件模型与基础 CRUD
@@ -187,14 +193,35 @@
 - 已落地断言能力（JSONPath / 正则 / 包含 / Schema）
 - 已落地响应数据提取与链路变量传递
 - 已落地 API 用例分组/标签/筛选/搜索（后端查询参数 + 前端筛选入口）
+- 已落地变量治理增强（S2-06）：变量组复用、密钥受控读取、前端治理页、执行详情变量快照
 - 执行详情页与批次结果页面已落地，后续需持续增强展示维度
 
 ### P2：阶段 1 遗留风险托管（暂停态）
 - PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
 - 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
 
+### P3：阶段 3 首批启动项（进行中）
+- Web 领域模型首批设计与落地（`WebTestCase`、`WebStep`、`Locator`）
+- Playwright 执行引擎最小闭环接入（单用例执行）
+- Web 执行结果基础展示页与产物链路预留
+
 ## 10. 最近更新记录
 ### 2026-03-16
+- 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
+- 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`
+- 同步检查并更新架构总纲阶段状态：`docs/architecture/企业级自动化测试平台系统架构规划.md`
+- 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
+- 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
+- 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）
+- 新增阶段 2 验收清单文档：`docs/project/stage-2-acceptance-checklist.md`
+- 完成阶段 2 S2-06：变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动、执行详情变量快照）
+- 新增迁移：`c3e8a6b1d2f4_phase2_variable_governance_enhancement`（`project_variables.group_name`、`environment_variable_group_bindings`、`test_runs.runtime_variables/variable_sources`）
+- 后端接口增强：新增变量组绑定/解绑与查询、密钥明文读取接口（管理权限 + 审计）、项目变量 `group_name` 管理能力
+- 执行链路增强：运行时变量解析支持“项目变量 + 变量组 + 环境变量”优先级覆盖，执行详情新增变量快照与来源展示（secret 默认脱敏）
+- 前端能力增强：新增环境变量治理页 `EnvironmentManager.vue`，并在用例页/执行详情页打通导航联动
+- 新增测试：`test_variable_groups_and_secret_reveal_api`、`test_non_owner_cannot_reveal_foreign_secret`、`test_run_suite_uses_bound_variable_group`、`test_run_detail_contains_runtime_variable_snapshot`
+- 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_environments_api.py tests/backend/test_suite_batch_runs_api.py tests/backend/test_test_runs_api.py tests/backend/test_test_executor_enhancements.py`（19 passed）
+- 前端构建验证通过：`npm run build`（frontend）
 - 完成组织级权限治理深化收口（阶段 1 风险托管项）：组织成员模型新增 `department/workspace` 维度（迁移 `b8f56e6e43f1_organization_member_scope_policy`）
 - 组织治理接口增强：`/api/organizations/{id}/members` 支持维度维护与维度筛选（`department/workspace`），跨项目治理接口新增组织策略边界（同部门/同工作区）
 - 新增组织治理策略测试：覆盖维度写入、维度筛选、跨维度越权拦截；验证通过 `tests/backend/test_organization_governance.py`（6 passed）

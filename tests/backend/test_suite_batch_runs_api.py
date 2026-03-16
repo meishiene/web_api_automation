@@ -264,3 +264,83 @@ def test_run_suite_with_same_idempotency_key_reuses_batch(client, monkeypatch, c
     batches_resp = client.get(f"/api/test-runs/batches/project/{project_id}", headers=headers)
     assert batches_resp.status_code == 200
     assert len(batches_resp.json()) == 1
+
+
+def test_run_suite_uses_bound_variable_group(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_group_suite", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-suite-group", "description": "desc"},
+    )
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "case-group",
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "headers": '{"Authorization":"Bearer {{auth_token}}"}',
+            "expected_status": 200,
+        },
+    )
+    case_id = case_resp.json()["id"]
+
+    suite_resp = client.post(
+        f"/api/test-suites/project/{project_id}",
+        headers=headers,
+        json={"name": "suite-group", "description": "desc"},
+    )
+    suite_id = suite_resp.json()["id"]
+    assert client.post(f"/api/test-suites/{suite_id}/cases/{case_id}", headers=headers, json={"order_index": 1}).status_code == 200
+
+    env_resp = client.post(
+        f"/api/environments/project/{project_id}",
+        headers=headers,
+        json={"name": "staging", "description": "staging"},
+    )
+    env_id = env_resp.json()["id"]
+
+    assert client.post(
+        f"/api/environments/project/{project_id}/variables",
+        headers=headers,
+        json={"key": "base_url", "value": "https://api.example.com", "is_secret": False},
+    ).status_code == 200
+    assert client.post(
+        f"/api/environments/project/{project_id}/variables",
+        headers=headers,
+        json={"key": "auth_token", "value": "group-secret", "is_secret": True, "group_name": "auth"},
+    ).status_code == 200
+    assert client.post(
+        f"/api/environments/{env_id}/variable-groups/bind",
+        headers=headers,
+        json={"group_name": "auth"},
+    ).status_code == 200
+
+    calls = []
+
+    async def fake_execute_test(test_case, runtime_variables=None):
+        calls.append(dict(runtime_variables or {}))
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": '{"ok":true}',
+            "error_message": None,
+            "duration_ms": 5,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(
+        f"/api/test-runs/suites/{suite_id}/run",
+        headers=headers,
+        json={"environment_id": env_id},
+    )
+    assert run_resp.status_code == 200
+    assert calls[0]["base_url"] == "https://api.example.com"
+    assert calls[0]["auth_token"] == "group-secret"

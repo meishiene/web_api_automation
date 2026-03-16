@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from app.schemas.common import ORMModel
 
@@ -19,3 +19,5 @@ class TestRunDetailResponse(TestRunResponse):
     test_case_method: str
     test_case_url: str
     test_case_expected_status: int
+    runtime_variables: Optional[Dict[str, str]] = None
+    variable_sources: Optional[Dict[str, str]] = None

@@ -1,3 +1,5 @@
+import json
+import inspect
 import time
 from typing import Any, Dict, List, Set
 
@@ -21,7 +23,7 @@ from app.schemas.test_run import TestRunDetailResponse, TestRunResponse
 from app.services.access_control import can_execute_test_run, can_view_test_run
 from app.services.audit_service import create_audit_log
 from app.services.test_executor import execute_test
-from app.services.variable_resolver import resolve_runtime_variables
+from app.services.variable_resolver import mask_secret_value, resolve_runtime_variables_with_meta
 
 router = APIRouter()
 
@@ -29,7 +31,43 @@ _IDEMPOTENCY_TTL_SECONDS = 1800
 _idempotency_cache: Dict[str, tuple[int, int]] = {}
 
 
-def _persist_test_run(db: Session, case_id: int, result: dict) -> TestRun:
+def _to_json_text(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _from_json_text(payload: str | None) -> dict[str, str] | None:
+    if not payload:
+        return None
+    try:
+        loaded = json.loads(payload)
+        if isinstance(loaded, dict):
+            return {str(k): str(v) for k, v in loaded.items()}
+    except json.JSONDecodeError:
+        return None
+    return None
+
+
+def _build_masked_runtime_snapshot(runtime_variables: Dict[str, Any], secret_keys: Set[str]) -> dict[str, str]:
+    return {
+        key: mask_secret_value(str(value), key in secret_keys)
+        for key, value in runtime_variables.items()
+    }
+
+
+def _persist_test_run(
+    db: Session,
+    case_id: int,
+    result: dict,
+    runtime_variables: Dict[str, Any] | None = None,
+    variable_sources: Dict[str, str] | None = None,
+    secret_keys: Set[str] | None = None,
+) -> TestRun:
+    runtime_snapshot = None
+    if runtime_variables is not None:
+        runtime_snapshot = _build_masked_runtime_snapshot(runtime_variables, secret_keys or set())
+
     test_run = TestRun(
         test_case_id=case_id,
         status=result["status"],
@@ -37,6 +75,8 @@ def _persist_test_run(db: Session, case_id: int, result: dict) -> TestRun:
         actual_body=result["actual_body"],
         error_message=result.get("error_message"),
         duration_ms=result.get("duration_ms"),
+        runtime_variables=_to_json_text(runtime_snapshot),
+        variable_sources=_to_json_text(variable_sources),
         created_at=int(time.time()),
     )
     db.add(test_run)
@@ -85,13 +125,20 @@ async def _execute_with_retry(
     attempts = 0
     last_result: dict | None = None
     while attempts <= retry_count:
-        last_result = await execute_test(test_case, runtime_variables=runtime_variables)
+        last_result = await _execute_test_case(test_case, runtime_variables)
         if last_result.get("status") not in retry_on:
             break
         if attempts >= retry_count:
             break
         attempts += 1
     return last_result or {}, attempts
+
+
+async def _execute_test_case(test_case: ApiTestCase, runtime_variables: Dict[str, Any]) -> dict:
+    execute_signature = inspect.signature(execute_test)
+    if "runtime_variables" in execute_signature.parameters:
+        return await execute_test(test_case, runtime_variables=runtime_variables)
+    return await execute_test(test_case)
 
 
 @router.post("/test-cases/{case_id}/run", response_model=TestRunResponse)
@@ -108,8 +155,20 @@ async def run_test_case(
     if not can_execute_test_run(db, user, test_case.project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    result = await execute_test(test_case)
-    test_run = _persist_test_run(db, case_id, result)
+    runtime_variables, variable_sources, secret_keys = resolve_runtime_variables_with_meta(
+        db=db,
+        project_id=test_case.project_id,
+        environment_id=None,
+    )
+    result = await _execute_test_case(test_case, runtime_variables)
+    test_run = _persist_test_run(
+        db=db,
+        case_id=case_id,
+        result=result,
+        runtime_variables=runtime_variables,
+        variable_sources=variable_sources,
+        secret_keys=secret_keys,
+    )
     db.commit()
     db.refresh(test_run)
 
@@ -209,7 +268,11 @@ async def run_test_suite(
     db.add(batch)
     db.flush()
 
-    runtime_variables = resolve_runtime_variables(db, suite.project_id, payload.environment_id)
+    runtime_variables, variable_sources, secret_keys = resolve_runtime_variables_with_meta(
+        db=db,
+        project_id=suite.project_id,
+        environment_id=payload.environment_id,
+    )
 
     for link in links:
         result, retry_used = await _execute_with_retry(
@@ -218,7 +281,14 @@ async def run_test_suite(
             retry_count=payload.retry_count,
             retry_on=retry_on,
         )
-        test_run = _persist_test_run(db, link.test_case_id, result)
+        test_run = _persist_test_run(
+            db=db,
+            case_id=link.test_case_id,
+            result=result,
+            runtime_variables=runtime_variables,
+            variable_sources=variable_sources,
+            secret_keys=secret_keys,
+        )
 
         item_error = result.get("error_message")
         if retry_used > 0 and item_error:
@@ -237,7 +307,11 @@ async def run_test_suite(
 
         if result["status"] == "success":
             batch.passed_cases += 1
-            runtime_variables.update(result.get("extracted_variables") or {})
+            extracted_variables = result.get("extracted_variables") or {}
+            runtime_variables.update(extracted_variables)
+            for extracted_key in extracted_variables:
+                variable_sources[extracted_key] = "extracted"
+                secret_keys.discard(extracted_key)
         elif result["status"] == "failed":
             batch.failed_cases += 1
         else:
@@ -404,4 +478,6 @@ def get_test_run_detail(
         test_case_method=run.test_case.method,
         test_case_url=run.test_case.url,
         test_case_expected_status=run.test_case.expected_status,
+        runtime_variables=_from_json_text(run.runtime_variables),
+        variable_sources=_from_json_text(run.variable_sources),
     )

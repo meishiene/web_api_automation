@@ -32,6 +32,8 @@ class TestRun(Base):
     actual_body = Column(Text)
     error_message = Column(Text)
     duration_ms = Column(Integer)
+    runtime_variables = Column(Text, nullable=True)
+    variable_sources = Column(Text, nullable=True)
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
 
     test_case = relationship("ApiTestCase", back_populates="test_runs")

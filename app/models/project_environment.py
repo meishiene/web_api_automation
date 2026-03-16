@@ -26,4 +26,9 @@ class ProjectEnvironment(Base):
     project = relationship("Project", back_populates="environments")
     creator = relationship("User", back_populates="created_environments")
     variables = relationship("EnvironmentVariable", back_populates="environment", cascade="all, delete-orphan")
+    variable_group_bindings = relationship(
+        "EnvironmentVariableGroupBinding",
+        back_populates="environment",
+        cascade="all, delete-orphan",
+    )
     batch_runs = relationship("ApiBatchRun", back_populates="environment")
