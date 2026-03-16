@@ -10,15 +10,21 @@ class OrganizationMember(Base):
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_organization_members_org_user"),
         CheckConstraint("role IN ('admin', 'member')", name="ck_organization_members_role_allowed"),
+        CheckConstraint("department IS NULL OR length(trim(department)) > 0", name="ck_organization_members_department_not_blank"),
+        CheckConstraint("workspace IS NULL OR length(trim(workspace)) > 0", name="ck_organization_members_workspace_not_blank"),
         CheckConstraint("created_at >= 0", name="ck_organization_members_created_at_non_negative"),
         Index("ix_organization_members_org_id", "organization_id"),
         Index("ix_organization_members_user_id", "user_id"),
+        Index("ix_organization_members_org_department", "organization_id", "department"),
+        Index("ix_organization_members_org_workspace", "organization_id", "workspace"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(20), nullable=False, default="member")
+    department = Column(String(100), nullable=True)
+    workspace = Column(String(100), nullable=True)
     created_at = Column(Integer, nullable=False, default=unix_timestamp)
 
     organization = relationship("Organization", back_populates="members")

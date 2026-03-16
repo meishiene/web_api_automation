@@ -1,0 +1,12 @@
+﻿{
+    "started_at":  "2026-03-16T11:17:52.6618641+08:00",
+    "status":  "completed",
+    "target_revision":  "head",
+    "pre_revision":  "a7c3d9e1f2b4",
+    "post_revision":  "a7c3d9e1f2b4",
+    "backup_file":  null,
+    "rollback_command":  "powershell -ExecutionPolicy Bypass -File .\\scripts\\prod-db-rollback.ps1 -ConfirmText I_UNDERSTAND_THIS_WILL_ROLLBACK_PRODUCTION -ManifestPath \"D:\\project\\web_api_automation\\.\\artifacts\\prod-db-window-drill\\manifests\\prod_migration_20260316_111751.json\" -DatabaseUrl \"\u003crequired\u003e\"",
+    "connectivity_check_enabled":  true,
+    "backup_enabled":  false,
+    "completed_at":  "2026-03-16T11:17:55.1349925+08:00"
+}

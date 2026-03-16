@@ -109,7 +109,7 @@
 - 已补齐核心资源越权访问校验，越权场景统一返回 `403 FORBIDDEN`
 - 已落地项目成员模型（`project_members`）与成员协作权限（`maintainer/editor/viewer`）
 - 已落地组织层级与跨项目成员治理基础能力（组织成员、项目归属、跨项目角色下发）
-- 组织级权限治理深化（组织层级策略、部门/工作区维度）尚未完成
+- 已完成组织级权限治理深化收口（部门/工作区维度 + 组织策略细化）：组织成员新增 `department/workspace` 维度，成员治理接口支持维度维护与筛选，跨项目治理新增同部门/同工作区策略边界校验
 
 ### 6.2 执行能力
 - 已支持单条 API 用例执行
@@ -140,11 +140,13 @@
 - 已提供保留策略执行脚本 `scripts/audit-governance-run.py`（支持 dry-run）
 - 已补齐生产化编排基础能力：锁文件防重入、执行清单留痕、阈值告警、生产执行脚本 `scripts/prod-audit-governance-run.ps1`
 - 已补齐真实定时任务与告警联动脚本：`setup-audit-governance-schedule.ps1`、`remove-audit-governance-schedule.ps1`、`alert_webhook_notify.py`
+- 已完成一次联调演练（本地生产参数）：`prod-audit-governance-run.ps1` 全链路执行通过，并验证“阈值触发 -> webhook 回调”闭环（`FailOnAlert + AlertWebhookUrl`）
+- 已完成定时任务注册命令联调校验（DryRun）：`setup-audit-governance-schedule.ps1` 成功输出 `schtasks /Create` 命令
 - 仍需在真实生产环境完成任务注册与告警平台配置生效验证
 
 ### 6.7 阶段切换状态（2026-03-13）
 - 已按项目决策将阶段 1 调整为“暂停”，并将阶段 2 调整为“进行中”
-- 阶段 1 未完成项（生产窗口演练、审计治理生产联调、组织层策略深化）转为风险托管项
+- 阶段 1 未完成项（生产窗口演练、审计治理生产联调）转为风险托管项
 - 阶段 2 当前处于启动态，功能代码交付将从 API 套件、批量执行、环境变量能力开始
 
 ## 7. 当前未开始内容
@@ -190,9 +192,19 @@
 ### P2：阶段 1 遗留风险托管（暂停态）
 - PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
 - 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
-- 组织级权限治理深化（组织层级策略、部门/工作区维度）
 
 ## 10. 最近更新记录
+### 2026-03-16
+- 完成组织级权限治理深化收口（阶段 1 风险托管项）：组织成员模型新增 `department/workspace` 维度（迁移 `b8f56e6e43f1_organization_member_scope_policy`）
+- 组织治理接口增强：`/api/organizations/{id}/members` 支持维度维护与维度筛选（`department/workspace`），跨项目治理接口新增组织策略边界（同部门/同工作区）
+- 新增组织治理策略测试：覆盖维度写入、维度筛选、跨维度越权拦截；验证通过 `tests/backend/test_organization_governance.py`（6 passed）
+- 新增迁移链路验证：`alembic upgrade head -> downgrade a7c3d9e1f2b4 -> upgrade head`（通过）
+- 完成生产迁移窗口演练复核（本地 PostgreSQL 演练库）：执行 `迁移 -> 回滚 -> 再迁移` 全流程，产出 `artifacts/prod-db-window-drill/window_drill_20260316_111751.{json,md}`
+- 完成审计治理生产联调验证演练（本地生产参数）：执行 `scripts/prod-audit-governance-run.ps1`，验证治理任务执行成功与清单产物落地
+- 完成告警联动闭环验证：通过阈值触发告警并回调 webhook（HTTP 200），联调产物写入 `artifacts/audit-governance/`
+- 完成定时任务注册命令校验（DryRun）：`scripts/setup-audit-governance-schedule.ps1` 可正确生成 `schtasks /Create` 命令
+- 说明：以上为“演练/联调验证”完成，阶段 1 仍保持“暂停态风险托管”；真实生产环境任务注册与窗口执行闭环仍待落地
+
 ### 2026-03-13
 - 完成阶段 2 S2-04：落地用例分组/标签/筛选/搜索（新增 `case_group/tags` 字段、查询参数 `keyword/case_group/tag`、前端筛选交互）
 - 新增迁移：`a7c3d9e1f2b4_phase2_test_case_group_tags`（`api_test_cases.case_group/tags`）

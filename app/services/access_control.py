@@ -17,12 +17,17 @@ def get_project_member_role(db: Session, project_id: int, user_id: int) -> str |
 
 
 def get_organization_member_role(db: Session, organization_id: int, user_id: int) -> str | None:
+    membership = get_organization_membership(db, organization_id, user_id)
+    return membership.role if membership else None
+
+
+def get_organization_membership(db: Session, organization_id: int, user_id: int) -> OrganizationMember | None:
     membership = (
         db.query(OrganizationMember)
         .filter(OrganizationMember.organization_id == organization_id, OrganizationMember.user_id == user_id)
         .first()
     )
-    return membership.role if membership else None
+    return membership
 
 
 def can_view_organization(db: Session, user: User, organization: Organization) -> bool:

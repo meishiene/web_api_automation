@@ -21,6 +21,8 @@ class OrganizationResponse(BaseModel):
 class OrganizationMemberCreateRequest(BaseModel):
     user_id: int = Field(..., ge=1)
     role: OrganizationMemberRole = "member"
+    department: str | None = Field(default=None, max_length=100)
+    workspace: str | None = Field(default=None, max_length=100)
 
 
 class OrganizationMemberResponse(BaseModel):
@@ -28,6 +30,8 @@ class OrganizationMemberResponse(BaseModel):
     organization_id: int
     user_id: int
     role: OrganizationMemberRole
+    department: str | None = None
+    workspace: str | None = None
     created_at: int
 
 

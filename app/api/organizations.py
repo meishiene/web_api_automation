@@ -1,7 +1,7 @@
 import time
 from typing import List
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,7 +12,8 @@ from app.models.organization_member import OrganizationMember
 from app.models.project import Project
 from app.models.project_member import ProjectMember
 from app.models.user import User
-from app.services.access_control import can_manage_organization, can_view_organization
+from app.permissions import Permission, has_permission
+from app.services.access_control import can_manage_organization, can_view_organization, get_organization_membership
 from app.services.audit_service import create_audit_log
 from app.schemas.common import MessageResponse
 from app.schemas.organization import (
@@ -26,6 +27,13 @@ from app.schemas.organization import (
 )
 
 router = APIRouter()
+
+
+def _normalize_optional_scope(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 @router.get("/", response_model=List[OrganizationResponse])
@@ -80,6 +88,8 @@ def create_organization(
 @router.get("/{organization_id}/members", response_model=List[OrganizationMemberResponse])
 def get_organization_members(
     organization_id: int,
+    department: str | None = Query(default=None),
+    workspace: str | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> List[OrganizationMemberResponse]:
@@ -88,12 +98,12 @@ def get_organization_members(
         raise AppException(404, ErrorCode.ORGANIZATION_NOT_FOUND, "Organization not found")
     if not can_view_organization(db, user, org):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
-    return (
-        db.query(OrganizationMember)
-        .filter(OrganizationMember.organization_id == organization_id)
-        .order_by(OrganizationMember.id.asc())
-        .all()
-    )
+    query = db.query(OrganizationMember).filter(OrganizationMember.organization_id == organization_id)
+    if department is not None:
+        query = query.filter(OrganizationMember.department == department)
+    if workspace is not None:
+        query = query.filter(OrganizationMember.workspace == workspace)
+    return query.order_by(OrganizationMember.id.asc()).all()
 
 
 @router.post("/{organization_id}/members", response_model=OrganizationMemberResponse)
@@ -126,11 +136,15 @@ def upsert_organization_member(
     )
     if member:
         member.role = payload.role
+        member.department = _normalize_optional_scope(payload.department)
+        member.workspace = _normalize_optional_scope(payload.workspace)
     else:
         member = OrganizationMember(
             organization_id=organization_id,
             user_id=payload.user_id,
             role=payload.role,
+            department=_normalize_optional_scope(payload.department),
+            workspace=_normalize_optional_scope(payload.workspace),
             created_at=int(time.time()),
         )
         db.add(member)
@@ -143,7 +157,13 @@ def upsert_organization_member(
         resource_type="organization_member",
         resource_id=str(member.id),
         user_id=user.id,
-        details={"organization_id": organization_id, "target_user_id": payload.user_id, "role": payload.role},
+        details={
+            "organization_id": organization_id,
+            "target_user_id": payload.user_id,
+            "role": payload.role,
+            "department": member.department,
+            "workspace": member.workspace,
+        },
     )
     return member
 
@@ -211,6 +231,19 @@ def apply_cross_project_member_governance(
     target_user = db.query(User).filter(User.id == payload.user_id).first()
     if not target_user:
         raise AppException(404, ErrorCode.USER_NOT_FOUND, "User not found")
+
+    bypass_scope_policy = has_permission(user.role, Permission.ORG_MANAGE_ALL) or org.owner_id == user.id
+    if not bypass_scope_policy:
+        actor_membership = get_organization_membership(db, organization_id, user.id)
+        if not actor_membership:
+            raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+        target_membership = get_organization_membership(db, organization_id, payload.user_id)
+        if actor_membership.department is not None:
+            if not target_membership or target_membership.department != actor_membership.department:
+                raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden by organization department policy")
+        if actor_membership.workspace is not None:
+            if not target_membership or target_membership.workspace != actor_membership.workspace:
+                raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden by organization workspace policy")
 
     projects = db.query(Project).filter(Project.organization_id == organization_id).all()
     affected_projects = 0

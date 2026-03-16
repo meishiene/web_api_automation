@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
@@ -7,6 +7,55 @@ const repoRoot = process.cwd()
 const pythonPath = path.join(repoRoot, '.venv', 'Scripts', 'python.exe')
 const frontendNodeModules = path.join(repoRoot, 'frontend', 'node_modules')
 const dryRun = process.argv.includes('--dry-run')
+const envFiles = ['.env.local', '.env']
+
+function loadDotEnv(filePath) {
+  if (!existsSync(filePath)) {
+    return {}
+  }
+
+  const result = {}
+  const lines = readFileSync(filePath, 'utf8').split(/\r?\n/)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue
+    }
+
+    const sep = trimmed.indexOf('=')
+    if (sep <= 0) {
+      continue
+    }
+
+    const key = trimmed.slice(0, sep).trim()
+    let value = trimmed.slice(sep + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+
+    result[key] = value
+  }
+
+  return result
+}
+
+const fileEnv = {}
+for (const envFile of envFiles) {
+  const envPath = path.join(repoRoot, envFile)
+  Object.assign(fileEnv, loadDotEnv(envPath))
+}
+
+const backendEnv = {
+  ...process.env,
+  ...fileEnv,
+}
+
+if (!backendEnv.APP_ENV) {
+  backendEnv.APP_ENV = 'local'
+}
 
 if (!existsSync(pythonPath)) {
   console.error('Missing virtual environment Python: .venv\\Scripts\\python.exe')
@@ -23,7 +72,7 @@ if (!existsSync(frontendNodeModules)) {
 const backendCommand = {
   command: pythonPath,
   args: ['-m', 'uvicorn', 'app.main:app', '--reload', '--host', '127.0.0.1', '--port', '8000'],
-  options: { cwd: repoRoot, stdio: 'inherit' },
+  options: { cwd: repoRoot, stdio: 'inherit', env: backendEnv },
 }
 
 const frontendCommand = {

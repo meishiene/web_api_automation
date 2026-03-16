@@ -134,3 +134,87 @@ def test_platform_admin_can_manage_any_organization(client, create_user_and_logi
         json={"user_id": 3, "role": "member"},
     )
     assert add_member_resp.status_code == 200
+
+
+def test_owner_can_set_and_filter_member_scope_dimensions(client, create_user_and_login, auth_headers):
+    owner_token = create_user_and_login("owner", "pwd")
+    create_user_and_login("member-a", "pwd")
+    create_user_and_login("member-b", "pwd")
+
+    org_resp = client.post(
+        "/api/organizations/",
+        headers=auth_headers(owner_token),
+        json={"name": "Org-Scope"},
+    )
+    org_id = org_resp.json()["id"]
+
+    upsert_a = client.post(
+        f"/api/organizations/{org_id}/members",
+        headers=auth_headers(owner_token),
+        json={"user_id": 2, "role": "member", "department": "QA", "workspace": "WS-A"},
+    )
+    upsert_b = client.post(
+        f"/api/organizations/{org_id}/members",
+        headers=auth_headers(owner_token),
+        json={"user_id": 3, "role": "member", "department": "RD", "workspace": "WS-B"},
+    )
+    assert upsert_a.status_code == 200
+    assert upsert_b.status_code == 200
+    assert upsert_a.json()["department"] == "QA"
+    assert upsert_a.json()["workspace"] == "WS-A"
+
+    filtered = client.get(
+        f"/api/organizations/{org_id}/members?department=QA&workspace=WS-A",
+        headers=auth_headers(owner_token),
+    )
+    assert filtered.status_code == 200
+    items = filtered.json()
+    assert len(items) == 1
+    assert items[0]["user_id"] == 2
+
+
+def test_scoped_org_admin_cannot_govern_cross_scope_member(client, create_user_and_login, auth_headers):
+    owner_token = create_user_and_login("owner", "pwd")
+    admin_token = create_user_and_login("org-admin", "pwd")
+    target_token = create_user_and_login("target", "pwd")
+    assert target_token
+
+    org_resp = client.post(
+        "/api/organizations/",
+        headers=auth_headers(owner_token),
+        json={"name": "Org-Scoped-Gov"},
+    )
+    org_id = org_resp.json()["id"]
+
+    add_admin = client.post(
+        f"/api/organizations/{org_id}/members",
+        headers=auth_headers(owner_token),
+        json={"user_id": 2, "role": "admin", "department": "QA", "workspace": "WS-A"},
+    )
+    add_target = client.post(
+        f"/api/organizations/{org_id}/members",
+        headers=auth_headers(owner_token),
+        json={"user_id": 3, "role": "member", "department": "RD", "workspace": "WS-B"},
+    )
+    assert add_admin.status_code == 200
+    assert add_target.status_code == 200
+
+    p1 = client.post(
+        "/api/projects/",
+        headers=auth_headers(owner_token),
+        json={"name": "P-Scope-1", "description": "d"},
+    ).json()["id"]
+    attach = client.post(
+        f"/api/organizations/{org_id}/projects/attach",
+        headers=auth_headers(owner_token),
+        json={"project_id": p1},
+    )
+    assert attach.status_code == 200
+
+    forbidden = client.post(
+        f"/api/organizations/{org_id}/members/governance/cross-project",
+        headers=auth_headers(admin_token),
+        json={"user_id": 3, "project_role": "viewer"},
+    )
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error"]["code"] == "FORBIDDEN"
