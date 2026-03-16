@@ -9,8 +9,8 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 3 Web 测试平台建设
-- 当前状态：启动中（首批能力待落地）
-- 当前总阶段：阶段 2 收尾中 + 阶段 3 启动中（详见 `docs/project/project-progress.md`）
+- 当前状态：收尾中（首批能力已落地，进入稳定性收敛）
+- 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 启动中（详见 `docs/project/project-progress.md`）
 - 本阶段目标：建立 Web 自动化测试模块，使平台具备 API + Web 双引擎能力，并实现统一执行结果归档/展示的最小闭环。
 
 ## 1. 范围边界
@@ -175,7 +175,7 @@
   - 验证通过：`.\.venv\Scripts\python -m pytest`
 
 ### S3-03：前端最小页面闭环（管理 + 执行 + 查看）
-- 状态：待开始
+- 状态：已完成
 - 交付物（最小页面集合）：
   - Web 用例管理页（列表/编辑/步骤编排最小形态）
   - 执行入口（触发执行）
@@ -185,8 +185,22 @@
 - DoD：
   - 平台内完成 Web 用例创建/编辑/执行/查看（最小闭环）
 
+#### 交付物落地情况（2026-03-16）
+
+- 前端页面：
+  - `frontend/src/views/WebTestCaseList.vue`（Web 用例管理 + 执行入口 + 最近执行记录）
+  - `frontend/src/views/WebTestRunDetail.vue`（Web 执行详情 + 步骤日志 + 产物路径）
+- 路由与入口：
+  - 新增路由：`/project/:projectId/web-test-cases`、`/project/:projectId/web-runs/:runId`
+  - 在 `frontend/src/views/TestCaseList.vue` 新增“Web 用例管理”入口按钮
+- API 封装联动：
+  - `frontend/src/api/webTestCases.js`
+  - `frontend/src/api/webTestRuns.js`
+- 最小测试集（前端）：
+  - 验证通过：`npm run build`（frontend）
+
 ### S3-04：统一归档与展示对齐（API/Web 同口径）
-- 状态：待开始
+- 状态：已完成
 - 交付物：
   - 统一的执行结果“展示/归档约定”（字段口径与链接策略）
   - Web 执行结果与 API 执行结果在展示层的最低一致性（例如：状态枚举、开始/结束时间、产物入口）
@@ -195,6 +209,22 @@
 - DoD：
   - Web 结果可以在平台内被稳定查询与回溯，且与 API 的结果结构不冲突
 
+#### 交付物落地情况（2026-03-16）
+
+- 后端统一查询接口：
+  - `GET /api/test-runs/project/{project_id}/unified-results`
+  - 统一返回字段：`run_type/run_id/project_id/case_id/case_name/status/duration_ms/error_message/created_at/started_at/finished_at/detail_api_path/artifact_dir/artifacts`
+  - 支持筛选与分页：`run_type/status/created_from/created_to/page/page_size`
+- 前端统一展示页：
+  - `frontend/src/views/UnifiedRunList.vue`
+  - 路由：`/project/:projectId/executions`
+  - 支持按 `run_type` 跳转到 API 执行详情或 Web 执行详情
+  - 支持筛选栏（类型/状态/时间范围）、分页与“仅看失败/快速定位首条失败”快捷操作
+- 最小测试集：
+  - 新增后端测试：`tests/backend/test_unified_results_api.py`
+  - 回归通过：`.\.venv\Scripts\python -m pytest tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`
+  - 前端构建通过：`npm run build`（frontend）
+
 ## 3. 进度看板（手工维护，保守标记）
 
 | 条目 | 状态 | 备注 |
@@ -202,8 +232,8 @@
 | S3-00 | 已完成 | 明确最小闭环路径、后端目录/命名、接口边界、产物归档约定 |
 | S3-01 | 已完成 | Web 领域模型 + 迁移 + 最小 CRUD API + 最小测试集 |
 | S3-02 | 已完成 | Playwright 执行器 + 单用例执行接口 + 结果/产物查询 |
-| S3-03 | 待开始 |  |
-| S3-04 | 待开始 |  |
+| S3-03 | 已完成 | 前端最小闭环：Web 用例管理页 + 执行详情页 + 路由入口 + 构建验证 |
+| S3-04 | 已完成 | 统一查询接口 + 统一执行结果页 + API/Web 兼容性测试 |
 
 ## 4. 阶段 3 完成定义（DoD）
 
@@ -218,3 +248,7 @@
 - 完成 S3-00：明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定
 - 完成 S3-01：落地 Web 领域模型与迁移，并提供最小 Web 用例 CRUD API（含测试门禁）
 - 完成 S3-02：落地 Playwright 执行引擎最小闭环（单用例执行）与 Web 执行结果/产物查询接口
+- 完成 S3-03：落地前端最小页面闭环（Web 用例管理页 + Web 执行详情页），补齐路由与 API 用例页入口按钮
+- 完成 S3-03 门禁验证：`npm run build`（frontend，通过）
+- 完成 S3-04：落地 API/Web 统一执行结果接口与前端统一展示页（Execution Center），实现统一字段口径与详情跳转对齐
+- 完成 S3-04 测试门禁：后端兼容性测试与相关回归通过，前端构建验证通过

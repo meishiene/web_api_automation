@@ -22,6 +22,16 @@ const routes = [
     component: () => import('@/views/TestCaseList.vue'),
   },
   {
+    path: '/project/:projectId/web-test-cases',
+    name: 'WebTestCaseList',
+    component: () => import('@/views/WebTestCaseList.vue'),
+  },
+  {
+    path: '/project/:projectId/executions',
+    name: 'UnifiedRunList',
+    component: () => import('@/views/UnifiedRunList.vue'),
+  },
+  {
     path: '/project/:projectId/batches',
     name: 'BatchRunList',
     component: () => import('@/views/BatchRunList.vue'),
@@ -40,6 +50,11 @@ const routes = [
     path: '/project/:projectId/runs/:runId',
     name: 'TestRunDetail',
     component: () => import('@/views/TestRunDetail.vue'),
+  },
+  {
+    path: '/project/:projectId/web-runs/:runId',
+    name: 'WebTestRunDetail',
+    component: () => import('@/views/WebTestRunDetail.vue'),
   },
 ]
 

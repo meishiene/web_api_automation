@@ -8,6 +8,9 @@
 | 套件批量执行 / 批次查询 | `app/api/test_runs.py`、`app/models/api_batch_run.py`、`app/models/api_batch_run_item.py` |
 | 环境与变量管理 | `app/api/environments.py`、`app/models/project_environment.py`、`app/models/project_variable.py`、`app/models/environment_variable.py` |
 | 变量替换与断言增强 | `app/services/test_executor.py`、`app/services/variable_resolver.py` |
+| Web 用例与执行（阶段 3） | `app/api/web_test_cases.py`、`app/api/web_test_runs.py`、`app/services/web_executor.py` |
+| 统一执行结果查询 | `app/api/test_runs.py`（`/unified-results`）、`frontend/src/views/UnifiedRunList.vue` |
+| 阶段 4 执行编排骨架 | `app/models/execution_task.py`、`app/models/execution_job.py`、`app/services/execution_orchestrator.py` |
 | 测试用例断言/提取字段 | `app/api/test_cases.py`、`app/schemas/api_test_case.py`、`app/models/api_test_case.py` |
 | 权限问题（403） | `app/services/access_control.py`、`app/permissions.py` |
 | 认证相关（401） | `app/dependencies.py`、`app/api/auth.py`、`frontend/src/utils/request.js` |
@@ -52,7 +55,11 @@
 - 文件：`app/services/audit_service.py`、`app/api/audit_logs.py`
 - 职责：关键操作审计、查询、治理执行
 
-### 10. 迁移与基础设施
+### 10. Web 测试模块（阶段 3）
+- 文件：`app/api/web_test_cases.py`、`app/api/web_test_runs.py`、`app/services/web_executor.py`
+- 职责：Web 用例管理、单用例执行、步骤日志与产物归档
+
+### 11. 迁移与基础设施
 - 文件：`app/database.py`、`migrations/*`
 - 职责：连接管理、自动迁移、版本演进
 

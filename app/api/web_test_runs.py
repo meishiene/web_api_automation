@@ -16,6 +16,8 @@ from app.models.web_test_run import WebTestRun
 from app.schemas.web_test_run import WebTestRunDetailResponse, WebTestRunResponse
 from app.services.access_control import can_execute_web_test_run, can_view_web_test_run
 from app.services.audit_service import create_audit_log
+from app.services.execution_contract import ExecutionAdapter
+from app.services.execution_orchestrator import run_execution_task
 from app.services.web_executor import execute_web_test_case
 
 router = APIRouter()
@@ -81,7 +83,22 @@ async def run_web_test_case(
     artifact_dir_path.mkdir(parents=True, exist_ok=True)
     db.flush()
 
-    result = await execute_web_test_case(case, artifact_dir=run.artifact_dir)
+    class _WebCaseExecutionAdapter(ExecutionAdapter):
+        async def execute(self) -> dict[str, Any]:
+            return await execute_web_test_case(case, artifact_dir=run.artifact_dir)
+
+    _task, _job, result = await run_execution_task(
+        db=db,
+        project_id=case.project_id,
+        run_type="web",
+        target_type="test_case",
+        target_id=case.id,
+        adapter=_WebCaseExecutionAdapter(),
+        created_by=user.id,
+        trigger_mode="manual",
+        context={"artifact_dir": run.artifact_dir},
+    )
+
     run.status = result.get("status", "error")
     run.error_message = result.get("error_message")
     run.duration_ms = result.get("duration_ms")
@@ -151,4 +168,3 @@ def get_web_test_run_detail(
         web_test_case_base_url=case.base_url,
         step_logs=[item for item in _from_json_array(run.step_logs_json) if isinstance(item, dict)],
     )
-

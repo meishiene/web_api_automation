@@ -21,9 +21,11 @@
 
 ## 当前阶段匹配（依据 `project-progress.md`）
 
-- 当前总阶段：阶段 2（收尾）+ 阶段 3（启动）
+- 当前总阶段：阶段 2（收尾）+ 阶段 3（收尾）+ 阶段 4（启动）
 - 默认可执行模块：
-  - `05-web-testing`（阶段 3 首批实现）
+  - `06-execution-orchestration`（阶段 4 首批实现）
+  - `07-scheduling-queue-worker`（阶段 4 首批实现）
+  - `05-web-testing`（阶段 3 收尾缺陷修复与稳定性增强）
   - `02-user-org-auth`（仅缺陷修复/治理收尾）
   - `03-project-assets-env`（仅缺陷修复/治理收尾）
   - `04-api-testing`（仅缺陷修复/治理收尾）

@@ -28,3 +28,4 @@ class User(Base):
     created_environments = relationship("ProjectEnvironment", back_populates="creator", cascade="all, delete-orphan")
     triggered_batch_runs = relationship("ApiBatchRun", back_populates="trigger_user")
     schedule_tasks = relationship("ScheduleTask", back_populates="creator", cascade="all, delete-orphan")
+    execution_tasks_created = relationship("ExecutionTask", back_populates="creator")

@@ -9,6 +9,7 @@ app/main.py
   ├─ app.api.test_cases
   ├─ app.api.test_suites
   ├─ app.api.environments
+  ├─ app.api.schedule_tasks
   ├─ app.api.test_runs
   ├─ app.api.web_test_cases
   ├─ app.api.web_test_runs
@@ -29,12 +30,21 @@ app.api.environments
   ├─ app.services.variable_resolver
   └─ app.services.audit_service
 
+app.api.schedule_tasks
+  ├─ app.models.schedule_task
+  ├─ app.models.run_queue
+  ├─ app.services.access_control
+  └─ app.services.audit_service
+
 app.api.test_runs
   ├─ app.models.test_run
+  ├─ app.models.execution_task
+  ├─ app.models.execution_job
   ├─ app.models.api_batch_run
   ├─ app.models.api_batch_run_item
   ├─ app.models.api_test_suite
   ├─ app.models.api_test_suite_case
+  ├─ app.services.execution_orchestrator
   ├─ app.services.test_executor
   ├─ app.services.variable_resolver
   └─ app.services.audit_service
@@ -46,6 +56,9 @@ app.services.test_executor
 app.api.web_test_runs
   ├─ app.models.web_test_case
   ├─ app.models.web_test_run
+  ├─ app.models.execution_task
+  ├─ app.models.execution_job
+  ├─ app.services.execution_orchestrator
   ├─ app.services.web_executor
   ├─ app.services.access_control
   └─ app.services.audit_service
@@ -61,7 +74,10 @@ router/index.js
   ├─ Login.vue
   ├─ Register.vue
   ├─ ProjectList.vue
-  └─ TestCaseList.vue
+  ├─ TestCaseList.vue
+  ├─ WebTestCaseList.vue
+  ├─ WebTestRunDetail.vue
+  └─ UnifiedRunList.vue
 
 views/*.vue
   ├─ utils/request.js
@@ -75,6 +91,11 @@ views/*.vue（阶段 2 已落地页面）
   ├─ BatchRunDetail.vue
   ├─ TestRunDetail.vue
   └─ EnvironmentManager.vue
+
+views/*.vue（阶段 3 已落地页面）
+  ├─ WebTestCaseList.vue
+  ├─ WebTestRunDetail.vue
+  └─ UnifiedRunList.vue
 ```
 
 ## 领域数据流

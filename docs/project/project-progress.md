@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 启动中
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 启动中
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -26,10 +26,10 @@
 | API 用例管理 | 已支持基础 CRUD、套件关联与增强断言配置（阶段 2 首批已落地） | 65% |
 | API 执行能力 | 已支持单条执行与套件批量执行（含批次追踪、变量链路传递、运行时变量快照） | 60% |
 | 工程化与测试基线 | 已建立测试基线、统一异常错误码、结构化日志、审计治理闭环、Alembic/PG 本地测试落地与模型治理细则 | 90% |
-| Web 测试能力 | 阶段 3 已启动（领域模型、用例管理、单用例执行与产物链路已落地） | 25% |
+| Web 测试能力 | 阶段 3 收尾中（领域模型、用例管理、单用例执行、前端最小闭环与 API/Web 统一结果展示已落地） | 45% |
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
-| 调度与队列 | 已有预留模型，未打通 | 5% |
+| 调度与队列 | 阶段 4 已启动并完成统一执行编排骨架 + schedule_tasks 最小 API 与触发入队链路 | 22% |
 | 报告与分析 | 仅有基础结果记录 | 5% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
 | 企业集成 | 未开始 | 0% |
@@ -41,8 +41,8 @@
 | 阶段 0 | MVP 雏形 | 已完成 | 已完成最小 API 测试闭环 |
 | 阶段 1 | 平台基础重构 | 暂停 | 已完成测试基线、认证升级、迁移基线、DTO 统一、模型关系映射、模型治理细则、审计治理闭环、最小 RBAC 与生产迁移脚本；生产窗口执行与治理运营能力暂挂 |
 | 阶段 2 | API 平台化 | 收尾中 | 核心能力已落地并通过验收回归，进入收尾与阶段切换准备 |
-| 阶段 3 | Web 测试平台建设 | 启动中 | 已切换阶段门禁并进入首批能力建设准备 |
-| 阶段 4 | 调度与分布式执行 | 未开始 | Scheduler、Queue、Worker 待建设 |
+| 阶段 3 | Web 测试平台建设 | 收尾中 | 阶段 3 首批闭环（S3-00~S3-04）已完成，进入稳定性收敛与遗留优化 |
+| 阶段 4 | 调度与分布式执行 | 启动中 | 已建立阶段 4 开发清单与门禁，进入首批骨架建设准备 |
 | 阶段 5 | 报告分析与治理 | 未开始 | 报告中心、趋势分析、治理待建设 |
 | 阶段 6 | 企业集成与生态完善 | 未开始 | CI/CD、SSO、通知、缺陷集成待建设 |
 
@@ -50,14 +50,14 @@
 
 ### 5.1 后端
 - 已建立 `FastAPI` 应用入口
-- 已接入 `auth`、`organizations`、`projects`、`test_cases`、`test_suites`、`environments`、`test_runs`、`audit_logs` 路由
+- 已接入 `auth`、`organizations`、`projects`、`test_cases`、`test_suites`、`environments`、`schedule_tasks`、`test_runs`、`web_test_cases`、`web_test_runs`、`audit_logs` 路由
 - 已支持用户注册和登录
 - 已支持项目 CRUD
 - 已支持 API 测试用例 CRUD
 - 已支持单条 API 测试执行
 - 已支持执行结果入库
 - 已保留 `schedule_tasks` 与 `run_queue` 模型
-- 已建立并持续扩展 `pytest` 后端测试基线（62 个用例）
+- 已建立并持续扩展 `pytest` 后端测试基线（持续增长中）
 - 已建立统一异常响应格式与错误码体系（含全局异常处理）
 - 已接入请求级 `request_id` 透传（响应头 `X-Request-ID`）
 - 已建立结构化日志输出（JSON 单行日志）
@@ -86,6 +86,9 @@
 - 已落地密钥受控读取接口（管理权限 + 审计留痕）：`/api/environments/project/{project_id}/variables/{key}/secret-value`、`/api/environments/{environment_id}/variables/{key}/secret-value`
 - 已落地执行详情运行时变量快照与来源追踪：`test_runs.runtime_variables/variable_sources`、`GET /api/test-runs/{run_id}`
 - 已增强执行引擎：支持运行时变量替换、`contains/regex/jsonpath` 断言、响应数据提取与链路传递
+- 已落地阶段 4 首批统一执行编排骨架：`execution_tasks/execution_jobs` 模型、统一编排入口与状态映射
+- API/Web 单用例执行已接入统一编排入口（同步执行模式，队列/Worker 待后续阶段 4 任务）
+- 已落地阶段 4 调度器最小可用：`schedule_tasks` 最小 API 与手动触发入队链路（`run_queue`）
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -95,12 +98,16 @@
 - 已支持在测试用例页面触发执行并查看最近结果
 - 已支持批次结果页与执行详情页联动（批次列表 -> 批次详情 -> 执行详情）
 - 已新增环境变量治理页并与执行详情联动（变量治理页 -> 执行详情变量快照）
+- 已新增 Web 用例管理页与 Web 执行详情页，并打通路由入口（API 用例页 -> Web 用例页 -> Web 执行详情）
+- 已新增统一执行结果页（Execution Center），聚合 API/Web 执行记录并支持统一字段展示与详情跳转
+- 已增强统一执行结果能力：支持 `run_type/status/time range` 筛选、分页与快速定位失败记录
 
 ### 5.3 文档
 - 已补充项目概览文档
 - 已补充系统架构文档
 - 已补充模块清单、领域模型、技术栈、仓库结构文档
 - 已新增企业级平台总纲文档
+- 已新增阶段 4 开发清单文档（`docs/project/stage-4-development-checklist.md`）
 
 ## 6. 当前部分完成内容
 
@@ -119,12 +126,13 @@
 - 已支持单条 API 用例执行
 - 已支持 API 套件执行与批量回归（按套件顺序执行）
 - 已支持批次级状态汇总与明细追踪（`success/failed/error`）
-- 尚未支持 Web 自动化执行
+- 已支持 Web 单用例自动化执行（含步骤日志与产物路径查询）
 
 ### 6.3 结果展示
 - 当前已记录单次执行结果与套件批次结果
 - 已支持按项目查询批次列表与批次明细
 - 已形成阶段 2 最小结果可视化闭环（批次结果页、批次详情、执行详情）
+- 已形成 API/Web 统一执行结果查询与前端聚合展示（`/api/test-runs/project/{project_id}/unified-results` + Execution Center）
 - 但尚未形成正式的报告中心、趋势分析、失败聚类分析
 
 ### 6.4 数据库迁移
@@ -137,6 +145,10 @@
 ### 6.5 调度与队列
 - 数据模型已存在
 - 尚无调度服务、消费服务、Worker 体系和前端管理页面
+- 已建立阶段 4 SSOT 与任务分解（S4-00 已完成）
+- 已完成 S4-01：统一执行编排骨架（ExecutionTask/ExecutionJob + API/Web 单用例接入）
+- 已完成 S4-02：`schedule_tasks` 最小 API 与 trigger 入队链路
+- 待推进 S4-03~S4-05：队列/Worker 消费、可视化与阶段验收
 
 ### 6.6 审计治理
 - 已提供审计日志查询接口（按用户、动作、结果、request_id、时间范围筛选）
@@ -156,6 +168,10 @@
 ### 6.8 阶段切换状态（2026-03-16）
 - 阶段 2 状态由“进行中”切换为“收尾中”，以阶段验收与收尾优化为主
 - 阶段 3 状态由“未开始”切换为“启动中”，已解除 Web 模块实现门禁并进入首批建设准备
+
+### 6.9 阶段切换状态（2026-03-16）
+- 阶段 3 状态由“启动中”切换为“收尾中”，首批闭环（S3-00~S3-04）已全部完成
+- 阶段 4 状态由“未开始”切换为“启动中”，已建立阶段 4 开发清单并进入首批骨架建设准备
 
 ## 7. 当前未开始内容
 
@@ -200,10 +216,17 @@
 - PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
 - 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
 
-### P3：阶段 3 首批启动项（进行中）
+### P3：阶段 3 收尾项（进行中）
 - Web 领域模型首批设计与落地（`WebTestCase`、`WebStep`、`Locator`）（已完成）
 - Playwright 执行引擎最小闭环接入（单用例执行）（已完成）
-- Web 执行结果基础展示页与产物链路预留
+- Web 执行结果基础展示页与产物链路预留（已完成：Web 用例管理页 + Web 执行详情页 + 路由入口）
+- API/Web 统一归档展示对齐（S3-04，已完成：统一结果接口 + Execution Center）
+
+### P4：阶段 4 启动项（进行中）
+- 已完成阶段 4 SSOT 建立：`docs/project/stage-4-development-checklist.md`
+- 已完成 S4-01：统一执行编排骨架（Execution Task/Job + API/Web 适配层）
+- 已完成 S4-02：调度器最小可用（schedule_tasks 触发链路）
+- 待推进 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费）
 
 ## 10. 最近更新记录
 ### 2026-03-16
@@ -215,6 +238,20 @@
 - 阶段 3 启动：完成 S3-00（开发准备），明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定（更新 `docs/project/stage-3-development-checklist.md`）
 - 阶段 3 推进：完成 S3-01（Web 领域模型与用例管理），落地 `web_test_cases/web_steps/web_locators` 模型与迁移，并提供最小 CRUD API；新增后端测试 `tests/backend/test_web_test_cases_api.py`；回归通过 `.\.venv\Scripts\python -m pytest`
 - 阶段 3 推进：完成 S3-02（Playwright 执行引擎最小闭环），落地 `web_test_runs` 模型与迁移、Web 单用例执行接口与执行结果查询接口，产物归档路径为 `artifacts/web-test-runs/{run_id}/`；新增后端测试 `tests/backend/test_web_test_runs_api.py`；回归通过 `.\.venv\Scripts\python -m pytest`
+- 阶段 3 推进：完成 S3-03（前端最小页面闭环），新增 `frontend/src/views/WebTestCaseList.vue` 与 `frontend/src/views/WebTestRunDetail.vue`，补齐 Web 路由与 API 用例页入口按钮
+- 阶段 3 验证执行：完成前端构建验证 `npm run build`（frontend，通过）
+- 阶段 3 推进：完成 S3-04（统一归档与展示对齐），新增统一结果查询接口 `GET /api/test-runs/project/{project_id}/unified-results` 与前端聚合页 `frontend/src/views/UnifiedRunList.vue`
+- 阶段 3 增强：统一结果接口新增分页与筛选（`run_type/status/created_from/created_to/page/page_size`），统一结果页新增筛选栏、分页与失败记录快速定位
+- 阶段 3 测试门禁：新增 `tests/backend/test_unified_results_api.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`（12 passed）
+- 阶段 3 测试门禁：完成前端构建验证 `npm run build`（frontend，通过）
+- 阶段状态切换：`阶段 3 启动中 -> 收尾中`，`阶段 4 未开始 -> 启动中`
+- 新增阶段 4 开发清单文档：`docs/project/stage-4-development-checklist.md`（阶段 4 进度追踪 SSOT）
+- 同步更新阶段匹配与模块技能文档：`docs/modules/future/README.md`、`docs/modules/future/06-execution-orchestration/SKILL.md`、`docs/modules/future/07-scheduling-queue-worker/SKILL.md`
+- 同步更新架构总纲与项目概览阶段口径，消除阶段状态冲突
+- 阶段 4 推进：完成 S4-01（统一执行编排骨架），新增 `execution_tasks/execution_jobs` 模型与迁移，落地统一编排服务并接入 API/Web 单用例执行入口
+- 阶段 4 测试门禁：新增 `tests/backend/test_execution_orchestration_skeleton.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_execution_orchestration_skeleton.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py tests/backend/test_unified_results_api.py`（14 passed）
+- 阶段 4 推进：完成 S4-02（调度器最小可用），新增 `schedule_tasks` 最小 API 与 `trigger -> run_queue` 入队链路
+- 阶段 4 测试门禁：新增 `tests/backend/test_schedule_tasks_api.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_schedule_tasks_api.py tests/backend/test_execution_orchestration_skeleton.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`（14 passed）
 - 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
 - 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）

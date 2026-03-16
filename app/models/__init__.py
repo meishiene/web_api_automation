@@ -7,6 +7,8 @@ from app.models import audit_log  # noqa: F401
 from app.models import audit_log_archive  # noqa: F401
 from app.models import environment_variable  # noqa: F401
 from app.models import environment_variable_group_binding  # noqa: F401
+from app.models import execution_job  # noqa: F401
+from app.models import execution_task  # noqa: F401
 from app.models import organization  # noqa: F401
 from app.models import organization_member  # noqa: F401
 from app.models import project  # noqa: F401

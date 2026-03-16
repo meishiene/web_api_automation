@@ -3,7 +3,7 @@ import inspect
 import time
 from typing import Any, Dict, List, Set
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,10 +18,19 @@ from app.models.project import Project
 from app.models.project_environment import ProjectEnvironment
 from app.models.test_run import TestRun
 from app.models.user import User
+from app.models.web_test_case import WebTestCase
+from app.models.web_test_run import WebTestRun
 from app.schemas.batch_run import BatchRunDetailResponse, BatchRunItemResponse, BatchRunResponse, SuiteRunRequest
-from app.schemas.test_run import TestRunDetailResponse, TestRunResponse
+from app.schemas.test_run import (
+    TestRunDetailResponse,
+    TestRunResponse,
+    UnifiedRunListResponse,
+    UnifiedRunResponse,
+)
 from app.services.access_control import can_execute_test_run, can_view_test_run
 from app.services.audit_service import create_audit_log
+from app.services.execution_contract import ExecutionAdapter
+from app.services.execution_orchestrator import run_execution_task
 from app.services.test_executor import execute_test
 from app.services.variable_resolver import mask_secret_value, resolve_runtime_variables_with_meta
 
@@ -47,6 +56,18 @@ def _from_json_text(payload: str | None) -> dict[str, str] | None:
     except json.JSONDecodeError:
         return None
     return None
+
+
+def _from_json_array(payload: str | None) -> List[str] | None:
+    if not payload:
+        return None
+    try:
+        loaded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    return [str(item) for item in loaded]
 
 
 def _build_masked_runtime_snapshot(runtime_variables: Dict[str, Any], secret_keys: Set[str]) -> dict[str, str]:
@@ -160,7 +181,23 @@ async def run_test_case(
         project_id=test_case.project_id,
         environment_id=None,
     )
-    result = await _execute_test_case(test_case, runtime_variables)
+
+    class _ApiCaseExecutionAdapter(ExecutionAdapter):
+        async def execute(self) -> dict[str, Any]:
+            return await _execute_test_case(test_case, runtime_variables)
+
+    _task, _job, result = await run_execution_task(
+        db=db,
+        project_id=test_case.project_id,
+        run_type="api",
+        target_type="test_case",
+        target_id=case_id,
+        adapter=_ApiCaseExecutionAdapter(),
+        created_by=user.id,
+        trigger_mode="manual",
+        context={"runtime_variable_count": len(runtime_variables)},
+    )
+
     test_run = _persist_test_run(
         db=db,
         case_id=case_id,
@@ -367,6 +404,110 @@ def get_test_runs(
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
     return db.query(TestRun).join(ApiTestCase).filter(ApiTestCase.project_id == project_id).all()
+
+
+@router.get("/project/{project_id}/unified-results", response_model=UnifiedRunListResponse)
+def get_unified_results(
+    project_id: int,
+    run_type: str | None = Query(default=None, pattern="^(api|web)$"),
+    status: str | None = Query(default=None, pattern="^(running|success|failed|error)$"),
+    created_from: int | None = Query(default=None, ge=0),
+    created_to: int | None = Query(default=None, ge=0),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UnifiedRunListResponse:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_view_test_run(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    if created_from is not None and created_to is not None and created_from > created_to:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "created_from cannot be greater than created_to")
+
+    api_rows = []
+    web_rows = []
+    if run_type in (None, "api"):
+        api_query = (
+            db.query(TestRun, ApiTestCase)
+            .join(ApiTestCase, ApiTestCase.id == TestRun.test_case_id)
+            .filter(ApiTestCase.project_id == project_id)
+        )
+        if status:
+            api_query = api_query.filter(TestRun.status == status)
+        if created_from is not None:
+            api_query = api_query.filter(TestRun.created_at >= created_from)
+        if created_to is not None:
+            api_query = api_query.filter(TestRun.created_at <= created_to)
+        api_rows = api_query.all()
+
+    if run_type in (None, "web"):
+        web_query = (
+            db.query(WebTestRun, WebTestCase)
+            .join(WebTestCase, WebTestCase.id == WebTestRun.web_test_case_id)
+            .filter(WebTestRun.project_id == project_id)
+        )
+        if status:
+            web_query = web_query.filter(WebTestRun.status == status)
+        if created_from is not None:
+            web_query = web_query.filter(WebTestRun.created_at >= created_from)
+        if created_to is not None:
+            web_query = web_query.filter(WebTestRun.created_at <= created_to)
+        web_rows = web_query.all()
+
+    unified: List[UnifiedRunResponse] = []
+    for run, case in api_rows:
+        unified.append(
+            UnifiedRunResponse(
+                run_type="api",
+                run_id=run.id,
+                project_id=project_id,
+                case_id=case.id,
+                case_name=case.name,
+                status=run.status,
+                duration_ms=run.duration_ms,
+                error_message=run.error_message,
+                created_at=run.created_at,
+                started_at=None,
+                finished_at=None,
+                detail_api_path=f"/api/test-runs/{run.id}",
+                artifact_dir=None,
+                artifacts=None,
+            )
+        )
+    for run, case in web_rows:
+        unified.append(
+            UnifiedRunResponse(
+                run_type="web",
+                run_id=run.id,
+                project_id=project_id,
+                case_id=case.id,
+                case_name=case.name,
+                status=run.status,
+                duration_ms=run.duration_ms,
+                error_message=run.error_message,
+                created_at=run.created_at,
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+                detail_api_path=f"/api/web-test-runs/{run.id}",
+                artifact_dir=run.artifact_dir,
+                artifacts=_from_json_array(run.artifacts_json),
+            )
+        )
+
+    unified.sort(key=lambda item: (item.created_at, item.run_id), reverse=True)
+    total = len(unified)
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return UnifiedRunListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=unified[start:end],
+    )
 
 
 @router.get("/batches/project/{project_id}", response_model=List[BatchRunResponse])

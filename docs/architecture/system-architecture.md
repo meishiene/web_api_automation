@@ -23,6 +23,7 @@ FastAPI 应用
   ├─ app/main.py                     应用入口与路由注册
   ├─ app/api/*.py                    路由层
   ├─ app/dependencies.py             认证依赖
+  ├─ app/services/execution_orchestrator.py 统一执行编排服务（阶段 4 骨架）
   ├─ app/services/test_executor.py   测试执行服务
   ├─ app/services/web_executor.py    Web 执行服务
   ├─ app/services/variable_resolver.py 变量解析服务
@@ -53,8 +54,8 @@ SQLite / PostgreSQL
   ├─ api_batch_run_items
   ├─ audit_logs
   ├─ audit_logs_archive
-  ├─ schedule_tasks   (预留)
-  └─ run_queue        (预留)
+  ├─ schedule_tasks   (阶段 4：最小 API 已接入)
+  └─ run_queue        (阶段 4：trigger 入队已接入)
 ```
 
 ## 后端服务结构
@@ -90,10 +91,12 @@ SQLite / PostgreSQL
 - `app/api/test_cases.py`：测试用例 CRUD（含 `assertion_rules` / `extraction_rules`）
 - `app/api/test_suites.py`：套件 CRUD、套件用例编排
 - `app/api/environments.py`：环境与变量管理（项目级/环境级）
+- `app/api/schedule_tasks.py`：调度任务管理与触发入队（阶段 4）
 - `app/api/test_runs.py`：
   - 单用例执行：`POST /api/test-runs/test-cases/{case_id}/run`
   - 套件执行：`POST /api/test-runs/suites/{suite_id}/run`
   - 执行记录：`GET /api/test-runs/project/{project_id}`
+  - 统一结果：`GET /api/test-runs/project/{project_id}/unified-results`（聚合 API/Web，支持 `run_type/status/created_from/created_to/page/page_size`）
   - 批次查询：`GET /api/test-runs/batches/project/{project_id}`
   - 批次明细：`GET /api/test-runs/batches/{batch_id}`
 - `app/api/audit_logs.py`：审计查询与治理执行
@@ -118,6 +121,9 @@ SQLite / PostgreSQL
   - 关键写操作审计落库
 - `app/services/web_executor.py`
   - Web 步骤执行与失败截图产物输出（`artifacts/web-test-runs/{run_id}/`）
+- `app/services/execution_orchestrator.py`
+  - 统一执行任务/作业编排骨架（ExecutionTask/ExecutionJob）
+  - API/Web 适配协议接入与统一状态映射
 
 ## 数据库迁移
 - Alembic：`alembic.ini` + `migrations/`
@@ -149,5 +155,5 @@ SQLite / PostgreSQL
 ## 当前架构特点
 - 已从“单用例执行”演进到“套件 + 批次 + 变量链路”的阶段 2 首批能力
 - 执行、变量、审计三条链路已贯通
-- 前端已落地批次列表/批次详情/执行详情页面（阶段 2 首批可视化闭环），后续仍需持续增强展示维度与报告能力
-- 调度、队列、Worker 仍为后续阶段能力
+- 前端已落地批次列表/批次详情/执行详情页面与 Web 执行相关页面，后续仍需持续增强展示维度与报告能力
+- 阶段 4 已启动（开发清单已建立），调度、队列、Worker 尚未打通实现链路
