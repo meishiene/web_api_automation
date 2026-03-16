@@ -104,7 +104,7 @@ SQLite / PostgreSQL
   - 断言能力：`contains` / `regex` / `jsonpath`
   - 响应提取：按 `extraction_rules` 输出变量
 - `app/services/variable_resolver.py`
-  - 合并项目变量与环境变量（环境覆盖项目）
+  - 合并运行时变量：项目变量 + 变量组 + 环境变量（环境覆盖变量组，变量组覆盖项目）；执行过程中链路提取变量可继续覆盖
 - `app/services/audit_service.py`
   - 关键写操作审计落库
 
@@ -129,8 +129,8 @@ SQLite / PostgreSQL
 ### 套件批量执行流程（阶段 2）
 1. 请求 `POST /api/test-runs/suites/{suite_id}/run`
 2. 加载套件有序用例列表
-3. 解析运行时变量（项目变量 + 环境变量）
-4. 逐条执行并提取链路变量
+3. 解析运行时变量（项目变量 + 变量组 + 环境变量）
+4. 逐条执行并提取链路变量（链路变量优先级最高）
 5. 写入 `test_runs`、`api_batch_run_items`
 6. 汇总写入 `api_batch_runs`
 7. 通过批次接口查询结果
@@ -138,5 +138,5 @@ SQLite / PostgreSQL
 ## 当前架构特点
 - 已从“单用例执行”演进到“套件 + 批次 + 变量链路”的阶段 2 首批能力
 - 执行、变量、审计三条链路已贯通
-- 前端尚未完成批次详情与执行可视化页面
+- 前端已落地批次列表/批次详情/执行详情页面（阶段 2 首批可视化闭环），后续仍需持续增强展示维度与报告能力
 - 调度、队列、Worker 仍为后续阶段能力

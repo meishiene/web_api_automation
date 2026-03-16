@@ -210,6 +210,8 @@
 - 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
 - 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`
 - 同步检查并更新架构总纲阶段状态：`docs/architecture/企业级自动化测试平台系统架构规划.md`
+- 新增阶段 3 开发清单文档：`docs/project/stage-3-development-checklist.md`（阶段 3 进度追踪 SSOT）
+- 对齐文档进度口径：更新 `docs/project/project-overview.md`、`docs/architecture/system-architecture.md`、`docs/architecture/dependency-graph.md`，消除与阶段 2 实际能力的冲突表述
 - 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
 - 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）
