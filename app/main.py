@@ -5,7 +5,7 @@ import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import audit_logs, auth, environments, organizations, projects, test_cases, test_runs, test_suites
+from app.api import audit_logs, auth, environments, organizations, projects, test_cases, test_runs, test_suites, web_test_cases
 from app.config import settings
 from app.database import auto_migrate_db, init_db
 from app.errors import register_exception_handlers
@@ -76,6 +76,7 @@ app.include_router(test_suites.router, prefix="/api/test-suites", tags=["test-su
 app.include_router(environments.router, prefix="/api/environments", tags=["environments"])
 app.include_router(test_runs.router, prefix="/api/test-runs", tags=["test-runs"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-logs"])
+app.include_router(web_test_cases.router, prefix="/api/web-test-cases", tags=["web-test-cases"])
 
 
 @app.get("/ping")

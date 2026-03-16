@@ -49,6 +49,9 @@ def init_db():
     from app.models.run_queue import RunQueue
     from app.models.schedule_task import ScheduleTask
     from app.models.test_run import TestRun
+    from app.models.web_locator import WebLocator
+    from app.models.web_step import WebStep
+    from app.models.web_test_case import WebTestCase
 
     Base.metadata.create_all(bind=engine)
 

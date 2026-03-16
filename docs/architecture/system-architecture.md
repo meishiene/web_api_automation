@@ -40,6 +40,9 @@ SQLite / PostgreSQL
   ├─ api_test_cases
   ├─ api_test_suites
   ├─ api_test_suite_cases
+  ├─ web_test_cases
+  ├─ web_steps
+  ├─ web_locators
   ├─ project_environments
   ├─ project_variables
   ├─ environment_variables
@@ -64,6 +67,7 @@ SQLite / PostgreSQL
   - `/api/test-suites`
   - `/api/environments`
   - `/api/test-runs`
+  - `/api/web-test-cases`
   - `/api/audit-logs`
 - 提供健康检查：`GET /ping`
 - 启动阶段执行 `auto_migrate_db()`（非生产）和 `init_db()`

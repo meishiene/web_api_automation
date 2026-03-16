@@ -31,3 +31,5 @@ class Project(Base):
     batch_runs = relationship("ApiBatchRun", back_populates="project", cascade="all, delete-orphan")
     schedule_tasks = relationship("ScheduleTask", back_populates="project", cascade="all, delete-orphan")
     run_queue_items = relationship("RunQueue", back_populates="project", cascade="all, delete-orphan")
+    web_test_cases = relationship("WebTestCase", back_populates="project", cascade="all, delete-orphan")
+    web_locators = relationship("WebLocator", back_populates="project", cascade="all, delete-orphan")

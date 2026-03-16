@@ -26,7 +26,7 @@
 | API 用例管理 | 已支持基础 CRUD、套件关联与增强断言配置（阶段 2 首批已落地） | 65% |
 | API 执行能力 | 已支持单条执行与套件批量执行（含批次追踪、变量链路传递、运行时变量快照） | 60% |
 | 工程化与测试基线 | 已建立测试基线、统一异常错误码、结构化日志、审计治理闭环、Alembic/PG 本地测试落地与模型治理细则 | 90% |
-| Web 测试能力 | 阶段 3 已启动（首批能力待落地） | 5% |
+| Web 测试能力 | 阶段 3 已启动（领域模型与用例管理已落地，执行链路待建设） | 15% |
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
 | 调度与队列 | 已有预留模型，未打通 | 5% |
@@ -201,7 +201,7 @@
 - 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
 
 ### P3：阶段 3 首批启动项（进行中）
-- Web 领域模型首批设计与落地（`WebTestCase`、`WebStep`、`Locator`）
+- Web 领域模型首批设计与落地（`WebTestCase`、`WebStep`、`Locator`）（已完成）
 - Playwright 执行引擎最小闭环接入（单用例执行）
 - Web 执行结果基础展示页与产物链路预留
 
@@ -212,6 +212,8 @@
 - 同步检查并更新架构总纲阶段状态：`docs/architecture/企业级自动化测试平台系统架构规划.md`
 - 新增阶段 3 开发清单文档：`docs/project/stage-3-development-checklist.md`（阶段 3 进度追踪 SSOT）
 - 对齐文档进度口径：更新 `docs/project/project-overview.md`、`docs/architecture/system-architecture.md`、`docs/architecture/dependency-graph.md`，消除与阶段 2 实际能力的冲突表述
+- 阶段 3 启动：完成 S3-00（开发准备），明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定（更新 `docs/project/stage-3-development-checklist.md`）
+- 阶段 3 推进：完成 S3-01（Web 领域模型与用例管理），落地 `web_test_cases/web_steps/web_locators` 模型与迁移，并提供最小 CRUD API；新增后端测试 `tests/backend/test_web_test_cases_api.py`；回归通过 `.\.venv\Scripts\python -m pytest`
 - 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
 - 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）

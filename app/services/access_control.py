@@ -120,3 +120,21 @@ def can_view_test_run(db: Session, user: User, project: Project) -> bool:
     if project.organization_id and get_organization_member_role(db, project.organization_id, user.id) is not None:
         return True
     return get_project_member_role(db, project.id, user.id) is not None
+
+
+# Web testing uses the same project-level membership model as API testing.
+# We keep separate helper names to avoid mixing domains in router code.
+def can_manage_web_test_case(db: Session, user: User, project: Project) -> bool:
+    return can_manage_test_case(db, user, project)
+
+
+def can_view_web_test_case(db: Session, user: User, project: Project) -> bool:
+    return can_view_test_case(db, user, project)
+
+
+def can_execute_web_test_run(db: Session, user: User, project: Project) -> bool:
+    return can_execute_test_run(db, user, project)
+
+
+def can_view_web_test_run(db: Session, user: User, project: Project) -> bool:
+    return can_view_test_run(db, user, project)

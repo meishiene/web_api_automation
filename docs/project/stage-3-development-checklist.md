@@ -32,7 +32,7 @@
 > 说明：为了让“进度可证据化”，每个条目都明确：交付物、最小测试集、DoD。未打通链路不得标记为完成。
 
 ### S3-00：开发准备（必做）
-- 状态：待开始
+- 状态：已完成
 - 交付物：
   - 明确阶段 3 的最小闭环路径（从 Web 用例创建 -> 执行 -> 结果/产物查看）
   - 统一命名与目录规划（Web 领域模型、执行入口、产物归档）
@@ -41,8 +41,73 @@
 - DoD：
   - 本清单中的 S3-01~S3-04 的接口边界与落地顺序明确
 
+#### 2.1 最小闭环路径（阶段 3 首批）
+
+> 目标：先做“能跑、可回溯、可定位”的 Web 单用例闭环，再扩展套件、更多步骤与更完整的报告。
+
+1. Web 用例管理
+   - 在项目内创建/编辑 Web 用例
+   - 在用例中编排最小步骤序列（打开/点击/输入/等待/断言/截图）
+2. Web 单用例执行
+   - 平台内触发执行（后端调用 Playwright）
+   - 写入一次 Web 执行记录（状态、开始/结束、错误信息）
+3. 结果与产物回溯
+   - 可查看执行详情（至少：总体状态、关键错误、步骤日志摘要）
+   - 可查看产物（至少：失败截图；后续扩展 trace/video）
+
+#### 2.2 命名与目录规划（后端）
+
+> 原则：与阶段 2 既有结构保持一致，先“隔离新增领域”，避免把 Web 能力硬塞进 API 用例/执行表导致大改。
+
+- 模型（ORM）：`app/models/`
+  - `web_test_case.py`：`WebTestCase`（表：`web_test_cases`）
+  - `web_step.py`：`WebStep`（表：`web_steps`，按 `order_index` 排序）
+  - `web_locator.py`：`WebLocator`（表：`web_locators`，可复用定位器资产）
+  - 说明：`PageObject` 作为阶段 3 扩展项预留（先不强制落地，避免放大首批范围）
+- DTO（Schema）：`app/schemas/`
+  - `web_test_case.py`：创建/更新/详情响应（可内嵌步骤列表）
+  - `web_step.py`、`web_locator.py`：若需要拆分独立 CRUD，再分别引入
+- 路由（API）：`app/api/`
+  - `web_test_cases.py`：Web 用例管理
+  - `web_test_runs.py`：Web 执行与结果查询（与现有 `test_runs.py` 平行）
+- 服务层：`app/services/`
+  - `web_executor.py`：Playwright 封装执行器（浏览器/上下文生命周期、超时、截图等）
+  - （可选）`web_artifacts.py`：产物归档工具函数（路径生成、文件写入、索引元数据）
+
+#### 2.3 API 边界（阶段 3 首批）
+
+> 约束：阶段 3 首批只承诺“Web 单用例执行闭环”。Web 套件（`WebTestSuite`）可在阶段 3 后续迭代或作为阶段 4 前置补齐。
+
+- Web 用例管理（建议前缀）：`/api/web-test-cases`
+  - `GET /api/web-test-cases/project/{project_id}`：列表（按项目）
+  - `POST /api/web-test-cases`：创建（含步骤）
+  - `GET /api/web-test-cases/{case_id}`：详情（含步骤）
+  - `PUT /api/web-test-cases/{case_id}`：更新（含步骤）
+  - `DELETE /api/web-test-cases/{case_id}`：删除
+- Web 执行与结果
+  - `POST /api/web-test-runs/web-test-cases/{case_id}/run`：触发单用例执行
+  - `GET /api/web-test-runs/{run_id}`：执行详情（含错误、步骤摘要、产物索引）
+  - （可选）`GET /api/web-test-runs/project/{project_id}`：按项目查询最近执行列表
+
+#### 2.4 权限与访问控制（沿用既有治理口径）
+
+- Web 用例与 Web 执行的权限规则对齐现有 `access_control`：
+  - 项目 owner 或项目成员（maintainer/editor/viewer）可 view
+  - 需要“管理用例”的能力：owner/maintainer/editor（viewer 只读）
+  - 需要“执行”的能力：owner/maintainer/editor（viewer 默认不允许执行，避免资源滥用）
+
+#### 2.5 产物归档（阶段 3 首批约定）
+
+- 产物根目录：仓库根 `artifacts/`
+- Web 执行产物目录建议：
+  - `artifacts/web-test-runs/<run_id>/`
+    - `screenshot.png`（失败截图或最后截图）
+    - `trace.zip`（后续启用）
+    - `video.webm`（后续启用）
+    - `meta.json`（产物索引与关键信息，便于前端展示）
+
 ### S3-01：Web 领域模型与迁移（最小可执行资产）
-- 状态：待开始
+- 状态：已完成
 - 范围（首批模型建议）：
   - `WebTestCase`：用例元数据 + 与 Project 绑定
   - `WebStep`：按顺序编排步骤
@@ -55,6 +120,26 @@
   - 权限隔离测试（owner/成员越权 403）
 - DoD：
   - 可在 DB 中持久化 Web 用例 + 步骤，并能按项目查询与编辑
+
+#### 交付物落地情况（2026-03-16）
+
+- 领域模型（ORM）：
+  - `app/models/web_test_case.py`（`web_test_cases`）
+  - `app/models/web_step.py`（`web_steps`）
+  - `app/models/web_locator.py`（`web_locators`）
+- 迁移：
+  - `migrations/versions/adeb808fa0e9_phase3_web_testing_core.py`
+- 后端 API：
+  - `app/api/web_test_cases.py`
+  - 路由前缀：`/api/web-test-cases`
+    - `GET /api/web-test-cases/project/{project_id}`
+    - `POST /api/web-test-cases`
+    - `GET /api/web-test-cases/{case_id}`
+    - `PUT /api/web-test-cases/{case_id}`
+    - `DELETE /api/web-test-cases/{case_id}`
+- 最小测试集：
+  - 新增：`tests/backend/test_web_test_cases_api.py`
+  - 验证通过：`.\.venv\Scripts\python -m pytest`（全量通过）
 
 ### S3-02：Playwright 执行引擎接入（单用例执行）
 - 状态：待开始
@@ -93,8 +178,8 @@
 
 | 条目 | 状态 | 备注 |
 | --- | --- | --- |
-| S3-00 | 待开始 |  |
-| S3-01 | 待开始 |  |
+| S3-00 | 已完成 | 明确最小闭环路径、后端目录/命名、接口边界、产物归档约定 |
+| S3-01 | 已完成 | Web 领域模型 + 迁移 + 最小 CRUD API + 最小测试集 |
 | S3-02 | 待开始 |  |
 | S3-03 | 待开始 |  |
 | S3-04 | 待开始 |  |
@@ -109,4 +194,5 @@
 
 ### 2026-03-16
 - 新增阶段 3 开发清单：用于后续阶段 3 迭代的进度追踪与门禁对齐
-
+- 完成 S3-00：明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定
+- 完成 S3-01：落地 Web 领域模型与迁移，并提供最小 Web 用例 CRUD API（含测试门禁）

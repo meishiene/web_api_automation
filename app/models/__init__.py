@@ -16,4 +16,7 @@ from app.models import project_variable  # noqa: F401
 from app.models import run_queue  # noqa: F401
 from app.models import schedule_task  # noqa: F401
 from app.models import test_run  # noqa: F401
+from app.models import web_locator  # noqa: F401
+from app.models import web_step  # noqa: F401
+from app.models import web_test_case  # noqa: F401
 from app.models import user  # noqa: F401

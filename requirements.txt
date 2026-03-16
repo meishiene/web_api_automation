@@ -7,3 +7,4 @@ pytest
 python-jose[cryptography]
 alembic
 psycopg[binary]
+playwright==1.49.1

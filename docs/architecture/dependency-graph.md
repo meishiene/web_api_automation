@@ -10,6 +10,7 @@ app/main.py
   ├─ app.api.test_suites
   ├─ app.api.environments
   ├─ app.api.test_runs
+  ├─ app.api.web_test_cases
   └─ app.api.audit_logs
 
 app.api.test_suites
