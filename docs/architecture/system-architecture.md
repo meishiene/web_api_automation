@@ -1,4 +1,4 @@
-﻿# System Architecture
+# System Architecture
 
 ## 架构模式
 当前项目采用 **前后端分离 + REST API + 单体后端服务** 的轻量架构。

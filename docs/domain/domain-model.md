@@ -1,4 +1,4 @@
-﻿# Domain Model
+# Domain Model
 
 ## 核心实体
 

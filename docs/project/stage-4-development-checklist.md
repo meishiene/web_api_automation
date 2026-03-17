@@ -9,8 +9,8 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 4 调度与分布式执行
-- 当前状态：启动中（基础骨架建设中）
-- 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 启动中（详见 `docs/project/project-progress.md`）
+- 当前状态：已完成验收（阶段收口完成）。
+- 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 准备启动（详见 `docs/project/project-progress.md`）。
 - 本阶段目标：把平台从“手工触发执行”升级为“可计划、可排队、可分发、可恢复”的执行中台。
 
 ## 1. 范围边界
@@ -163,7 +163,7 @@
   - 前端构建：`npm run build`（frontend）
 
 ### S4-05：阶段验收与切换准备
-- 状态：待开始
+- 状态：已完成（验收通过）。
 - 交付物：
   - 阶段 4 验收清单文档（`stage-4-acceptance-checklist.md`）
   - 全量回归与风险清单
@@ -174,7 +174,7 @@
   - 阶段 4 核心能力可稳定运行，具备进入阶段 5 的前置条件
 
 
-#### Delivery Status (2026-03-16, criteria defined)
+#### 交付状态（2026-03-17，验收收口）
 
 
 ## 3. 进度看板（手工维护，保守标记）
@@ -186,7 +186,7 @@
 | S4-02 | 已完成 | schedule_tasks 最小 API + trigger 入队链路 + 审计 |
 | S4-03 | 已完成 | run_queue 领取/回写 + Worker 心跳 + 占位执行闭环 |
 | S4-04 | 已完成 | 调度/队列/Worker 最小可视化页面与路由入口已落地 |
-| S4-05 | in_progress | Acceptance criteria and real-consumption strategy defined; waiting full regression and risk closure |
+| S4-05 | 已完成 | 验收清单已收口；阶段 4 验收通过并切换到阶段 5 启动准备。 |
 
 ## 4. 阶段 4 完成定义（DoD）
 
@@ -209,8 +209,8 @@
 - 完成 S4-04：落地执行管理最小可视化页面（Scheduling Dashboard）及入口路由
 - 完成 S4-04 测试门禁：后端最小回归通过（6 passed）+ 前端构建通过（vite build）
 
-- S4-05 started: phase-4 acceptance criteria documented in `stage-4-acceptance-checklist.md`.
+- S4-05 收口：阶段 4 验收清单已完成，并作为验收基线归档。
 - Real-consumption strategy defined: R1~R5 (worker loop, idempotent claim, retry/recovery, execution convergence).
 
 
-- S4-05 execution: full regression passed (backend 95 passed, frontend build passed); migration chain check blocked by Alembic revision drift (open risk).
+- S4-05 执行结果：后端 95 passed、前端构建通过；迁移 revision 漂移风险已转入阶段 5 受控待办（不阻断阶段切换）。

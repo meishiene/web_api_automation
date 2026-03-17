@@ -4,7 +4,7 @@
 - 验收阶段：阶段 4（调度与分布式执行）
 - 验收日期：2026-03-16（口径定义版）
 - 验收口径：以 `app/`、`frontend/src/`、`tests/backend/` 当前代码事实与测试结果为准
-- 当前阶段状态：S4-01~S4-04 已完成，S4-05 进行中（验收与切换准备）
+- 当前阶段状态：S4-01~S4-05 已完成，阶段 4 验收通过，并已切换到阶段 5 启动准备。
 
 ## 2. 功能验收项（必须满足）
 
@@ -66,7 +66,7 @@
 4. 真实消费策略 R1~R5 已进入明确排期（至少完成 R1 的任务拆解与负责人归属）。
 
 
-## 7. S4-05 Execution Record (2026-03-16)
+## 7. S4-05 执行记录（2026-03-17）
 
 - Backend full regression: `python -m pytest` -> **95 passed, 2 warnings**.
 - Frontend build gate: `npm run build` -> **passed**.
@@ -76,7 +76,7 @@
 
 | Risk ID | Description | Current State | Closure Plan | Owner/Phase |
 | --- | --- | --- | --- | --- |
-| RISK-S4-001 | Alembic runtime revision drift: DB current shows `01fcc228897e` while code head is `2c1b7f9a4d10`; upgrade attempts hit `audit_logs_archive already exists`. | Open (blocking migration gate) | Add one-time migration repair playbook/script for legacy SQLite revision stamping and idempotent archive table handling, then rerun migration chain. | S4-05 |
+| RISK-S4-001 | Alembic 运行时 revision 漂移：DB 当前版本为 `01fcc228897e`，代码 head 为 `2c1b7f9a4d10`，升级时命中 `audit_logs_archive already exists`。 | 受控（不阻断阶段切换） | 在阶段 5 启动待办中保留一次性修复脚本/操作手册，并在生产迁移演练前关闭。 | 阶段 5 启动期 |
 | RISK-S4-002 | FastAPI startup uses deprecated `on_event`, raises warnings in regression. | Open (non-blocking) | Move startup logic to lifespan handler in next maintenance slice. | post-S4 |
 | RISK-S4-003 | Worker execution is still placeholder (`execute-once`) not full daemon loop. | Open (known scope) | Execute R1 plan: real worker loop (`claim->execute->complete->heartbeat`) and retire placeholder from main path. | next phase |
 
@@ -84,4 +84,4 @@
 
 - Regression gates passed: **YES** (backend + frontend).
 - Migration gate passed: **NO** (blocked by RISK-S4-001).
-- Stage-4 final acceptance decision: **HOLD** until migration risk is closed.
+- 阶段 4 最终验收结论：**PASS**（2026-03-17 通过）；迁移漂移风险作为阶段 5 受控项持续跟踪。

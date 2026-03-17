@@ -1,4 +1,4 @@
-﻿# Module Dependency Graph
+# Module Dependency Graph
 
 ## 后端依赖关系
 ```text
