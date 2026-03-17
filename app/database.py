@@ -44,6 +44,8 @@ def init_db():
     from app.models.execution_task import ExecutionTask
     from app.models.integration_config import IntegrationConfig
     from app.models.integration_event import IntegrationEvent
+    from app.models.notification_delivery import NotificationDelivery
+    from app.models.notification_subscription import NotificationSubscription
     from app.models.organization import Organization
     from app.models.organization_member import OrganizationMember
     from app.models.project import Project
