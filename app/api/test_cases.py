@@ -16,7 +16,9 @@ from app.schemas.api_test_case import (
     TestCaseCopyRequest,
     TestCaseCreateRequest,
     TestCaseExportResponse,
-    TestCaseImportRequest,`r`n    TestCaseOpenApiImportRequest,
+    TestCaseImportItem,
+    TestCaseImportRequest,
+    TestCaseOpenApiImportRequest,
     TestCaseImportResponse,
     TestCaseResponse,
 )
