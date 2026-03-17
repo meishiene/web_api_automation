@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 准备启动。
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 启动中（S6-01 已完成）。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -30,9 +30,9 @@
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
 | 调度与队列 | 阶段 4 已完成验收：调度/队列/Worker 最小闭环与可视化已稳定落地；阶段 5 聚焦真实消费治理与报告联动增强。 | 45% |
-| 报告与分析 | 仅有基础结果记录 | 5% |
+| 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并完成阶段 5 验收收口（S5-07） | 60% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
-| 企业集成 | 未开始 | 0% |
+| 企业集成 | 阶段 6 已启动并完成 S6-01（集成配置中心最小闭环），进入 S6-02 准备 | 12% |
 
 ## 4. 当前阶段状态表
 
@@ -43,8 +43,8 @@
 | 阶段 2 | API 平台化 | 收尾中 | 核心能力已落地并通过验收回归，进入收尾与阶段切换准备 |
 | 阶段 3 | Web 测试平台建设 | 收尾中 | 阶段 3 首批闭环（S3-00~S3-04）已完成，进入稳定性收敛与遗留优化 |
 | 阶段 4 | 调度与分布式执行 | 已完成验收 | 已完成 S4-01~S4-05（含验收与切换准备），具备进入阶段 5 的前置条件。 |
-| 阶段 5 | 报告分析与治理 | 准备启动 | 阶段 4 已验收完成，阶段 5 进入启动准备与任务拆解。 |
-| 阶段 6 | 企业集成与生态完善 | 未开始 | CI/CD、SSO、通知、缺陷集成待建设 |
+| 阶段 5 | 报告分析与治理 | 已完成验收 | 阶段 5 已完成 S5-00~S5-07，验收门禁通过并完成阶段收口。 |
+| 阶段 6 | 企业集成与生态完善 | 启动中 | 阶段 6 已完成 S6-00~S6-01，按 S6-02~S6-08 推进。 |
 
 ## 5. 当前已完成内容
 
@@ -92,6 +92,12 @@
 - 已落地阶段 4 队列与 Worker 最小闭环：`/api/run-queue/claim`、`/api/run-queue/{id}/complete`、`/api/run-queue/worker/execute-once`、`/api/run-queue/worker/heartbeat`
 - 已新增 `worker_heartbeats` 模型与迁移，支持项目级 Worker 心跳状态追踪
 - 已落地阶段 4 执行管理最小可视化：调度/队列/Worker 监控页 `SchedulingDashboard` 与路由入口
+- 已新增报告输入收敛服务：`app/services/reporting_input.py`（统一映射、失败分类、核心统计口径），并在统一结果接口中复用映射实现
+- 已新增项目级报告摘要接口：`GET /api/reports/project/{project_id}/summary`（最小筛选 + Top 失败项）
+- 已新增项目级趋势接口：`GET /api/reports/project/{project_id}/trends`（`granularity=day/week`，支持时间窗口与类型筛选）
+- 已新增项目级失败治理接口：`GET /api/reports/project/{project_id}/failures`（失败分类筛选 + 可追溯详情路径）
+- 已新增报告查询性能护栏：报告接口统一限制 `created_to - created_from <= 180 天`（防止超大窗口查询）
+- 已新增企业集成配置中心最小闭环：`integration_configs` 模型与迁移、`/api/integrations/*` 配置 CRUD、凭据脱敏展示与审计留痕
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -104,6 +110,9 @@
 - 已新增 Web 用例管理页与 Web 执行详情页，并打通路由入口（API 用例页 -> Web 用例页 -> Web 执行详情）
 - 已新增统一执行结果页（Execution Center），聚合 API/Web 执行记录并支持统一字段展示与详情跳转
 - 已增强统一执行结果能力：支持 `run_type/status/time range` 筛选、分页与快速定位失败记录
+- 已新增最小报告页（Report Center）：`frontend/src/views/ReportSummary.vue`（执行摘要 + Top 失败项）
+- 已新增趋势最小可视化：Report Center 支持日/周趋势查询与条形图展示
+- 已新增失败治理最小可视化：Report Center 支持失败分类筛选与失败记录详情追溯
 
 ### 5.3 文档
 - 已补充项目概览文档
@@ -111,6 +120,7 @@
 - 已补充模块清单、领域模型、技术栈、仓库结构文档
 - 已新增企业级平台总纲文档
 - 已新增阶段 4 开发清单文档（`docs/project/stage-4-development-checklist.md`）
+- 已新增阶段 6 开发清单与验收清单文档（`docs/project/stage-6-development-checklist.md`、`docs/project/stage-6-acceptance-checklist.md`）
 
 ## 6. 当前部分完成内容
 
@@ -136,7 +146,7 @@
 - 已支持按项目查询批次列表与批次明细
 - 已形成阶段 2 最小结果可视化闭环（批次结果页、批次详情、执行详情）
 - 已形成 API/Web 统一执行结果查询与前端聚合展示（`/api/test-runs/project/{project_id}/unified-results` + Execution Center）
-- 但尚未形成正式的报告中心、趋势分析、失败聚类分析
+- 已形成阶段 5 最小报告中心与趋势/失败治理分析闭环，后续在阶段 6 持续增强高级分析能力
 
 ### 6.4 数据库迁移
 - 已完成 Alembic 基线和本地/测试 PostgreSQL 落地
@@ -155,7 +165,7 @@
 - 已完成 S4-02：`schedule_tasks` 最小 API 与 trigger 入队链路
 - 已完成 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费占位）
 - 已完成 S4-04：执行管理最小可视化（Scheduling Dashboard）
-- 待推进 S4-05：阶段验收与切换准备
+- 已完成 S4-05：阶段验收与切换准备（阶段 4 已验收完成）
 
 ### 6.6 审计治理
 - 已提供审计日志查询接口（按用户、动作、结果、request_id、时间范围筛选）
@@ -185,7 +195,7 @@
 - 多环境与变量管理（高级能力：第三方密钥托管系统对接、变量组版本化治理）
 - API 套件与批量执行（高级能力：重试策略、并发编排）
 - 调度系统与分布式执行
-- 报告中心与趋势分析
+- 报告高级分析能力（跨版本对比、慢步骤根因、治理看板深化）
 - CI/CD 集成
 - SSO / LDAP / OAuth2 集成
 - 缺陷管理平台对接
@@ -205,7 +215,7 @@
 - `frontend/src/views/TestCaseList.vue`
   - 当前承担过多职责，后续应拆分
 
-## å½åé¶æ®µä¼åäºé¡¹ï¼é¶æ®µ 2 æ¶å°¾ / é¶æ®µ 3 æ¶å°¾ / é¶æ®µ 5 å¯å¨ï¼
+## 当前阶段优先事项（阶段 2 收尾 / 阶段 3 收尾 / 阶段 5 已完成验收 / 阶段 6 启动中）
 
 ### P0：API 平台化首批落地（已完成）
 - 已完成 API 套件模型与基础 CRUD
@@ -237,10 +247,46 @@
 - 已完成 S4-04：执行管理最小可视化（前端）
 - 已完成 S4-05：阶段验收与切换准备（验收结论已通过）。
 
+### P5：阶段 6 企业集成启动（规划中）
+- 已完成 S6-00：阶段 6 开发清单与验收清单落盘，建立可中断恢复机制。
+- 已完成 S6-01：集成配置中心最小闭环（模型 + 迁移 + API + 鉴权 + 审计）并通过门禁。
+- 下一步按序推进：S6-02（事件与签名回调）-> S6-03（CI/CD）-> S6-04（通知）-> S6-05（缺陷联动）-> S6-06（SSO）-> S6-07（治理增强）-> S6-08（验收收口）。
+
 ## 10. 最近更新记录
-- å®æ S5-00ï¼åå»ºé¶æ®µ 5 å¼åæ¸åä¸éªæ¶æ¸åï¼å»ºç«âçæ¿ + æè¿æ´æ° + é£é©é»å¡âå¯ä¸­æ­æ¢å¤æºå¶ã
-- é¶æ®µ 5 SSOT å·²è½çï¼`docs/project/stage-5-development-checklist.md`ã`docs/project/stage-5-acceptance-checklist.md`ã
-- é¶æ®µåæ¢ï¼é¶æ®µ 4 å·²å®æå¹¶å³é­ï¼é¶æ®µ 5 è¿å¥å¯å¨ä¸­ï¼é¦æ¹ä»»å¡æ¨è¿ï¼ã
+### 2026-03-17
+- 启动阶段 6：新增 `docs/project/stage-6-development-checklist.md` 与 `docs/project/stage-6-acceptance-checklist.md`，建立阶段 6 SSOT、门禁、DoD 与中断恢复机制。
+- 阶段状态切换：`阶段 6 未开始 -> 启动中（规划中）`，后续按 `S6-01~S6-08` 顺序推进。
+- 完成 S6-01：新增企业集成配置中心最小闭环（`app/models/integration_config.py`、`migrations/versions/6a9d4c2e1b7f_phase6_integration_config_center.py`、`app/api/integrations.py`）。
+- S6-01 测试门禁：新增 `tests/backend/test_integrations_api.py` 并通过（4 passed）；后端全量回归通过 `.\.venv\Scripts\python -m pytest`（115 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
+- S6-01 迁移验证：本地历史库仍存在既有 revision 漂移风险（`audit_logs_archive already exists`）；在临时干净库验证迁移链路通过（`upgrade head -> downgrade 2c1b7f9a4d10 -> upgrade head`）。
+- 同步模块与架构文档：更新 `docs/modules/future/09-enterprise-integrations/SKILL.md` 与 `docs/architecture/企业级自动化测试平台系统架构规划.md`，对齐阶段 6 启动口径。
+- 更新模块匹配规则：更新 `docs/modules/future/README.md`，将 `09-enterprise-integrations` 纳入当前默认可执行模块。
+- 完成 S5-00：创建阶段 5 开发清单与验收清单，建立“看板 + 最近更新 + 风险阻塞”可中断恢复机制。
+- 阶段 5 SSOT 已落盘：`docs/project/stage-5-development-checklist.md`、`docs/project/stage-5-acceptance-checklist.md`。
+- 阶段切换：阶段 4 已完成并关闭，阶段 5 进入启动中（首批任务推进）。
+- 启动 S5-01：新增 `docs/project/stage-5-reporting-input-contract.md`，冻结 API/Web 报告输入字段、映射规则与统计口径（v1）。
+- 修复进度文档历史编码污染行，并统一阶段 5 口径为“启动中（S5-01 进行中）”，同步与架构总纲对齐。
+- 推进 S5-01：新增 `app/services/reporting_input.py`，收敛 API/Web 输入映射、失败分类与统计口径实现；新增 `tests/backend/test_reporting_input_service.py` 并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_unified_results_api.py`（8 passed）。
+- 完成 S5-01：输入口径与映射实现收口，阶段看板切换为 `S5-01 completed`。
+- 启动 S5-02：新增报告聚合服务 `app/services/reporting_summary.py`、报告接口 `GET /api/reports/project/{project_id}/summary`、前端页面 `frontend/src/views/ReportSummary.vue` 与路由入口。
+- S5-02 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_input_service.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（17 passed）。
+- S5-02 测试门禁：前端构建通过 `npm run build`（frontend）。
+- 完成 S5-02：报告中心最小闭环收口（摘要 + Top 失败项）。
+- 启动 S5-03：新增趋势聚合接口 `GET /api/reports/project/{project_id}/trends` 与前端趋势最小展示（日/周维度）。
+- S5-03 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（20 passed）。
+- S5-03 测试门禁：前端构建通过 `npm run build`（frontend）。
+- 完成 S5-03：趋势分析最小闭环收口（趋势查询 + 日/周图表展示）。
+- 启动 S5-04：新增失败治理接口 `GET /api/reports/project/{project_id}/failures` 与失败治理视图（分类筛选 + 可追溯跳转）。
+- S5-04 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_input_service.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（22 passed）。
+- S5-04 测试门禁：前端构建通过 `npm run build`（frontend）。
+- 完成 S5-05：报告域权限与审计对齐，摘要/趋势/失败治理接口统一写入审计事件（`report.summary.read`、`report.trends.read`、`report.failures.read`）。
+- S5-05 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（23 passed）。
+- 完成 S5-06：建立报告性能与稳定性门禁，新增时间窗口护栏（180 天）与性能基线测试 `tests/backend/test_reporting_performance_guards.py`。
+- S5-06 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_reporting_performance_guards.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（25 passed）。
+- 完成 S5-07：执行阶段 5 核心验收门禁并收口验收记录，阶段 5 状态切换为“已完成验收”。
+- S5-07 测试门禁：后端全量回归通过 `.\.venv\Scripts\python -m pytest`（111 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
+- 同步阶段文档：更新 `docs/project/stage-5-development-checklist.md`、`docs/project/stage-5-acceptance-checklist.md`，完成 S5-07 记录与结论落盘。
+- 同步模块与架构文档：更新 `docs/modules/future/08-reporting-analytics/SKILL.md` 与 `docs/architecture/企业级自动化测试平台系统架构规划.md`，保持阶段口径一致。
 ### 2026-03-16
 - 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
 - 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`
@@ -454,4 +500,4 @@
 
 - S4-05 验收收口：后端全量回归通过、前端构建通过；迁移 revision 漂移风险转入阶段 5 受控技术债，不阻断阶段切换。
 
-- 2026-03-17：阶段 4（S4-01~S4-05）完成验收并切换为“已完成验收”；阶段 5 状态更新为“准备启动”，并同步对齐阶段 4/阶段 5 相关 SSOT 文档与模块 SKILL。
+- 2026-03-17：阶段 4（S4-01~S4-05）完成验收并切换为“已完成验收”；阶段 5 当日由“启动中”推进至“已完成验收”，并同步对齐阶段 4/阶段 5 相关 SSOT 文档与模块 SKILL。

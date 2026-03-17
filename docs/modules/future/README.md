@@ -21,14 +21,15 @@
 
 ## 当前阶段匹配（依据 `project-progress.md`）
 
-- 当前总阶段：阶段 2（收尾）+ 阶段 3（收尾）+ 阶段 4（已验收完成）+ 阶段 5（准备启动）
+- 当前总阶段：阶段 2（收尾）+ 阶段 3（收尾）+ 阶段 4（已验收完成）+ 阶段 5（已验收完成）+ 阶段 6（启动中）
 - 默认可执行模块：
   - `06-execution-orchestration`（阶段 4 完成态：仅缺陷修复/稳定性维护）
   - `07-scheduling-queue-worker`（阶段 4 完成态：仅缺陷修复/稳定性维护）
   - `05-web-testing`（阶段 3 收尾缺陷修复与稳定性增强）
   - `02-user-org-auth`（仅缺陷修复/治理收尾）
   - `03-project-assets-env`（仅缺陷修复/治理收尾）
-  - `08-reporting-analytics`（阶段 5 启动：方案细化与首批交付）
+  - `08-reporting-analytics`（阶段 5 完成态：缺陷修复与治理增强）
+  - `09-enterprise-integrations`（阶段 6 启动：按 S6 清单推进实现）
   - `04-api-testing`（仅缺陷修复/治理收尾）
 - 其余模块默认进入“设计/预研模式”，不应标记为“已完成实现”
 

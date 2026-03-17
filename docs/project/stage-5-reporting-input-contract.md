@@ -9,6 +9,8 @@
 - `app/models/web_test_run.py`
 - `app/schemas/test_run.py`
 - `app/api/test_runs.py`（`/api/test-runs/project/{project_id}/unified-results`）
+- `app/services/reporting_input.py`（统一映射、失败分类、统计口径实现）
+- `tests/backend/test_reporting_input_service.py`（S5-01 最小测试集）
 
 ## 2. 统一输入模型（ReportInputRun v1）
 
@@ -28,6 +30,7 @@
 | `artifact_dir` | string/null | 否 | 产物目录（Web） |
 | `artifacts` | string[]/null | 否 | 产物列表（Web） |
 | `detail_api_path` | string | 是 | 详情接口路径 |
+| `failure_category` | enum/null | 否 | 失败分类（报告聚合层内部字段，见 4.3） |
 
 ## 3. 源模型映射规则
 
@@ -84,6 +87,18 @@
 - `pass_rate`：`success_count / completed_count`（`completed_count=0` 时为 `0`）
 - `fail_rate`：`(failed_count + error_count) / completed_count`（`completed_count=0` 时为 `0`）
 
+### 4.3 失败分类字典与映射规则（v1）
+
+- 分类字典：`assertion_failure / timeout / network_error / execution_error / test_failure`
+- 状态优先级规则：
+  - `status=error` -> `execution_error`
+  - `status=success` 或 `running` -> `null`（不参与失败分类）
+- `status=failed` 时按 `error_message` 文本规则映射（忽略大小写）：
+  - 命中 `assert / expect / mismatch` -> `assertion_failure`
+  - 命中 `timeout / timed out` -> `timeout`
+  - 命中 `connection / dns / network` -> `network_error`
+  - 未命中以上规则 -> `test_failure`
+
 ## 5. 时间窗口口径
 
 - 报告筛选主时间字段统一使用 `created_at`
@@ -101,6 +116,7 @@
 
 - 报告层输入必须兼容 `UnifiedRunResponse` 字段集
 - 任何新增字段不得破坏 `GET /api/test-runs/project/{project_id}/unified-results` 既有响应结构
+- `failure_category` 当前仅在报告聚合层内部使用，不写入 `UnifiedRunResponse` 响应字段
 - 若新增报告字段，必须先更新本契约，再落地实现
 
 ## 8. S5-01 完成判定（文档侧）

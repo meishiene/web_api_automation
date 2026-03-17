@@ -31,6 +31,7 @@ from app.services.access_control import can_execute_test_run, can_view_test_run
 from app.services.audit_service import create_audit_log
 from app.services.execution_contract import ExecutionAdapter
 from app.services.execution_orchestrator import run_execution_task
+from app.services.reporting_input import map_api_row_to_report_input, map_web_row_to_report_input
 from app.services.test_executor import execute_test
 from app.services.variable_resolver import mask_secret_value, resolve_runtime_variables_with_meta
 
@@ -56,18 +57,6 @@ def _from_json_text(payload: str | None) -> dict[str, str] | None:
     except json.JSONDecodeError:
         return None
     return None
-
-
-def _from_json_array(payload: str | None) -> List[str] | None:
-    if not payload:
-        return None
-    try:
-        loaded = json.loads(payload)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(loaded, list):
-        return None
-    return [str(item) for item in loaded]
 
 
 def _build_masked_runtime_snapshot(runtime_variables: Dict[str, Any], secret_keys: Set[str]) -> dict[str, str]:
@@ -460,41 +449,11 @@ def get_unified_results(
     unified: List[UnifiedRunResponse] = []
     for run, case in api_rows:
         unified.append(
-            UnifiedRunResponse(
-                run_type="api",
-                run_id=run.id,
-                project_id=project_id,
-                case_id=case.id,
-                case_name=case.name,
-                status=run.status,
-                duration_ms=run.duration_ms,
-                error_message=run.error_message,
-                created_at=run.created_at,
-                started_at=None,
-                finished_at=None,
-                detail_api_path=f"/api/test-runs/{run.id}",
-                artifact_dir=None,
-                artifacts=None,
-            )
+            UnifiedRunResponse(**map_api_row_to_report_input(run=run, case=case, project_id=project_id).model_dump(exclude={"failure_category"}))
         )
     for run, case in web_rows:
         unified.append(
-            UnifiedRunResponse(
-                run_type="web",
-                run_id=run.id,
-                project_id=project_id,
-                case_id=case.id,
-                case_name=case.name,
-                status=run.status,
-                duration_ms=run.duration_ms,
-                error_message=run.error_message,
-                created_at=run.created_at,
-                started_at=run.started_at,
-                finished_at=run.finished_at,
-                detail_api_path=f"/api/web-test-runs/{run.id}",
-                artifact_dir=run.artifact_dir,
-                artifacts=_from_json_array(run.artifacts_json),
-            )
+            UnifiedRunResponse(**map_web_row_to_report_input(run=run, case=case, project_id=project_id).model_dump(exclude={"failure_category"}))
         )
 
     unified.sort(key=lambda item: (item.created_at, item.run_id), reverse=True)

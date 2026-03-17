@@ -9,9 +9,11 @@ from app.api import (
     audit_logs,
     auth,
     environments,
+    integrations,
     organizations,
     projects,
     queue_worker,
+    reports,
     schedule_tasks,
     test_cases,
     test_runs,
@@ -87,9 +89,11 @@ app.include_router(organizations.router, prefix="/api/organizations", tags=["org
 app.include_router(test_cases.router, prefix="/api/test-cases", tags=["test-cases"])
 app.include_router(test_suites.router, prefix="/api/test-suites", tags=["test-suites"])
 app.include_router(environments.router, prefix="/api/environments", tags=["environments"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(schedule_tasks.router, prefix="/api/schedule-tasks", tags=["schedule-tasks"])
 app.include_router(queue_worker.router, prefix="/api/run-queue", tags=["run-queue"])
 app.include_router(test_runs.router, prefix="/api/test-runs", tags=["test-runs"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-logs"])
 app.include_router(web_test_cases.router, prefix="/api/web-test-cases", tags=["web-test-cases"])
 app.include_router(web_test_runs.router, prefix="/api/web-test-runs", tags=["web-test-runs"])

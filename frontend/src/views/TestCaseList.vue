@@ -41,6 +41,7 @@
         </div>
         <div class="panel-tools">
           <button class="secondary-btn" @click="goToUnifiedRuns">统一执行结果</button>
+          <button class="secondary-btn" @click="goToReportCenter">报告中心</button>
           <button class="secondary-btn" @click="goToWebTestCases">Web 用例管理</button>
           <button class="secondary-btn" @click="goToEnvironmentManager">环境变量治理</button>
           <button class="secondary-btn" @click="goToSchedulingDashboard">Scheduling</button>
@@ -480,16 +481,20 @@ const goToUnifiedRuns = () => {
   router.push(`/project/${projectId.value}/executions`)
 }
 
+const goToReportCenter = () => {
+  router.push(`/project/${projectId.value}/reports`)
+}
+
 const goToWebTestCases = () => {
   router.push(`/project/${projectId.value}/web-test-cases`)
 }
 
 const goToEnvironmentManager = () => {
   router.push(`/project/${projectId.value}/environments`)
+}
 
 const goToSchedulingDashboard = () => {
   router.push(`/project/${projectId.value}/scheduling`)
-}
 }
 
 const openRunDetail = () => {

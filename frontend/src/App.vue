@@ -114,12 +114,14 @@ const username = computed(() => currentUsername.value || (currentUserId.value ? 
 const userInitials = computed(() => (username.value ? username.value.slice(0, 1).toUpperCase() : 'U'))
 
 const pageTitle = computed(() => {
+  if (route.path.includes('/reports')) return '报告中心'
   if (route.path.includes('/scheduling')) return 'Scheduling'
   if (route.path.startsWith('/project/')) return '测试用例'
   return '项目管理'
 })
 
 const pageSubtitle = computed(() => {
+  if (route.path.includes('/reports')) return '查看项目执行摘要与失败 TopN'
   if (route.path.includes('/scheduling')) return 'Monitor run_queue and worker heartbeats'
   if (route.path.startsWith('/project/')) return '维护接口用例并执行测试'
   return '统一管理你的 API 自动化测试项目'

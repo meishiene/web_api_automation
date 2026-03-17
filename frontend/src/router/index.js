@@ -32,6 +32,11 @@ const routes = [
     component: () => import('@/views/UnifiedRunList.vue'),
   },
   {
+    path: '/project/:projectId/reports',
+    name: 'ReportSummary',
+    component: () => import('@/views/ReportSummary.vue'),
+  },
+  {
     path: '/project/:projectId/batches',
     name: 'BatchRunList',
     component: () => import('@/views/BatchRunList.vue'),

@@ -9,8 +9,8 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 5 报告分析与治理
-- 当前状态：启动中（S5-00 已完成，进入首批实现准备）
-- 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 启动中（详见 `docs/project/project-progress.md`）
+- 当前状态：已完成验收（S5-07 已完成）
+- 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 已完成验收（详见 `docs/project/project-progress.md`）
 - 本阶段目标：把“执行结果记录”升级为“可分析、可治理、可决策”的报告与质量运营体系。
 
 ## 0.1 可中断恢复机制（强制）
@@ -50,7 +50,7 @@
   - 阶段 5 任务编号、门禁、DoD、验收口径可独立阅读与执行
 
 ### S5-01：报告输入口径与模型收敛
-- 状态：in_progress
+- 状态：completed
 - 交付物：
   - 执行摘要字段定义（API/Web 统一口径）
   - 失败分类字典与映射规则
@@ -63,7 +63,7 @@
   - API/Web 执行记录可统一映射，且无冲突字段
 
 ### S5-02：报告中心最小闭环（MVP）
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 项目级报告摘要聚合服务
   - 报告摘要查询接口（最小筛选）
@@ -76,7 +76,7 @@
   - 可稳定查询并展示总量、通过率、失败率、失败 TopN
 
 ### S5-03：趋势分析最小闭环
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 日/周趋势聚合逻辑
   - 趋势查询接口
@@ -88,7 +88,7 @@
   - 同条件重复查询结果一致，图表与后端数据一致
 
 ### S5-04：失败治理闭环（分类 + 归因）
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 失败分类与归因字段
   - 失败治理视图（可筛选、可追溯）
@@ -99,7 +99,7 @@
   - 失败记录可按分类检索并回溯至原执行记录
 
 ### S5-05：权限与审计对齐
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 报告/治理接口权限校验收敛
   - 报告域审计事件定义与落库
@@ -110,7 +110,7 @@
   - 报告相关关键读写动作可审计、可追踪
 
 ### S5-06：性能与稳定性门禁
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 报告查询性能基线
   - 索引与分页策略
@@ -122,7 +122,7 @@
   - 约定数据量下查询性能可接受，回归全绿
 
 ### S5-07：阶段验收与切换准备
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 阶段 5 验收记录
   - 风险关闭清单
@@ -137,13 +137,13 @@
 | 条目 | 状态 | 备注 |
 | --- | --- | --- |
 | S5-00 | completed | 阶段 5 SSOT 与验收清单已创建，恢复机制已落盘 |
-| S5-01 | in_progress | 统一输入契约已落盘，进入实现前校对与评审 |
-| S5-02 | pending | 等待报告中心最小闭环 |
-| S5-03 | pending | 等待趋势分析最小闭环 |
-| S5-04 | pending | 等待失败治理闭环 |
-| S5-05 | pending | 等待权限与审计对齐 |
-| S5-06 | pending | 等待性能与稳定性门禁 |
-| S5-07 | pending | 等待阶段验收与切换准备 |
+| S5-01 | completed | 统一输入契约、映射服务、失败分类与最小测试已收敛完成 |
+| S5-02 | completed | 报告摘要聚合服务、摘要接口与最小报告页已形成闭环并通过门禁 |
+| S5-03 | completed | 趋势聚合接口与最小趋势图已形成闭环并通过门禁 |
+| S5-04 | completed | 失败治理接口与最小视图已形成闭环并通过门禁 |
+| S5-05 | completed | 报告域接口权限校验与审计事件落库已对齐并通过门禁 |
+| S5-06 | completed | 报告性能基线、时间窗口护栏与阶段回归门禁已建立并通过 |
+| S5-07 | completed | 阶段 5 验收完成，门禁已执行并通过 |
 
 ## 4. 阶段 5 完成定义（DoD）
 
@@ -158,11 +158,28 @@
 - 完成 S5-00：创建阶段 5 开发清单与验收清单，建立“看板 + 最近更新 + 风险阻塞”可中断恢复机制。
 - 同步更新项目进度文档与阶段 5 模块 SKILL，确保阶段口径一致。
 - 启动 S5-01：新增 `docs/project/stage-5-reporting-input-contract.md`，冻结 API/Web 报告输入字段、映射规则与统计口径（v1）。
+- 推进 S5-01：新增 `app/services/reporting_input.py` 收敛 API/Web 报告输入映射、失败分类与基础统计口径；新增测试 `tests/backend/test_reporting_input_service.py`，并通过最小回归。
+- 完成 S5-01：统一输入口径与模型收敛任务收口，切换阶段看板状态为 `completed`。
+- 启动 S5-02：新增项目级报告摘要接口 `GET /api/reports/project/{project_id}/summary`、聚合服务 `app/services/reporting_summary.py` 与前端最小页面 `frontend/src/views/ReportSummary.vue`。
+- S5-02 门禁验证：后端最小回归通过（`17 passed`），前端构建通过（`npm run build`）。
+- 完成 S5-02：项目级报告中心最小闭环收口（摘要 + Top 失败项），切换阶段看板状态为 `completed`。
+- 启动 S5-03：新增趋势接口 `GET /api/reports/project/{project_id}/trends`（日/周聚合）与前端趋势最小展示（ReportSummary 趋势图）。
+- S5-03 门禁验证：后端回归通过（`20 passed`），前端构建通过（`npm run build`）。
+- 完成 S5-03：趋势分析最小闭环收口（趋势接口 + 最小图表展示），切换阶段看板状态为 `completed`。
+- 启动 S5-04：新增失败治理接口 `GET /api/reports/project/{project_id}/failures`（分类筛选 + 可追溯字段）与前端失败治理视图。
+- S5-04 门禁验证：后端回归通过（`22 passed`），前端构建通过（`npm run build`）。
+- 完成 S5-04：失败治理最小闭环收口（分类筛选 + 失败记录追溯），切换阶段看板状态为 `completed`。
+- 完成 S5-05：报告域权限与审计对齐，新增审计事件 `report.summary.read / report.trends.read / report.failures.read` 并落库。
+- S5-05 门禁验证：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（23 passed）。
+- 完成 S5-06：建立报告时间窗口性能护栏（最大 180 天）与中等数据量性能基线测试；新增 `tests/backend/test_reporting_performance_guards.py`。
+- S5-06 门禁验证：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_reporting_performance_guards.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（25 passed）。
+- 完成 S5-07：执行阶段 5 核心验收门禁并收口验收记录，阶段状态切换为 `已完成验收`。
+- S5-07 门禁验证：后端全量回归通过 `.\.venv\Scripts\python -m pytest`（111 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
 
 ## 6. 风险与阻塞清单（持续维护）
 
 | 编号 | 风险/阻塞 | 当前状态 | 处理策略 | 负责人/阶段 |
 | --- | --- | --- | --- | --- |
-| RISK-S5-001 | 报告输入口径尚未冻结，API/Web 字段可能存在语义差异 | open | 在 S5-01 冻结字段字典与映射规则，作为后续开发唯一口径 | S5-01 |
+| RISK-S5-001 | 报告输入口径尚未冻结，API/Web 字段可能存在语义差异 | closed | S5-01 已完成口径冻结与实现收敛，后续由契约 + 测试持续守护 | S5-01 |
 | RISK-S5-002 | 阶段 4 遗留迁移 revision 漂移仍未技术性关闭 | controlled | 作为阶段 5 受控项持续跟踪，避免影响报告相关新迁移链路 | S5-01~S5-06 |
-| RISK-S5-003 | 历史数据量增长后报告查询可能退化 | open | 在 S5-06 建立性能基线、索引策略和分页约束 | S5-06 |
+| RISK-S5-003 | 历史数据量增长后报告查询可能退化 | controlled | S5-06 已建立性能基线与时间窗口护栏，S5-07 已完成验收收口，后续在阶段 6 持续观察 | S5-06~S5-07 |
