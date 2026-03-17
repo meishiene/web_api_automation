@@ -1,4 +1,4 @@
-# 阶段 6 开发清单（企业集成与生态完善）
+﻿# 阶段 6 开发清单（企业集成与生态完善）
 
 > 目的：为阶段 6 提供可持续维护的单一事实来源（SSOT），用于追踪 **已完成 / 进行中 / 待完成**，并约束交付物、测试门禁与 DoD。
 >
@@ -10,7 +10,7 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 6 企业集成与生态完善
-- 当前状态：启动中（S6-03 已完成，进入 S6-04 准备）
+- 当前状态：启动中（S6-04 已完成，进入 S6-05 准备）
 - 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 已完成验收 + 阶段 6 启动中（详见 `docs/project/project-progress.md`）
 - 本阶段目标：把平台从“可执行、可分析”升级为“可接入企业研发流程、可治理、可运营”的企业级集成平台。
 
@@ -72,7 +72,7 @@
   - 至少一条“平台触发 -> CI 执行 -> 回调收敛”链路打通
 
 ### S6-04：通知中心最小闭环
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 事件订阅配置（按项目/事件类型）
   - 通知通道适配器（先落地 Webhook/邮件二选一）
@@ -138,7 +138,7 @@
 | S6-01 | completed | 集成配置模型、API、鉴权、审计与迁移已落地 |
 | S6-02 | completed | 事件入库、签名校验、幂等去重与重放能力已落地 |
 | S6-03 | completed | CI 触发、回调收敛与运行记录查询已落地 |
-| S6-04 | pending | 等待通知中心最小闭环 |
+| S6-04 | completed | 通知订阅、投递日志、重试与死信最小闭环已落地 |
 | S6-05 | pending | 等待缺陷联动最小闭环 |
 | S6-06 | pending | 等待 SSO/OAuth2 最小接入 |
 | S6-07 | pending | 等待治理增强与运营可观测 |
@@ -165,11 +165,15 @@
 - S6-02 迁移验证：本地历史库既有 revision 漂移风险仍在（`audit_logs_archive already exists`）；在临时干净库验证链路通过：`upgrade head -> downgrade 6a9d4c2e1b7f -> upgrade head`。
 - 完成 S6-03：新增 CI/CD 最小闭环（`/api/integrations/{config_id}/cicd/trigger`、`/api/integrations/webhooks/{config_id}/cicd/callback`、`/api/integrations/{config_id}/cicd/runs`），实现“触发 -> 回调 -> 状态收敛”。
 - S6-03 测试门禁：新增 `tests/backend/test_integration_cicd_api.py`（4 passed），S6 相关回归通过（12 passed）；后端全量回归通过 `.\.venv\Scripts\python -m pytest`（123 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
+- 完成 S6-04：新增通知中心最小闭环（`notification_subscriptions`/`notification_deliveries` 模型、`migrations/versions/7d2b6f4c8a1e_phase6_notification_center_minimal.py`、`/api/integrations/project/{project_id}/notification-subscriptions`、`/api/integrations/notification-subscriptions/{subscription_id}/dispatch`、`/api/integrations/notification-deliveries/{delivery_id}/retry`）。
+- S6-04 测试门禁：新增/执行 `tests/backend/test_integration_notifications_api.py`（4 passed），并回归 `tests/backend/test_db_migration_workflow.py`（3 passed）；S6 相关回归通过（19 passed）。
 
 ## 6. 风险与阻塞清单（持续维护）
 
 | 编号 | 风险/阻塞 | 当前状态 | 处理策略 | 负责人/阶段 |
 | --- | --- | --- | --- | --- |
 | RISK-S6-001 | 第三方平台差异较大导致适配范围膨胀 | controlled | 采用“单提供商先落地 + 适配层抽象”的切片策略，避免一次性多平台并行 | S6-01~S6-05 |
-| RISK-S6-002 | 回调安全与幂等缺失会引入高风险重复执行 | controlled | S6-02~S6-03 已落地 HMAC 签名校验 + 幂等去重 + 触发回调收敛，后续在 S6-04 持续补强失败重试治理 | S6-02~S6-04 |
+| RISK-S6-002 | 回调安全与幂等缺失会引入高风险重复执行 | controlled | S6-02~S6-03 已落地 HMAC 签名校验 + 幂等去重 + 触发回调收敛，后续在 S6-05 继续补强通知治理与缺陷链路联动 | S6-02~S6-05 |
 | RISK-S6-003 | 外部依赖不可用导致门禁不稳定 | controlled | 为集成测试提供 mock/stub 与可回放样本，核心门禁优先本地可重复 | S6-03~S6-07 |
+
+

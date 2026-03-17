@@ -1,4 +1,4 @@
-# 项目进度文档
+﻿# 项目进度文档
 
 ## 1. 文档目的
 
@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 启动中（S6-03 已完成）。
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 启动中（S6-04 已完成）。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -32,7 +32,7 @@
 | 调度与队列 | 阶段 4 已完成验收：调度/队列/Worker 最小闭环与可视化已稳定落地；阶段 5 聚焦真实消费治理与报告联动增强。 | 45% |
 | 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并完成阶段 5 验收收口（S5-07） | 60% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
-| 企业集成 | 阶段 6 已启动并完成 S6-01~S6-03（配置中心 + 事件回调 + CI 最小闭环），进入 S6-04 准备 | 30% |
+| 企业集成 | 阶段 6 已启动并完成 S6-01~S6-04（配置中心 + 事件回调 + CI + 通知最小闭环），进入 S6-05 准备 | 40% |
 
 ## 4. 当前阶段状态表
 
@@ -44,7 +44,7 @@
 | 阶段 3 | Web 测试平台建设 | 收尾中 | 阶段 3 首批闭环（S3-00~S3-04）已完成，进入稳定性收敛与遗留优化 |
 | 阶段 4 | 调度与分布式执行 | 已完成验收 | 已完成 S4-01~S4-05（含验收与切换准备），具备进入阶段 5 的前置条件。 |
 | 阶段 5 | 报告分析与治理 | 已完成验收 | 阶段 5 已完成 S5-00~S5-07，验收门禁通过并完成阶段收口。 |
-| 阶段 6 | 企业集成与生态完善 | 启动中 | 阶段 6 已完成 S6-00~S6-03，按 S6-04~S6-08 推进。 |
+| 阶段 6 | 企业集成与生态完善 | 启动中 | 阶段 6 已完成 S6-00~S6-04，按 S6-05~S6-08 推进。 |
 
 ## 5. 当前已完成内容
 
@@ -100,6 +100,7 @@
 - 已新增企业集成配置中心最小闭环：`integration_configs` 模型与迁移、`/api/integrations/*` 配置 CRUD、凭据脱敏展示与审计留痕
 - 已新增企业集成事件收件箱：`integration_events` 模型与迁移、签名 Webhook 入站、幂等去重、事件重放与事件查询接口
 - 已新增 CI/CD 最小闭环：`/api/integrations/{config_id}/cicd/trigger`、`/api/integrations/webhooks/{config_id}/cicd/callback`、`/api/integrations/{config_id}/cicd/runs`
+- 已新增通知中心最小闭环：`notification_subscriptions`/`notification_deliveries` 模型与迁移、通知订阅管理、投递日志查询、失败重试与死信收敛
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -249,12 +250,12 @@
 - 已完成 S4-04：执行管理最小可视化（前端）
 - 已完成 S4-05：阶段验收与切换准备（验收结论已通过）。
 
-### P5：阶段 6 企业集成启动（规划中）
+### P5：阶段 6 企业集成启动（进行中）
 - 已完成 S6-00：阶段 6 开发清单与验收清单落盘，建立可中断恢复机制。
 - 已完成 S6-01：集成配置中心最小闭环（模型 + 迁移 + API + 鉴权 + 审计）并通过门禁。
 - 已完成 S6-02：事件与签名回调最小闭环（签名校验 + 幂等去重 + 事件重放 + 查询）并通过门禁。
 - 已完成 S6-03：CI/CD 最小闭环（触发 -> 回调 -> 状态收敛）并通过门禁。
-- 下一步按序推进：S6-04（通知）-> S6-05（缺陷联动）-> S6-06（SSO）-> S6-07（治理增强）-> S6-08（验收收口）。
+- 下一步按序推进：S6-05（缺陷联动）-> S6-06（SSO）-> S6-07（治理增强）-> S6-08（验收收口）。
 
 ## 10. 最近更新记录
 ### 2026-03-17
@@ -268,6 +269,9 @@
 - S6-02 迁移验证：本地历史库既有 revision 漂移风险未变；在临时干净库验证迁移链路通过（`upgrade head -> downgrade 6a9d4c2e1b7f -> upgrade head`）。
 - 完成 S6-03：新增 CI/CD 最小闭环接口（`/api/integrations/{config_id}/cicd/trigger`、`/api/integrations/webhooks/{config_id}/cicd/callback`、`/api/integrations/{config_id}/cicd/runs`），实现触发与回调状态收敛。
 - S6-03 测试门禁：新增 `tests/backend/test_integration_cicd_api.py` 并通过（4 passed）；S6 相关回归通过（12 passed）；后端全量回归通过 `.\.venv\Scripts\python -m pytest`（123 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
+- 完成 S6-04：新增通知中心最小闭环（`app/models/notification_subscription.py`、`app/models/notification_delivery.py`、`migrations/versions/7d2b6f4c8a1e_phase6_notification_center_minimal.py`、`app/api/integrations.py` 通知订阅与投递接口）。
+- S6-04 测试门禁：执行 `tests/backend/test_integration_notifications_api.py`（4 passed）与 `tests/backend/test_db_migration_workflow.py`（3 passed）；S6 相关回归通过（19 passed）。
+- S6-04 迁移验证：新增通知迁移版本 `7d2b6f4c8a1e`，支持 `upgrade/downgrade` 回滚链路。
 - 同步模块与架构文档：更新 `docs/modules/future/09-enterprise-integrations/SKILL.md` 与 `docs/architecture/企业级自动化测试平台系统架构规划.md`，对齐阶段 6 启动口径。
 - 更新模块匹配规则：更新 `docs/modules/future/README.md`，将 `09-enterprise-integrations` 纳入当前默认可执行模块。
 - 完成 S5-00：创建阶段 5 开发清单与验收清单，建立“看板 + 最近更新 + 风险阻塞”可中断恢复机制。
@@ -510,3 +514,5 @@
 - S4-05 验收收口：后端全量回归通过、前端构建通过；迁移 revision 漂移风险转入阶段 5 受控技术债，不阻断阶段切换。
 
 - 2026-03-17：阶段 4（S4-01~S4-05）完成验收并切换为“已完成验收”；阶段 5 当日由“启动中”推进至“已完成验收”，并同步对齐阶段 4/阶段 5 相关 SSOT 文档与模块 SKILL。
+
+

@@ -1,4 +1,4 @@
-# 数据库迁移与 PostgreSQL 落地指南
+﻿# 数据库迁移与 PostgreSQL 落地指南
 
 ## 1. 当前状态
 
@@ -6,7 +6,7 @@
 - 配置文件：`alembic.ini`
 - 迁移目录：`migrations/`
 - 基线版本：`migrations/versions/8daac485a5f7_initial_schema.py`
-- 当前最新版本：`migrations/versions/fcf57b5ad65c_minimal_rbac_role.py`
+- 当前最新版本：`migrations/versions/7d2b6f4c8a1e_phase6_notification_center_minimal.py`
 - 已支持本地/测试环境切换 PostgreSQL
 
 ## 2. 配置说明
@@ -303,3 +303,4 @@ $env:TEST_DATABASE_URL='postgresql+psycopg://postgres:postgres@127.0.0.1:5432/we
   - `alembic downgrade base`
   - 再 `alembic upgrade head`
 - 生产迁移需保留迁移清单与备份信息，禁止只执行命令不留痕
+
