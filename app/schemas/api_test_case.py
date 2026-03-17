@@ -1,4 +1,4 @@
-import json
+﻿import json
 from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -83,6 +83,49 @@ class TestCaseImportRequest(BaseModel):
     skip_duplicates: bool = True
 
 
+
+class TestCaseOpenApiImportRequest(BaseModel):
+    spec: dict[str, Any]
+    base_url: Optional[str] = Field(default=None, max_length=500)
+    case_group: Optional[str] = Field(default="openapi-import", max_length=100)
+    tags: List[str] = Field(default_factory=list)
+    skip_duplicates: bool = True
+
+    @field_validator("base_url", "case_group", mode="before")
+    @classmethod
+    def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def normalize_import_tags(cls, value: Any) -> List[str]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid tags JSON: {exc}")
+        if not isinstance(value, list):
+            raise ValueError("tags must be an array")
+
+        normalized: List[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError("tags must be an array of strings")
+            tag = item.strip()
+            if not tag:
+                continue
+            if tag in seen:
+                continue
+            seen.add(tag)
+            normalized.append(tag)
+        return normalized
+
 class TestCaseImportResponse(BaseModel):
     imported: int
     skipped: int
@@ -111,3 +154,4 @@ class TestCaseResponse(ORMModel):
     extraction_rules: Optional[str]
     created_at: int
     updated_at: int
+

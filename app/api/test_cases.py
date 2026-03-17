@@ -1,6 +1,6 @@
-import json
+﻿import json
 import time
-from typing import List
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import or_
@@ -16,7 +16,7 @@ from app.schemas.api_test_case import (
     TestCaseCopyRequest,
     TestCaseCreateRequest,
     TestCaseExportResponse,
-    TestCaseImportRequest,
+    TestCaseImportRequest,`r`n    TestCaseOpenApiImportRequest,
     TestCaseImportResponse,
     TestCaseResponse,
 )
@@ -80,6 +80,107 @@ def _build_unique_name(db: Session, project_id: int, base_name: str) -> str:
             return candidate
         suffix += 1
 
+
+
+
+def _choose_expected_status(operation: dict[str, Any]) -> int:
+    responses = operation.get("responses")
+    if not isinstance(responses, dict) or not responses:
+        return 200
+
+    numeric_codes: list[int] = []
+    for code in responses.keys():
+        if isinstance(code, int):
+            numeric_codes.append(code)
+            continue
+        if isinstance(code, str) and code.isdigit():
+            numeric_codes.append(int(code))
+
+    if not numeric_codes:
+        return 200
+
+    success_codes = sorted([code for code in numeric_codes if 200 <= code < 300])
+    if success_codes:
+        return success_codes[0]
+    return sorted(numeric_codes)[0]
+
+
+def _resolve_import_base_url(payload: TestCaseOpenApiImportRequest) -> str:
+    if payload.base_url:
+        return payload.base_url.rstrip("/")
+
+    servers = payload.spec.get("servers")
+    if isinstance(servers, list):
+        for item in servers:
+            if not isinstance(item, dict):
+                continue
+            raw_url = item.get("url")
+            if isinstance(raw_url, str) and raw_url.strip():
+                return raw_url.strip().rstrip("/")
+
+    return ""
+
+
+def _build_openapi_import_candidates(payload: TestCaseOpenApiImportRequest) -> list[TestCaseImportItem]:
+    spec = payload.spec
+    paths = spec.get("paths")
+    if not isinstance(paths, dict) or not paths:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "OpenAPI spec paths must not be empty")
+
+    openapi_version = spec.get("openapi")
+    if not isinstance(openapi_version, str) or not openapi_version.strip().startswith("3."):
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Only OpenAPI 3.x is supported")
+
+    base_url = _resolve_import_base_url(payload)
+    allowed_methods = {"get", "post", "put", "patch", "delete"}
+    candidates: list[TestCaseImportItem] = []
+
+    for raw_path, path_item in paths.items():
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            continue
+        if not isinstance(path_item, dict):
+            continue
+
+        normalized_path = raw_path.strip()
+        for method, operation in path_item.items():
+            if not isinstance(method, str):
+                continue
+            lowered_method = method.lower().strip()
+            if lowered_method not in allowed_methods:
+                continue
+            if not isinstance(operation, dict):
+                operation = {}
+
+            method_upper = lowered_method.upper()
+            operation_id = operation.get("operationId")
+            if isinstance(operation_id, str) and operation_id.strip():
+                name = operation_id.strip()
+            else:
+                name = f"{method_upper} {normalized_path}"
+            if len(name) > 100:
+                name = name[:100]
+
+            if base_url:
+                url = f"{base_url}{normalized_path}"
+            else:
+                url = normalized_path
+
+            expected_status = _choose_expected_status(operation)
+            candidates.append(
+                TestCaseImportItem(
+                    name=name,
+                    method=method_upper,
+                    url=url,
+                    case_group=payload.case_group,
+                    tags=payload.tags,
+                    expected_status=expected_status,
+                )
+            )
+
+    if not candidates:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "No importable API operations found in OpenAPI spec")
+
+    return candidates
 
 @router.get("/project/{project_id}", response_model=List[TestCaseResponse])
 def get_test_cases(
@@ -221,6 +322,83 @@ def import_test_cases(
 
     return TestCaseImportResponse(imported=imported, skipped=skipped, created_case_ids=created_case_ids)
 
+
+
+@router.post("/project/{project_id}/import/openapi", response_model=TestCaseImportResponse)
+def import_openapi_test_cases(
+    project_id: int,
+    payload: TestCaseOpenApiImportRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TestCaseImportResponse:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_manage_test_case(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    candidates = _build_openapi_import_candidates(payload)
+
+    imported = 0
+    skipped = 0
+    created_case_ids: List[int] = []
+    now = int(time.time())
+
+    for item in candidates:
+        duplicated = (
+            db.query(ApiTestCase)
+            .filter(
+                ApiTestCase.project_id == project_id,
+                ApiTestCase.method == item.method.upper(),
+                ApiTestCase.url == item.url,
+            )
+            .first()
+        )
+        if duplicated:
+            if payload.skip_duplicates:
+                skipped += 1
+                continue
+            raise AppException(
+                400,
+                ErrorCode.TEST_CASE_ALREADY_EXISTS,
+                f"Duplicate test case: {item.method.upper()} {item.url}",
+            )
+
+        case = ApiTestCase(
+            name=item.name,
+            project_id=project_id,
+            method=item.method.upper(),
+            url=item.url,
+            case_group=item.case_group,
+            tags=(json.dumps(item.tags, ensure_ascii=False) if item.tags else None),
+            headers=item.headers,
+            body=item.body,
+            expected_status=item.expected_status,
+            expected_body=item.expected_body,
+            assertion_rules=item.assertion_rules,
+            extraction_rules=item.extraction_rules,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(case)
+        db.flush()
+
+        imported += 1
+        created_case_ids.append(case.id)
+
+    db.commit()
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.import.openapi",
+        resource_type="project",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={"imported": imported, "skipped": skipped, "source": "openapi"},
+    )
+
+    return TestCaseImportResponse(imported=imported, skipped=skipped, created_case_ids=created_case_ids)
 
 @router.post("/project/{project_id}", response_model=TestCaseResponse)
 def create_test_case(
@@ -403,3 +581,4 @@ def delete_test_case(
         user_id=user.id,
     )
     return {"message": "Test case deleted"}
+

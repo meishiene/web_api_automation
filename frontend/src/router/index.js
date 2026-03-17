@@ -52,6 +52,11 @@ const routes = [
     component: () => import('@/views/SchedulingDashboard.vue'),
   },
   {
+    path: '/project/:projectId/integration-governance',
+    name: 'IntegrationGovernanceDashboard',
+    component: () => import('@/views/IntegrationGovernanceDashboard.vue'),
+  },
+  {
     path: '/project/:projectId/batches/:batchId',
     name: 'BatchRunDetail',
     component: () => import('@/views/BatchRunDetail.vue'),

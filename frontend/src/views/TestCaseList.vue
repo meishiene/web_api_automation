@@ -45,6 +45,7 @@
           <button class="secondary-btn" @click="goToWebTestCases">Web 用例管理</button>
           <button class="secondary-btn" @click="goToEnvironmentManager">环境变量治理</button>
           <button class="secondary-btn" @click="goToSchedulingDashboard">Scheduling</button>
+          <button class="secondary-btn" @click="goToIntegrationGovernance">集成治理</button>
           <button class="secondary-btn" @click="goToBatchRuns">查看批次结果</button>
           <button class="secondary-btn" @click="handleExportCases">导出 JSON</button>
           <button class="secondary-btn" @click="handleImportCases">导入 JSON</button>
@@ -495,6 +496,10 @@ const goToEnvironmentManager = () => {
 
 const goToSchedulingDashboard = () => {
   router.push(`/project/${projectId.value}/scheduling`)
+}
+
+const goToIntegrationGovernance = () => {
+  router.push(`/project/${projectId.value}/integration-governance`)
 }
 
 const openRunDetail = () => {

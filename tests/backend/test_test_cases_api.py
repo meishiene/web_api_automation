@@ -285,3 +285,146 @@ def test_copy_export_import_test_cases(client, create_user_and_login, auth_heade
     assert duplicate_import_resp.status_code == 200
     assert duplicate_import_resp.json()["imported"] == 0
     assert duplicate_import_resp.json()["skipped"] == 2
+
+def test_import_openapi_spec_creates_test_cases(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_openapi", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-openapi", "description": "desc"},
+    )
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    spec = {
+        "openapi": "3.0.3",
+        "servers": [{"url": "https://api.example.com"}],
+        "paths": {
+            "/users": {
+                "get": {
+                    "operationId": "listUsers",
+                    "responses": {"200": {"description": "ok"}},
+                },
+                "post": {
+                    "responses": {"201": {"description": "created"}},
+                },
+            }
+        },
+    }
+
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}/import/openapi",
+        headers=headers,
+        json={"spec": spec, "case_group": "openapi", "tags": ["imported"]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 0
+    assert len(body["created_case_ids"]) == 2
+
+    cases_resp = client.get(f"/api/test-cases/project/{project_id}", headers=headers)
+    assert cases_resp.status_code == 200
+    cases = cases_resp.json()
+    assert len(cases) == 2
+
+    by_method = {item["method"]: item for item in cases}
+    assert by_method["GET"]["name"] == "listUsers"
+    assert by_method["GET"]["url"] == "https://api.example.com/users"
+    assert by_method["GET"]["expected_status"] == 200
+    assert by_method["GET"]["case_group"] == "openapi"
+    assert by_method["GET"]["tags"] == ["imported"]
+
+    assert by_method["POST"]["name"] == "POST /users"
+    assert by_method["POST"]["url"] == "https://api.example.com/users"
+    assert by_method["POST"]["expected_status"] == 201
+
+
+def test_import_openapi_spec_skip_duplicates(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_openapi_dup", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-openapi-dup", "description": "desc"},
+    ).json()["id"]
+
+    spec = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/health": {
+                "get": {
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+    }
+
+    first = client.post(
+        f"/api/test-cases/project/{project_id}/import/openapi",
+        headers=headers,
+        json={"spec": spec},
+    )
+    assert first.status_code == 200
+    assert first.json()["imported"] == 1
+
+    second = client.post(
+        f"/api/test-cases/project/{project_id}/import/openapi",
+        headers=headers,
+        json={"spec": spec, "skip_duplicates": True},
+    )
+    assert second.status_code == 200
+    assert second.json()["imported"] == 0
+    assert second.json()["skipped"] == 1
+
+
+def test_import_openapi_spec_invalid_payload_returns_400(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_openapi_invalid", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-openapi-invalid", "description": "desc"},
+    ).json()["id"]
+
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}/import/openapi",
+        headers=headers,
+        json={"spec": {"openapi": "3.0.0", "paths": {}}},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_non_owner_cannot_import_openapi_to_foreign_project(client, create_user_and_login, auth_headers):
+    owner_token = create_user_and_login("owner_openapi_acl", "pwd")
+    attacker_token = create_user_and_login("attacker_openapi_acl", "pwd")
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=auth_headers(owner_token),
+        json={"name": "P-openapi-acl", "description": "desc"},
+    ).json()["id"]
+
+    spec = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/health": {
+                "get": {
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+    }
+
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}/import/openapi",
+        headers=auth_headers(attacker_token),
+        json={"spec": spec},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["error"]["code"] == "FORBIDDEN"
