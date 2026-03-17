@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+﻿from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.models.lifecycle import unix_timestamp
@@ -39,3 +39,20 @@ class IntegrationConfig(Base):
 
     project = relationship("Project", back_populates="integration_configs")
     events = relationship("IntegrationEvent", back_populates="integration_config", cascade="all, delete-orphan")
+    defect_sync_records = relationship(
+        "DefectSyncRecord",
+        back_populates="integration_config",
+        cascade="all, delete-orphan",
+    )
+    identity_provider_bindings = relationship(
+        "IdentityProviderBinding",
+        back_populates="integration_config",
+        cascade="all, delete-orphan",
+    )
+    identity_oauth_sessions = relationship(
+        "IdentityOAuthSession",
+        back_populates="integration_config",
+        cascade="all, delete-orphan",
+    )
+
+

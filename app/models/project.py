@@ -47,3 +47,18 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    defect_sync_records = relationship(
+        "DefectSyncRecord",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    identity_provider_bindings = relationship(
+        "IdentityProviderBinding",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    identity_oauth_sessions = relationship(
+        "IdentityOAuthSession",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )

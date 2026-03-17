@@ -29,3 +29,8 @@ class User(Base):
     triggered_batch_runs = relationship("ApiBatchRun", back_populates="trigger_user")
     schedule_tasks = relationship("ScheduleTask", back_populates="creator", cascade="all, delete-orphan")
     execution_tasks_created = relationship("ExecutionTask", back_populates="creator")
+    identity_provider_bindings = relationship(
+        "IdentityProviderBinding",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 启动中（S6-04 已完成）。
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 启动中（S6-06 已完成）。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -32,7 +32,7 @@
 | 调度与队列 | 阶段 4 已完成验收：调度/队列/Worker 最小闭环与可视化已稳定落地；阶段 5 聚焦真实消费治理与报告联动增强。 | 45% |
 | 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并完成阶段 5 验收收口（S5-07） | 60% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
-| 企业集成 | 阶段 6 已启动并完成 S6-01~S6-04（配置中心 + 事件回调 + CI + 通知最小闭环），进入 S6-05 准备 | 40% |
+| 企业集成 | 阶段 6 已启动并完成 S6-01~S6-06（配置中心 + 事件回调 + CI + 通知 + 缺陷联动 + OAuth2 最小闭环），进入 S6-07 准备 | 60% |
 
 ## 4. 当前阶段状态表
 
@@ -44,7 +44,7 @@
 | 阶段 3 | Web 测试平台建设 | 收尾中 | 阶段 3 首批闭环（S3-00~S3-04）已完成，进入稳定性收敛与遗留优化 |
 | 阶段 4 | 调度与分布式执行 | 已完成验收 | 已完成 S4-01~S4-05（含验收与切换准备），具备进入阶段 5 的前置条件。 |
 | 阶段 5 | 报告分析与治理 | 已完成验收 | 阶段 5 已完成 S5-00~S5-07，验收门禁通过并完成阶段收口。 |
-| 阶段 6 | 企业集成与生态完善 | 启动中 | 阶段 6 已完成 S6-00~S6-04，按 S6-05~S6-08 推进。 |
+| 阶段 6 | 企业集成与生态完善 | 启动中 | 阶段 6 已完成 S6-00~S6-06，按 S6-07~S6-08 推进。 |
 
 ## 5. 当前已完成内容
 
@@ -101,6 +101,8 @@
 - 已新增企业集成事件收件箱：`integration_events` 模型与迁移、签名 Webhook 入站、幂等去重、事件重放与事件查询接口
 - 已新增 CI/CD 最小闭环：`/api/integrations/{config_id}/cicd/trigger`、`/api/integrations/webhooks/{config_id}/cicd/callback`、`/api/integrations/{config_id}/cicd/runs`
 - 已新增通知中心最小闭环：`notification_subscriptions`/`notification_deliveries` 模型与迁移、通知订阅管理、投递日志查询、失败重试与死信收敛
+- 已新增缺陷联动最小闭环：`defect_sync_records` 模型与迁移、`/api/integrations/{config_id}/defects/sync`、`/api/integrations/project/{project_id}/defects/records`、失败指纹去重与建单/更新路径审计留痕
+- 已新增 OAuth2 身份集成最小闭环：`identity_oauth_sessions`/`identity_provider_bindings` 模型与迁移、`/api/integrations/{config_id}/identity/oauth2/start`、`/api/integrations/{config_id}/identity/oauth2/callback`、`/api/integrations/{config_id}/identity/bindings`、state 会话校验与账号绑定策略（新建/关联/复用）
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -200,7 +202,7 @@
 - 调度系统与分布式执行
 - 报告高级分析能力（跨版本对比、慢步骤根因、治理看板深化）
 - CI/CD 集成
-- SSO / LDAP / OAuth2 集成
+- SSO / LDAP 高级集成能力（多提供商、多租户策略与治理增强）
 - 缺陷管理平台对接
 
 ## 8. 当前代码基线判断
@@ -255,9 +257,23 @@
 - 已完成 S6-01：集成配置中心最小闭环（模型 + 迁移 + API + 鉴权 + 审计）并通过门禁。
 - 已完成 S6-02：事件与签名回调最小闭环（签名校验 + 幂等去重 + 事件重放 + 查询）并通过门禁。
 - 已完成 S6-03：CI/CD 最小闭环（触发 -> 回调 -> 状态收敛）并通过门禁。
-- 下一步按序推进：S6-05（缺陷联动）-> S6-06（SSO）-> S6-07（治理增强）-> S6-08（验收收口）。
+- 已完成 S6-05：缺陷联动最小闭环（Jira 适配切片、失败指纹去重、建单/更新路径、记录查询与审计）。
+- 下一步按序推进：S6-06（SSO）-> S6-07（治理增强）-> S6-08（验收收口）。
 
 ## 10. 最近更新记录
+### 2026-03-17
+- 完成 S6-06：新增 OAuth2 身份集成最小闭环（app/models/identity_oauth_session.py、app/models/identity_provider_binding.py、migrations/versions/4c7b2d1e9a6f_phase6_identity_oauth_minimal.py、/api/integrations/{config_id}/identity/oauth2/start、/api/integrations/{config_id}/identity/oauth2/callback、/api/integrations/{config_id}/identity/bindings）。
+- S6-06 能力：支持 OAuth2 state 会话与过期校验、一次性回调消费、账号绑定策略（新用户创建/已有用户关联/既有绑定复用）与回调后令牌签发。
+- S6-06 测试门禁：新增 tests/backend/test_integration_identity_oauth_api.py（3 passed）；S6 相关回归通过 python -m pytest tests/backend/test_integration_identity_oauth_api.py tests/backend/test_integration_defect_api.py tests/backend/test_integrations_api.py tests/backend/test_integration_events_api.py tests/backend/test_integration_cicd_api.py tests/backend/test_integration_notifications_api.py -q（22 passed）。
+### 2026-03-17
+- 完成 S6-05：新增缺陷联动最小闭环（`app/models/defect_sync_record.py`、`migrations/versions/5f1e2a9c7d3b_phase6_defect_sync_minimal.py`、`/api/integrations/{config_id}/defects/sync`、`/api/integrations/project/{project_id}/defects/records`）。
+- S6-05 能力：支持失败执行字段映射、失败指纹去重（同模式不重复建单）、既有缺陷单更新路径与事件审计（integration_defect.sync、integration_defect.record.list）。
+- S6-05 测试门禁：新增 `tests/backend/test_integration_defect_api.py`（3 passed）；S6 相关回归通过 `python -m pytest tests/backend/test_integration_defect_api.py tests/backend/test_integrations_api.py tests/backend/test_integration_events_api.py tests/backend/test_integration_cicd_api.py tests/backend/test_integration_notifications_api.py -q`（19 passed）。
+- 说明：`tests/backend/test_db_migration_workflow.py` 在当前环境受 `pytest` 临时目录权限限制（WinError 5）未完成执行；本次改动已补齐迁移文件并完成相关接口回归验证。
+### 2026-03-17
+- 文档口径补齐：同步修订 docs/project/project-overview.md，更新为“阶段 5 已验收完成、阶段 6 启动中（S6-04 已完成）”并移除已过期“未打通能力”表述。
+- 阶段 6 验收清单口径对齐：docs/project/stage-6-acceptance-checklist.md 状态更新为 S6-00~S6-04 已完成，S6-05~S6-08 待推进。
+- 模块 SKILL 口径对齐：02-user-org-auth、03-project-assets-env、04-api-testing 状态从“进行中”调整为“收尾中”，并明确仅执行阶段 2 收尾范围缺陷修复/治理优化。
 ### 2026-03-17
 - 启动阶段 6：新增 `docs/project/stage-6-development-checklist.md` 与 `docs/project/stage-6-acceptance-checklist.md`，建立阶段 6 SSOT、门禁、DoD 与中断恢复机制。
 - 阶段状态切换：`阶段 6 未开始 -> 启动中（规划中）`，后续按 `S6-01~S6-08` 顺序推进。
@@ -514,5 +530,21 @@
 - S4-05 验收收口：后端全量回归通过、前端构建通过；迁移 revision 漂移风险转入阶段 5 受控技术债，不阻断阶段切换。
 
 - 2026-03-17：阶段 4（S4-01~S4-05）完成验收并切换为“已完成验收”；阶段 5 当日由“启动中”推进至“已完成验收”，并同步对齐阶段 4/阶段 5 相关 SSOT 文档与模块 SKILL。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

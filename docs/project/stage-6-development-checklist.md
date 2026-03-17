@@ -10,7 +10,7 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 6 企业集成与生态完善
-- 当前状态：启动中（S6-04 已完成，进入 S6-05 准备）
+- 当前状态：启动中（S6-06 已完成，进入 S6-07 准备）
 - 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 已完成验收 + 阶段 6 启动中（详见 `docs/project/project-progress.md`）
 - 本阶段目标：把平台从“可执行、可分析”升级为“可接入企业研发流程、可治理、可运营”的企业级集成平台。
 
@@ -139,8 +139,8 @@
 | S6-02 | completed | 事件入库、签名校验、幂等去重与重放能力已落地 |
 | S6-03 | completed | CI 触发、回调收敛与运行记录查询已落地 |
 | S6-04 | completed | 通知订阅、投递日志、重试与死信最小闭环已落地 |
-| S6-05 | pending | 等待缺陷联动最小闭环 |
-| S6-06 | pending | 等待 SSO/OAuth2 最小接入 |
+| S6-05 | completed | Jira 适配切片、失败映射、去重与更新路径已落地 |
+| S6-06 | completed | OAuth2 授权启动、回调校验、账号绑定与令牌签发已落地 |
 | S6-07 | pending | 等待治理增强与运营可观测 |
 | S6-08 | pending | 等待阶段验收与切换准备 |
 
@@ -153,6 +153,16 @@
 
 ## 5. 最近更新记录
 
+### 2026-03-17
+- 完成 S6-06：新增 OAuth2 身份集成最小闭环（identity_oauth_sessions/identity_provider_bindings 模型 + 迁移、oauth2 start/callback/bindings 接口）。
+- S6-06 机制：state 会话安全校验（存在性/过期/一次性消费）、账号绑定策略（新建/关联/复用）与回调令牌签发。
+- S6-06 测试门禁：新增 tests/backend/test_integration_identity_oauth_api.py（3 passed）；S6 相关回归通过（22 passed）。
+- 阶段推进：S6-06 完成后进入 S6-07（治理增强与运营可观测）准备。
+### 2026-03-17
+- 完成 S6-05：新增缺陷联动最小闭环（defect_sync_records 模型 + 迁移、/api/integrations/{config_id}/defects/sync、/api/integrations/project/{project_id}/defects/records）。
+- S6-05 机制：失败执行字段映射、失败指纹去重（同失败模式复用缺陷单）、建单/更新双路径审计留痕。
+- S6-05 测试门禁：新增 tests/backend/test_integration_defect_api.py（3 passed）；S6 相关回归通过（19 passed）。
+- 阶段推进：S6-05 完成后进入 S6-06（SSO/OAuth2 最小接入）准备。
 ### 2026-03-17
 - 完成 S6-00：创建阶段 6 开发清单与验收清单，建立“看板 + 最近更新 + 风险阻塞”可中断恢复机制。
 - 同步更新项目进度文档、架构总纲与 `09-enterprise-integrations/SKILL.md`，将阶段 6 状态切换为“启动中（规划中）”。
@@ -175,5 +185,15 @@
 | RISK-S6-001 | 第三方平台差异较大导致适配范围膨胀 | controlled | 采用“单提供商先落地 + 适配层抽象”的切片策略，避免一次性多平台并行 | S6-01~S6-05 |
 | RISK-S6-002 | 回调安全与幂等缺失会引入高风险重复执行 | controlled | S6-02~S6-03 已落地 HMAC 签名校验 + 幂等去重 + 触发回调收敛，后续在 S6-05 继续补强通知治理与缺陷链路联动 | S6-02~S6-05 |
 | RISK-S6-003 | 外部依赖不可用导致门禁不稳定 | controlled | 为集成测试提供 mock/stub 与可回放样本，核心门禁优先本地可重复 | S6-03~S6-07 |
+
+
+
+
+
+
+
+
+
+
 
 

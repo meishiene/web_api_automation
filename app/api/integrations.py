@@ -1,8 +1,10 @@
-import hashlib
+﻿import hashlib
 import hmac
 import json
+import os
 import time
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -10,13 +12,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.errors import AppException, ErrorCode
+from app.models.defect_sync_record import DefectSyncRecord
 from app.models.integration_config import IntegrationConfig
 from app.models.integration_event import IntegrationEvent
+from app.models.identity_oauth_session import IdentityOAuthSession
+from app.models.identity_provider_binding import IdentityProviderBinding
 from app.models.notification_delivery import NotificationDelivery
 from app.models.notification_subscription import NotificationSubscription
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.common import MessageResponse
+from app.security import create_access_token, create_refresh_token, hash_password
 from app.schemas.integration import (
     IntegrationCicdCallbackResponse,
     IntegrationCicdTriggerRequest,
@@ -28,6 +34,21 @@ from app.schemas.integration import (
     IntegrationEventListResponse,
     IntegrationEventResponse,
     IntegrationWebhookIngestResponse,
+    DefectSyncRecordListResponse,
+    DefectSyncRecordResponse,
+    IntegrationDefectSyncRequest,
+    IntegrationDefectSyncResponse,
+    IntegrationIdentityOAuthStartRequest,
+    IntegrationIdentityOAuthStartResponse,
+    IntegrationIdentityOAuthCallbackRequest,
+    IntegrationIdentityOAuthCallbackResponse,
+    IdentityProviderBindingResponse,
+    IdentityProviderBindingListResponse,
+    IntegrationGovernanceBulkRetryRequest,
+    IntegrationGovernanceBulkRetryResponse,
+    IntegrationGovernanceEventRetryResponse,
+    IntegrationGovernanceFailureItem,
+    IntegrationGovernanceHealthResponse,
     NotificationDeliveryListResponse,
     NotificationDeliveryResponse,
     NotificationDispatchRequest,
@@ -141,6 +162,133 @@ def _to_delivery_response(item: NotificationDelivery) -> NotificationDeliveryRes
         updated_at=item.updated_at,
     )
 
+
+
+
+def _serialize_tags_json(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(value, list):
+        return []
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        normalized = item.strip()
+        if normalized:
+            result.append(normalized)
+    return result
+
+
+def _to_defect_record_response(item: DefectSyncRecord) -> DefectSyncRecordResponse:
+    return DefectSyncRecordResponse(
+        id=item.id,
+        integration_config_id=item.integration_config_id,
+        project_id=item.project_id,
+        run_type=item.run_type,
+        last_run_id=item.last_run_id,
+        case_id=item.case_id,
+        case_name=item.case_name,
+        failure_fingerprint=item.failure_fingerprint,
+        failure_category=item.failure_category,
+        failure_message=item.failure_message,
+        issue_key=item.issue_key,
+        issue_url=item.issue_url,
+        issue_status=item.issue_status,
+        summary=item.summary,
+        detail_api_path=item.detail_api_path,
+        tags=_serialize_tags_json(item.tags_json),
+        occurrence_count=item.occurrence_count,
+        created_by=item.created_by,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _ensure_defect_config(config: IntegrationConfig) -> None:
+    if config.integration_type != "defect":
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Integration config is not defect type")
+    if not bool(config.is_enabled):
+        raise AppException(400, ErrorCode.INTEGRATION_CONFIG_DISABLED, "Integration config is disabled")
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in tags:
+        normalized = item.strip()
+        if not normalized:
+            continue
+        lowered = normalized.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        result.append(normalized)
+    return result
+
+
+def _build_defect_fingerprint(payload: IntegrationDefectSyncRequest) -> str:
+    if payload.failure_fingerprint:
+        return payload.failure_fingerprint
+    seed = {
+        "run_type": payload.run_type,
+        "case_id": payload.case_id,
+        "case_name": payload.case_name,
+        "failure_category": payload.failure_category,
+        "failure_message": payload.failure_message,
+    }
+    serialized = json.dumps(seed, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_defect_summary(payload: IntegrationDefectSyncRequest) -> str:
+    base = f"[{payload.run_type.upper()}] {payload.case_name}"
+    message = (payload.failure_message or "execution failed").strip()
+    if message:
+        return f"{base} - {message}"[:255]
+    return base[:255]
+
+
+def _build_defect_ticket_payload(
+    config: IntegrationConfig,
+    payload: IntegrationDefectSyncRequest,
+    issue_key: str,
+    mode: str,
+    fingerprint: str,
+    occurrence_count: int,
+) -> dict[str, Any]:
+    config_json = _serialize_config_json(config.config_json)
+    labels = _normalize_tags([*(config_json.get("labels") or []), *payload.tags])
+    return {
+        "provider": config.provider,
+        "project_key": config_json.get("project_key") or "AUTO",
+        "issue_type": config_json.get("issue_type") or "Bug",
+        "priority": config_json.get("priority") or "P2",
+        "issue_key": issue_key,
+        "mode": mode,
+        "fingerprint": fingerprint,
+        "run": {
+            "run_type": payload.run_type,
+            "run_id": payload.run_id,
+            "status": payload.status,
+            "detail_api_path": payload.detail_api_path,
+        },
+        "case": {
+            "case_id": payload.case_id,
+            "case_name": payload.case_name,
+        },
+        "failure": {
+            "category": payload.failure_category,
+            "message": payload.failure_message,
+        },
+        "labels": labels,
+        "occurrence_count": occurrence_count,
+        "extra": payload.extra,
+    }
 
 def _ensure_project_and_permission(db: Session, project_id: int, user: User, manage: bool) -> Project:
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -344,6 +492,119 @@ def _apply_notification_delivery_result(delivery: NotificationDelivery, success:
     delivery.status = "dead_letter"
     delivery.next_retry_at = None
 
+
+
+def _to_identity_binding_response(item: IdentityProviderBinding) -> IdentityProviderBindingResponse:
+    return IdentityProviderBindingResponse(
+        id=item.id,
+        integration_config_id=item.integration_config_id,
+        project_id=item.project_id,
+        provider=item.provider,
+        user_id=item.user_id,
+        external_subject=item.external_subject,
+        external_email=item.external_email,
+        last_login_at=item.last_login_at,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _ensure_identity_config(config: IntegrationConfig) -> dict[str, Any]:
+    if config.integration_type != "identity":
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Integration config is not identity type")
+    if not bool(config.is_enabled):
+        raise AppException(400, ErrorCode.INTEGRATION_CONFIG_DISABLED, "Integration config is disabled")
+
+    config_json = _serialize_config_json(config.config_json)
+    if not config_json.get("client_id"):
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Identity client_id is required")
+    return config_json
+
+
+def _generate_oauth_state() -> str:
+    return hashlib.sha256(os.urandom(24)).hexdigest()
+
+
+def _build_mock_userinfo(payload: IntegrationIdentityOAuthCallbackRequest) -> dict[str, str]:
+    mock = payload.mock_userinfo if isinstance(payload.mock_userinfo, dict) else {}
+    sub = str(mock.get("sub") or f"mock-sub-{hashlib.sha256(payload.code.encode('utf-8')).hexdigest()[:12]}")
+    email = mock.get("email")
+    preferred_username = mock.get("preferred_username")
+
+    if email and isinstance(email, str):
+        email = email.strip().lower() or None
+    else:
+        email = None
+
+    if preferred_username and isinstance(preferred_username, str):
+        preferred_username = preferred_username.strip() or None
+    else:
+        preferred_username = None
+
+    return {
+        "sub": sub,
+        "email": email,
+        "preferred_username": preferred_username,
+    }
+
+
+def _slug_username(raw: str) -> str:
+    normalized = "".join(ch if (ch.isalnum() or ch in {"_", "-", "."}) else "_" for ch in raw)
+    normalized = normalized.strip("._-")
+    if not normalized:
+        return "oauth_user"
+    return normalized[:50]
+
+
+def _choose_base_username(userinfo: dict[str, str]) -> str:
+    preferred = userinfo.get("preferred_username")
+    if preferred:
+        return _slug_username(preferred)
+    email = userinfo.get("email")
+    if email:
+        return _slug_username(email.split("@", 1)[0])
+    return _slug_username(f"oauth_{userinfo['sub'][:12]}")
+
+
+def _generate_unique_username(db: Session, base_username: str) -> str:
+    candidate = base_username
+    suffix = 1
+    while db.query(User).filter(User.username == candidate).first() is not None:
+        suffix += 1
+        candidate = _slug_username(f"{base_username}_{suffix}")
+    return candidate
+
+
+def _resolve_user_for_identity_login(db: Session, userinfo: dict[str, str], auto_create_user: bool) -> tuple[User, str]:
+    email = userinfo.get("email")
+    preferred = userinfo.get("preferred_username")
+
+    if preferred:
+        existing = db.query(User).filter(User.username == preferred).first()
+        if existing:
+            return existing, "linked_existing_user"
+
+    if email:
+        email_local = email.split("@", 1)[0]
+        existing = db.query(User).filter(User.username == email_local).first()
+        if existing:
+            return existing, "linked_existing_user"
+
+    if not auto_create_user:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "No local user matched and auto create is disabled")
+
+    base_username = _choose_base_username(userinfo)
+    username = _generate_unique_username(db, base_username)
+    now = int(time.time())
+    created = User(
+        username=username,
+        password=hash_password(hashlib.sha256(os.urandom(32)).hexdigest()),
+        role="user",
+        created_at=now,
+    )
+    db.add(created)
+    db.flush()
+    return created, "created_user"
 
 @router.get("/project/{project_id}", response_model=List[IntegrationConfigResponse])
 def list_integrations(
@@ -741,6 +1002,594 @@ def list_notification_deliveries(
     )
     return NotificationDeliveryListResponse(total=total, items=[_to_delivery_response(item) for item in items])
 
+
+
+
+@router.post("/{config_id}/defects/sync", response_model=IntegrationDefectSyncResponse)
+def sync_defect_ticket(
+    config_id: int,
+    payload: IntegrationDefectSyncRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IntegrationDefectSyncResponse:
+    config, _project = _ensure_integration_and_permission(db, config_id, user, manage=True)
+    _ensure_defect_config(config)
+
+    now = int(time.time())
+    fingerprint = _build_defect_fingerprint(payload)
+    record = (
+        db.query(DefectSyncRecord)
+        .filter(
+            DefectSyncRecord.project_id == config.project_id,
+            DefectSyncRecord.failure_fingerprint == fingerprint,
+        )
+        .first()
+    )
+
+    mode = "created"
+    if record is None:
+        record = DefectSyncRecord(
+            integration_config_id=config.id,
+            project_id=config.project_id,
+            run_type=payload.run_type,
+            last_run_id=payload.run_id,
+            case_id=payload.case_id,
+            case_name=payload.case_name,
+            failure_fingerprint=fingerprint,
+            failure_category=payload.failure_category,
+            failure_message=payload.failure_message,
+            issue_key="PENDING",
+            issue_status="open",
+            summary=_build_defect_summary(payload),
+            detail_api_path=payload.detail_api_path,
+            tags_json=json.dumps(_normalize_tags(payload.tags), ensure_ascii=False),
+            occurrence_count=1,
+            created_by=user.id,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(record)
+        db.flush()
+
+        config_json = _serialize_config_json(config.config_json)
+        issue_key_prefix = str(config_json.get("issue_key_prefix") or config_json.get("project_key") or "AUTO").strip() or "AUTO"
+        record.issue_key = f"{issue_key_prefix}-{record.id}"
+        if config.base_url:
+            record.issue_url = f"{config.base_url.rstrip('/')}/browse/{record.issue_key}"
+    else:
+        mode = "updated"
+        record.last_run_id = payload.run_id
+        record.run_type = payload.run_type
+        record.case_id = payload.case_id
+        record.case_name = payload.case_name
+        record.failure_category = payload.failure_category
+        record.failure_message = payload.failure_message
+        record.summary = _build_defect_summary(payload)
+        record.detail_api_path = payload.detail_api_path
+        record.tags_json = json.dumps(_normalize_tags(payload.tags), ensure_ascii=False)
+        record.occurrence_count += 1
+        record.updated_at = now
+
+    ticket_payload = _build_defect_ticket_payload(
+        config=config,
+        payload=payload,
+        issue_key=record.issue_key,
+        mode=mode,
+        fingerprint=fingerprint,
+        occurrence_count=record.occurrence_count,
+    )
+    record.last_payload_json = json.dumps(ticket_payload, ensure_ascii=False)
+
+    event = IntegrationEvent(
+        integration_config_id=config.id,
+        project_id=config.project_id,
+        event_type="defect.ticket.create" if mode == "created" else "defect.ticket.update",
+        direction="outbound",
+        status="processed",
+        payload_json=json.dumps(ticket_payload, ensure_ascii=False),
+        headers_json=json.dumps(
+            {
+                "triggered_by": user.username,
+                "request_id": getattr(request.state, "request_id", "-"),
+                "record_id": record.id,
+            },
+            ensure_ascii=False,
+        ),
+        signature=None,
+        idempotency_key=hashlib.sha256(
+            f"defect:{config.id}:{fingerprint}:{record.occurrence_count}".encode("utf-8")
+        ).hexdigest(),
+        attempt_count=1,
+        max_attempts=1,
+        next_retry_at=None,
+        last_error=None,
+        last_processed_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(record)
+    db.refresh(event)
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_defect.sync",
+        resource_type="defect_sync_record",
+        resource_id=str(record.id),
+        user_id=user.id,
+        details={
+            "project_id": config.project_id,
+            "config_id": config.id,
+            "mode": mode,
+            "issue_key": record.issue_key,
+            "fingerprint": fingerprint,
+            "occurrence_count": record.occurrence_count,
+        },
+    )
+    return IntegrationDefectSyncResponse(
+        mode=mode,
+        record=_to_defect_record_response(record),
+        event=_to_event_response(event),
+    )
+
+
+@router.get("/project/{project_id}/defects/records", response_model=DefectSyncRecordListResponse)
+def list_defect_sync_records(
+    project_id: int,
+    request: Request,
+    issue_status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DefectSyncRecordListResponse:
+    _ensure_project_and_permission(db, project_id, user, manage=False)
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Invalid pagination params")
+
+    query = db.query(DefectSyncRecord).filter(DefectSyncRecord.project_id == project_id)
+    if issue_status:
+        query = query.filter(DefectSyncRecord.issue_status == issue_status.strip())
+
+    total = query.count()
+    items = (
+        query.order_by(DefectSyncRecord.updated_at.desc(), DefectSyncRecord.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_defect.record.list",
+        resource_type="defect_sync_record",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={"project_id": project_id, "count": len(items), "total": total},
+    )
+    return DefectSyncRecordListResponse(total=total, items=[_to_defect_record_response(item) for item in items])
+
+
+
+@router.post("/{config_id}/identity/oauth2/start", response_model=IntegrationIdentityOAuthStartResponse)
+def start_identity_oauth(
+    config_id: int,
+    payload: IntegrationIdentityOAuthStartRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> IntegrationIdentityOAuthStartResponse:
+    config = db.query(IntegrationConfig).filter(IntegrationConfig.id == config_id).first()
+    if not config:
+        raise AppException(404, ErrorCode.INTEGRATION_CONFIG_NOT_FOUND, "Integration config not found")
+    config_json = _ensure_identity_config(config)
+
+    authorize_url = str(config_json.get("authorize_url") or "").strip()
+    redirect_uri = payload.redirect_uri or str(config_json.get("redirect_uri") or "").strip()
+    scope = str(config_json.get("scope") or "openid profile email").strip()
+    client_id = str(config_json.get("client_id") or "").strip()
+    if not authorize_url:
+        if config.base_url:
+            authorize_url = f"{config.base_url.rstrip('/')}/oauth/authorize"
+        else:
+            raise AppException(400, ErrorCode.VALIDATION_ERROR, "authorize_url is required")
+    if not redirect_uri:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "redirect_uri is required")
+
+    now = int(time.time())
+    expires_at = now + 600
+    state = _generate_oauth_state()
+    session = IdentityOAuthSession(
+        integration_config_id=config.id,
+        project_id=config.project_id,
+        provider=config.provider,
+        state=state,
+        redirect_uri=redirect_uri,
+        status="pending",
+        expires_at=expires_at,
+        requested_by=None,
+        consumed_at=None,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(session)
+    db.commit()
+
+    authorize_query = urlencode(
+        {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "state": state,
+        }
+    )
+    full_authorize_url = f"{authorize_url}?{authorize_query}"
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_identity.oauth2_start",
+        resource_type="integration_config",
+        resource_id=str(config.id),
+        details={"project_id": config.project_id, "state": state, "expires_at": expires_at},
+    )
+    return IntegrationIdentityOAuthStartResponse(state=state, authorize_url=full_authorize_url, expires_at=expires_at)
+
+
+@router.post("/{config_id}/identity/oauth2/callback", response_model=IntegrationIdentityOAuthCallbackResponse)
+def callback_identity_oauth(
+    config_id: int,
+    payload: IntegrationIdentityOAuthCallbackRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> IntegrationIdentityOAuthCallbackResponse:
+    config = db.query(IntegrationConfig).filter(IntegrationConfig.id == config_id).first()
+    if not config:
+        raise AppException(404, ErrorCode.INTEGRATION_CONFIG_NOT_FOUND, "Integration config not found")
+    config_json = _ensure_identity_config(config)
+
+    session = (
+        db.query(IdentityOAuthSession)
+        .filter(
+            IdentityOAuthSession.integration_config_id == config.id,
+            IdentityOAuthSession.state == payload.state,
+        )
+        .first()
+    )
+    if not session:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Invalid oauth state")
+
+    now = int(time.time())
+    if session.status != "pending":
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "OAuth state already consumed")
+    if now > session.expires_at:
+        session.status = "expired"
+        session.updated_at = now
+        db.commit()
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "OAuth state expired")
+
+    userinfo = _build_mock_userinfo(payload)
+    binding = (
+        db.query(IdentityProviderBinding)
+        .filter(
+            IdentityProviderBinding.provider == config.provider,
+            IdentityProviderBinding.external_subject == userinfo["sub"],
+        )
+        .first()
+    )
+
+    if binding:
+        user = db.query(User).filter(User.id == binding.user_id).first()
+        if not user:
+            raise AppException(401, ErrorCode.USER_NOT_FOUND, "User not found")
+        binding_mode = "reused_existing_binding"
+        binding.external_email = userinfo.get("email")
+        binding.last_login_at = now
+        binding.updated_at = now
+    else:
+        auto_create_user = bool(config_json.get("auto_create_user", True))
+        user, binding_mode = _resolve_user_for_identity_login(db, userinfo, auto_create_user=auto_create_user)
+        binding = IdentityProviderBinding(
+            integration_config_id=config.id,
+            project_id=config.project_id,
+            provider=config.provider,
+            user_id=user.id,
+            external_subject=userinfo["sub"],
+            external_email=userinfo.get("email"),
+            last_login_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(binding)
+
+    session.status = "completed"
+    session.consumed_at = now
+    session.updated_at = now
+
+    event = IntegrationEvent(
+        integration_config_id=config.id,
+        project_id=config.project_id,
+        event_type="identity.oauth2.callback",
+        direction="inbound",
+        status="processed",
+        payload_json=json.dumps({
+            "state": payload.state,
+            "code": payload.code,
+            "subject": userinfo["sub"],
+            "email": userinfo.get("email"),
+            "binding_mode": binding_mode,
+            "user_id": user.id,
+        }, ensure_ascii=False),
+        headers_json=json.dumps(_build_headers_snapshot(request), ensure_ascii=False),
+        signature=None,
+        idempotency_key=hashlib.sha256(f"identity:{config.id}:{payload.state}:{payload.code}".encode("utf-8")).hexdigest(),
+        attempt_count=1,
+        max_attempts=1,
+        next_retry_at=None,
+        last_error=None,
+        last_processed_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(binding)
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_identity.oauth2_callback",
+        resource_type="identity_provider_binding",
+        resource_id=str(binding.id),
+        user_id=user.id,
+        details={
+            "project_id": config.project_id,
+            "config_id": config.id,
+            "binding_mode": binding_mode,
+            "provider": config.provider,
+        },
+    )
+
+    return IntegrationIdentityOAuthCallbackResponse(
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
+        token_type="bearer",
+        user={"id": user.id, "username": user.username, "role": user.role},
+        binding_mode=binding_mode,
+        binding=_to_identity_binding_response(binding),
+    )
+
+
+@router.get("/{config_id}/identity/bindings", response_model=IdentityProviderBindingListResponse)
+def list_identity_bindings(
+    config_id: int,
+    request: Request,
+    page: int = 1,
+    page_size: int = 20,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IdentityProviderBindingListResponse:
+    config, _project = _ensure_integration_and_permission(db, config_id, user, manage=False)
+    _ensure_identity_config(config)
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Invalid pagination params")
+
+    query = db.query(IdentityProviderBinding).filter(IdentityProviderBinding.integration_config_id == config.id)
+    total = query.count()
+    items = (
+        query.order_by(IdentityProviderBinding.updated_at.desc(), IdentityProviderBinding.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_identity.binding.list",
+        resource_type="identity_provider_binding",
+        resource_id=str(config.id),
+        user_id=user.id,
+        details={"project_id": config.project_id, "count": len(items), "total": total},
+    )
+    return IdentityProviderBindingListResponse(total=total, items=[_to_identity_binding_response(item) for item in items])
+
+
+
+def _count_by_status(values: list[str]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for value in values:
+        result[value] = result.get(value, 0) + 1
+    return result
+
+
+@router.get("/project/{project_id}/governance/health", response_model=IntegrationGovernanceHealthResponse)
+def get_integration_governance_health(
+    project_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IntegrationGovernanceHealthResponse:
+    _ensure_project_and_permission(db, project_id, user, manage=False)
+
+    configs = db.query(IntegrationConfig).filter(IntegrationConfig.project_id == project_id).all()
+    events = db.query(IntegrationEvent).filter(IntegrationEvent.project_id == project_id).all()
+    deliveries = db.query(NotificationDelivery).filter(NotificationDelivery.project_id == project_id).all()
+
+    event_status_counts = _count_by_status([item.status for item in events])
+    delivery_status_counts = _count_by_status([item.status for item in deliveries])
+
+    retry_events = sum(1 for item in events if item.status in {"failed", "retry_pending"})
+    retry_deliveries = sum(1 for item in deliveries if item.status in {"retry_pending", "dead_letter"})
+
+    identity_binding_count = db.query(IdentityProviderBinding).filter(IdentityProviderBinding.project_id == project_id).count()
+    defect_open_count = db.query(DefectSyncRecord).filter(
+        DefectSyncRecord.project_id == project_id,
+        DefectSyncRecord.issue_status != "closed",
+    ).count()
+
+    recent_failures: list[IntegrationGovernanceFailureItem] = []
+    for item in events:
+        if item.status not in {"failed", "retry_pending"}:
+            continue
+        recent_failures.append(
+            IntegrationGovernanceFailureItem(
+                source="integration_event",
+                record_id=item.id,
+                status=item.status,
+                message=item.last_error,
+                updated_at=item.updated_at,
+            )
+        )
+    for item in deliveries:
+        if item.status not in {"dead_letter", "retry_pending"}:
+            continue
+        recent_failures.append(
+            IntegrationGovernanceFailureItem(
+                source="notification_delivery",
+                record_id=item.id,
+                status=item.status,
+                message=item.last_error,
+                updated_at=item.updated_at,
+            )
+        )
+
+    recent_failures.sort(key=lambda item: item.updated_at, reverse=True)
+    recent_failures = recent_failures[:20]
+
+    now = int(time.time())
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_governance.health",
+        resource_type="integration_config",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={"project_id": project_id, "retry_events": retry_events, "retry_deliveries": retry_deliveries},
+    )
+
+    return IntegrationGovernanceHealthResponse(
+        project_id=project_id,
+        generated_at=now,
+        config_counts={
+            "total": len(configs),
+            "enabled": sum(1 for item in configs if bool(item.is_enabled)),
+            "disabled": sum(1 for item in configs if not bool(item.is_enabled)),
+        },
+        event_status_counts=event_status_counts,
+        delivery_status_counts=delivery_status_counts,
+        retry_backlog={"events": retry_events, "deliveries": retry_deliveries},
+        identity_binding_count=identity_binding_count,
+        defect_open_count=defect_open_count,
+        recent_failures=recent_failures,
+    )
+
+
+@router.post("/project/{project_id}/governance/retry-failed", response_model=IntegrationGovernanceBulkRetryResponse)
+def retry_failed_integrations(
+    project_id: int,
+    payload: IntegrationGovernanceBulkRetryRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IntegrationGovernanceBulkRetryResponse:
+    _ensure_project_and_permission(db, project_id, user, manage=True)
+
+    now = int(time.time())
+    retried_events = 0
+    retried_deliveries = 0
+
+    retryable_events = (
+        db.query(IntegrationEvent)
+        .filter(
+            IntegrationEvent.project_id == project_id,
+            IntegrationEvent.status.in_(["failed", "retry_pending"]),
+        )
+        .order_by(IntegrationEvent.updated_at.asc(), IntegrationEvent.id.asc())
+        .limit(payload.max_events)
+        .all()
+    )
+    for item in retryable_events:
+        event_payload = _serialize_event_json(item.payload_json)
+        _process_event(item, event_payload, now)
+        item.updated_at = now
+        retried_events += 1
+
+    retryable_deliveries = (
+        db.query(NotificationDelivery)
+        .filter(
+            NotificationDelivery.project_id == project_id,
+            NotificationDelivery.status.in_(["retry_pending", "dead_letter"]),
+        )
+        .order_by(NotificationDelivery.updated_at.asc(), NotificationDelivery.id.asc())
+        .limit(payload.max_deliveries)
+        .all()
+    )
+    for item in retryable_deliveries:
+        item.attempt_count += 1
+        item.last_attempt_at = now
+        success, error = _mock_notification_send(item.destination, item.attempt_count)
+        _apply_notification_delivery_result(item, success, error, now)
+        item.updated_at = now
+        retried_deliveries += 1
+
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_governance.retry_failed",
+        resource_type="integration_config",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={
+            "project_id": project_id,
+            "retried_events": retried_events,
+            "retried_deliveries": retried_deliveries,
+            "max_events": payload.max_events,
+            "max_deliveries": payload.max_deliveries,
+        },
+    )
+
+    return IntegrationGovernanceBulkRetryResponse(
+        project_id=project_id,
+        retried_events=retried_events,
+        retried_deliveries=retried_deliveries,
+        skipped_events=max(payload.max_events - retried_events, 0),
+        skipped_deliveries=max(payload.max_deliveries - retried_deliveries, 0),
+    )
+
+
+@router.post("/events/{event_id}/governance/retry", response_model=IntegrationGovernanceEventRetryResponse)
+def retry_integration_event_with_governance(
+    event_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IntegrationGovernanceEventRetryResponse:
+    event, _project = _ensure_event_and_permission(db, event_id, user, manage=True)
+
+    now = int(time.time())
+    event_payload = _serialize_event_json(event.payload_json)
+    _process_event(event, event_payload, now)
+    event.updated_at = now
+    db.commit()
+    db.refresh(event)
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_governance.event.retry",
+        resource_type="integration_event",
+        resource_id=str(event.id),
+        user_id=user.id,
+        details={"project_id": event.project_id, "status": event.status, "attempt_count": event.attempt_count},
+    )
+    return IntegrationGovernanceEventRetryResponse(event=_to_event_response(event))
 
 @router.post("/{config_id}/cicd/trigger", response_model=IntegrationCicdTriggerResponse)
 def trigger_cicd_pipeline(
@@ -1151,3 +2000,13 @@ def replay_integration_event(
         details={"project_id": event.project_id, "status": event.status, "attempt_count": event.attempt_count},
     )
     return _to_event_response(event)
+
+
+
+
+
+
+
+
+
+

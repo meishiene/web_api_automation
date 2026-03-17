@@ -16,11 +16,14 @@ from app.models import api_test_suite  # noqa: F401
 from app.models import api_test_suite_case  # noqa: F401
 from app.models import audit_log  # noqa: F401
 from app.models import audit_log_archive  # noqa: F401
+from app.models import defect_sync_record  # noqa: F401
 from app.models import environment_variable  # noqa: F401
 from app.models import execution_job  # noqa: F401
 from app.models import execution_task  # noqa: F401
 from app.models import integration_config  # noqa: F401
 from app.models import integration_event  # noqa: F401
+from app.models import identity_oauth_session  # noqa: F401
+from app.models import identity_provider_binding  # noqa: F401
 from app.models import notification_delivery  # noqa: F401
 from app.models import notification_subscription  # noqa: F401
 from app.models import organization  # noqa: F401
@@ -103,3 +106,5 @@ def db_session():
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+

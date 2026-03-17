@@ -38,12 +38,15 @@ def init_db():
     from app.models.api_test_suite_case import ApiTestSuiteCase
     from app.models.audit_log import AuditLog
     from app.models.audit_log_archive import AuditLogArchive
+    from app.models.defect_sync_record import DefectSyncRecord
     from app.models.environment_variable import EnvironmentVariable
     from app.models.environment_variable_group_binding import EnvironmentVariableGroupBinding
     from app.models.execution_job import ExecutionJob
     from app.models.execution_task import ExecutionTask
     from app.models.integration_config import IntegrationConfig
     from app.models.integration_event import IntegrationEvent
+    from app.models.identity_oauth_session import IdentityOAuthSession
+    from app.models.identity_provider_binding import IdentityProviderBinding
     from app.models.notification_delivery import NotificationDelivery
     from app.models.notification_subscription import NotificationSubscription
     from app.models.organization import Organization
@@ -125,3 +128,5 @@ def _repair_legacy_sqlite_schema() -> None:
         if "projects" in tables and "organization_id" not in projects_columns:
             connection.execute(text("ALTER TABLE projects ADD COLUMN organization_id INTEGER"))
             logger.warning("legacy_sqlite_patched_projects_organization_id")
+
+
