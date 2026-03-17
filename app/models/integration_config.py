@@ -38,3 +38,4 @@ class IntegrationConfig(Base):
     updated_at = Column(Integer, nullable=False, default=unix_timestamp, onupdate=unix_timestamp)
 
     project = relationship("Project", back_populates="integration_configs")
+    events = relationship("IntegrationEvent", back_populates="integration_config", cascade="all, delete-orphan")

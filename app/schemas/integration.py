@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -77,3 +77,33 @@ class IntegrationConfigResponse(ORMModel):
 
 class IntegrationCredentialValueResponse(BaseModel):
     value: str
+
+
+class IntegrationEventResponse(ORMModel):
+    id: int
+    integration_config_id: int
+    project_id: int
+    event_type: str
+    direction: str
+    status: str
+    payload_json: Dict[str, Any]
+    headers_json: Dict[str, Any]
+    signature: Optional[str]
+    idempotency_key: str
+    attempt_count: int
+    max_attempts: int
+    next_retry_at: Optional[int]
+    last_error: Optional[str]
+    last_processed_at: Optional[int]
+    created_at: int
+    updated_at: int
+
+
+class IntegrationWebhookIngestResponse(BaseModel):
+    event: IntegrationEventResponse
+    idempotent_reused: bool = False
+
+
+class IntegrationEventListResponse(BaseModel):
+    total: int
+    items: List[IntegrationEventResponse]
