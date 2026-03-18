@@ -126,10 +126,27 @@ class TestCaseOpenApiImportRequest(BaseModel):
             normalized.append(tag)
         return normalized
 
+
+class TestCaseProviderImportRequest(BaseModel):
+    provider: Optional[str] = Field(default=None, max_length=50)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def normalize_provider(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized or None
 class TestCaseImportResponse(BaseModel):
     imported: int
     skipped: int
     created_case_ids: List[int]
+
+
+class TestCaseImportProviderListResponse(BaseModel):
+    providers: List[str]
+    default_provider: Optional[str] = None
 
 
 class TestCaseExportResponse(BaseModel):

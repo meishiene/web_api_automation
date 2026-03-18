@@ -1,4 +1,4 @@
-from app.models.user import User
+﻿from app.models.user import User
 
 
 def test_create_test_case_normalizes_method_and_rejects_duplicate_name(
@@ -428,3 +428,84 @@ def test_non_owner_cannot_import_openapi_to_foreign_project(client, create_user_
     )
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "FORBIDDEN"
+
+def test_import_with_unknown_provider_returns_400(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_provider_unknown", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-provider-unknown", "description": "desc"},
+    ).json()["id"]
+
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}/import/provider",
+        headers=headers,
+        json={"provider": "missing-provider", "payload": {"foo": "bar"}},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_import_provider_dispatch_and_fallback(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_provider_dispatch", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-provider-dispatch", "description": "desc"},
+    ).json()["id"]
+
+    spec = {
+        "openapi": "3.0.3",
+        "servers": [{"url": "https://api.provider.com"}],
+        "paths": {
+            "/ping": {
+                "get": {
+                    "operationId": "ping",
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+    }
+
+    explicit = client.post(
+        f"/api/test-cases/project/{project_id}/import/provider",
+        headers=headers,
+        json={
+            "provider": "openapi",
+            "payload": {"spec": spec, "case_group": "provider-explicit", "tags": ["provider"]},
+        },
+    )
+    assert explicit.status_code == 200
+    explicit_body = explicit.json()
+    assert explicit_body["imported"] == 1
+
+    fallback_project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-provider-fallback", "description": "desc"},
+    ).json()["id"]
+
+    fallback = client.post(
+        f"/api/test-cases/project/{fallback_project_id}/import/provider",
+        headers=headers,
+        json={
+            "payload": {"spec": spec, "case_group": "provider-fallback", "tags": ["auto"]},
+        },
+    )
+    assert fallback.status_code == 200
+    fallback_body = fallback.json()
+    assert fallback_body["imported"] == 1
+
+    list_resp = client.get(f"/api/test-cases/project/{fallback_project_id}", headers=headers)
+    assert list_resp.status_code == 200
+    items = list_resp.json()
+    assert len(items) == 1
+    assert items[0]["name"] == "ping"
+    assert items[0]["case_group"] == "provider-fallback"
+    assert items[0]["tags"] == ["auto"]
+

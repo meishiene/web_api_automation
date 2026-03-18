@@ -13,7 +13,7 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 已完成验收（S6-08 已完成），阶段 7 启动中（S7-01 已完成）。
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 已完成验收（S6-08 已完成），阶段 7 启动中（S7-02 已完成）。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -45,7 +45,7 @@
 | 阶段 4 | 调度与分布式执行 | 已完成验收 | 已完成 S4-01~S4-05（含验收与切换准备），具备进入阶段 5 的前置条件。 |
 | 阶段 5 | 报告分析与治理 | 已完成验收 | 阶段 5 已完成 S5-00~S5-07，验收门禁通过并完成阶段收口。 |
 | 阶段 6 | 企业集成与生态完善 | 已完成验收 | 阶段 6 已完成 S6-00~S6-08，并完成验收收口与阶段切换准备。 |
-| 阶段 7 | 运营化与平台扩展 | 启动中 | 已完成 S7-00~S7-01（OpenAPI 导入最小闭环），进入 S7-02 准备。 |
+| 阶段 7 | 运营化与平台扩展 | 启动中 | 已完成 S7-00~S7-02（OpenAPI 导入 + Provider Registry 最小骨架），进入 S7-03 准备。 |
 
 ## 5. 当前已完成内容
 
@@ -262,10 +262,15 @@
 - 已完成 S6-06：OAuth2 身份集成最小闭环（授权启动、回调校验、账号绑定与令牌签发）。
 - 已完成 S6-07：治理增强最小闭环（健康看板汇总、失败/死信治理重试、集成域审计补齐、前端治理入口挂载）。
 - 已完成 S6-08：阶段验收收口与切换准备（受控通过）。
-- 下一步：按阶段 7 清单推进 S7-02（Provider Registry 最小骨架）。
+- 下一步：按阶段 7 清单推进 S7-03（跨项目聚合看板最小骨架）。
 
 ## 10. 最近更新记录
 ### 2026-03-17
+- 完成 S7-02：Provider Registry 最小骨架已落地（`app/services/test_case_import_providers.py`、`POST /api/test-cases/project/{project_id}/import/provider`、`GET /api/test-cases/import/providers`）。
+- 运行时策略：支持 provider 显式选择与按 payload 自动回退（openapi provider）。
+- 测试门禁：`python -m pytest tests/backend/test_import_provider_registry.py tests/backend/test_test_cases_api.py -k "openapi or provider" -q` 通过（8 passed）。
+- 阶段推进：阶段 7 状态保持“启动中”，当前断点切换为 S7-03 准备。
+- 文档口径同步：已同步更新阶段 7 开发/验收清单、API 模块 SKILL 与架构总纲。
 - 完成 S7-01：OpenAPI 导入最小闭环已落地（`app/schemas/api_test_case.py`、`app/api/test_cases.py`），支持 OpenAPI 3.x 规范最小映射与重复去重。
 - 测试门禁：`python -m pytest tests/backend/test_test_cases_api.py -k openapi -q` 通过（4 passed）。
 - 阶段推进：阶段 7 状态保持“启动中”，当前断点切换为 S7-02 准备。

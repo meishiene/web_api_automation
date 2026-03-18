@@ -17,16 +17,25 @@ from app.schemas.api_test_case import (
     TestCaseCreateRequest,
     TestCaseExportResponse,
     TestCaseImportItem,
+    TestCaseImportProviderListResponse,
     TestCaseImportRequest,
     TestCaseOpenApiImportRequest,
+    TestCaseProviderImportRequest,
     TestCaseImportResponse,
     TestCaseResponse,
 )
 from app.schemas.common import MessageResponse
 from app.services.access_control import can_manage_test_case, can_view_test_case
 from app.services.audit_service import create_audit_log
+from app.services.test_case_import_providers import (
+    OpenApiImportProvider,
+    ImportProviderRegistry,
+)
 
 router = APIRouter()
+
+import_provider_registry = ImportProviderRegistry()
+import_provider_registry.register(OpenApiImportProvider())
 
 
 def _serialize_tags(raw_tags: str | None) -> List[str]:
@@ -583,4 +592,121 @@ def delete_test_case(
         user_id=user.id,
     )
     return {"message": "Test case deleted"}
+
+
+
+
+
+
+
+
+def _import_candidates_to_project(
+    db: Session,
+    project_id: int,
+    candidates: List[TestCaseImportItem],
+    skip_duplicates: bool,
+) -> tuple[int, int, List[int]]:
+    imported = 0
+    skipped = 0
+    created_case_ids: List[int] = []
+    now = int(time.time())
+
+    for item in candidates:
+        duplicated = (
+            db.query(ApiTestCase)
+            .filter(
+                ApiTestCase.project_id == project_id,
+                ApiTestCase.method == item.method.upper(),
+                ApiTestCase.url == item.url,
+            )
+            .first()
+        )
+        if duplicated:
+            if skip_duplicates:
+                skipped += 1
+                continue
+            raise AppException(
+                400,
+                ErrorCode.TEST_CASE_ALREADY_EXISTS,
+                f"Duplicate test case: {item.method.upper()} {item.url}",
+            )
+
+        case = ApiTestCase(
+            name=item.name,
+            project_id=project_id,
+            method=item.method.upper(),
+            url=item.url,
+            case_group=item.case_group,
+            tags=(json.dumps(item.tags, ensure_ascii=False) if item.tags else None),
+            headers=item.headers,
+            body=item.body,
+            expected_status=item.expected_status,
+            expected_body=item.expected_body,
+            assertion_rules=item.assertion_rules,
+            extraction_rules=item.extraction_rules,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(case)
+        db.flush()
+
+        imported += 1
+        created_case_ids.append(case.id)
+
+    db.commit()
+    return imported, skipped, created_case_ids
+
+
+@router.get("/import/providers", response_model=TestCaseImportProviderListResponse)
+def list_import_providers(
+    user: User = Depends(get_current_user),
+) -> TestCaseImportProviderListResponse:
+    _ = user
+    return TestCaseImportProviderListResponse(
+        providers=import_provider_registry.list_names(),
+        default_provider="openapi",
+    )
+
+
+@router.post("/project/{project_id}/import/provider", response_model=TestCaseImportResponse)
+def import_test_cases_by_provider(
+    project_id: int,
+    payload: TestCaseProviderImportRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TestCaseImportResponse:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    if not can_manage_test_case(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    resolved = import_provider_registry.resolve(payload.provider, payload.payload)
+    candidates = resolved.provider.build_candidates(payload.payload)
+    skip_duplicates = bool(payload.payload.get("skip_duplicates", True))
+
+    imported, skipped, created_case_ids = _import_candidates_to_project(
+        db=db,
+        project_id=project_id,
+        candidates=candidates,
+        skip_duplicates=skip_duplicates,
+    )
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.import.provider",
+        resource_type="project",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={
+            "provider": resolved.provider.name,
+            "resolved_by_fallback": resolved.resolved_by_fallback,
+            "imported": imported,
+            "skipped": skipped,
+        },
+    )
+
+    return TestCaseImportResponse(imported=imported, skipped=skipped, created_case_ids=created_case_ids)
 

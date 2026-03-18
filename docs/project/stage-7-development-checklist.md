@@ -10,7 +10,7 @@
 ## 0. 阶段定位（以当前代码与进度基线为准）
 
 - 阶段名称：阶段 7 运营化与平台扩展
-- 当前状态：启动中（S7-01 已完成，进入 S7-02 准备）
+- 当前状态：启动中（S7-02 已完成，进入 S7-03 准备）
 - 当前总阶段：阶段 2 收尾中 + 阶段 3 收尾中 + 阶段 4 已完成验收 + 阶段 5 已完成验收 + 阶段 6 已完成验收 + 阶段 7 启动中（详见 `docs/project/project-progress.md`）
 - 本阶段目标：在阶段 6 企业集成闭环基础上，完成平台的运营化、可扩展与可持续演进能力建设。
 
@@ -36,7 +36,7 @@
   - 阶段 7 任务编号、门禁、DoD、验收口径可独立阅读与执行
 
 ### S7-01：导入能力最小闭环（OpenAPI/Postman 二选一先落地）
-- 状态：pending
+- 状态：completed
 - 交付物：
   - 导入入口 API（最小能力）
   - 导入映射规则（请求、断言、变量最小映射）
@@ -48,7 +48,7 @@
   - 支持至少一种标准格式导入并可生成可执行测试资产
 
 ### S7-02：扩展点骨架（Provider Registry）
-- 状态：pending
+- 状态：completed
 - 交付物：
   - Provider 注册与发现机制
   - 最小 provider 适配模板与约束
@@ -112,7 +112,7 @@
 | --- | --- | --- |
 | S7-00 | completed | 阶段 7 SSOT 与验收清单已建立，恢复机制已落盘 |
 | S7-01 | completed | OpenAPI 导入最小闭环已落地并通过最小回归（4 passed） |
-| S7-02 | pending | 等待扩展点骨架 |
+| S7-02 | completed | Provider Registry 最小骨架已落地并通过最小回归（8 passed） |
 | S7-03 | pending | 等待运营看板增强 |
 | S7-04 | pending | 等待治理执行增强 |
 | S7-05 | pending | 等待稳定性门禁增强 |
@@ -131,7 +131,10 @@
 - 阶段策略：明确按 S7-01 -> S7-06 顺序推进，每次仅保持一个 `in_progress`。
 - 完成 S7-01：落地 OpenAPI 3.x 导入最小闭环（`POST /api/test-cases/project/{project_id}/import/openapi`），支持路径+方法映射、`operationId`/默认命名、响应码推断、最小去重与审计留痕。
 - 测试门禁：通过 `python -m pytest tests/backend/test_test_cases_api.py -k openapi -q`（4 passed）。
-- 当前断点：进入 S7-02 准备，后续按 Provider Registry 最小骨架推进。
+- 当前断点：进入 S7-03 准备，后续按跨项目聚合看板最小骨架推进。
+- 完成 S7-02：落地 Provider Registry 最小骨架（注册/发现/分发），新增统一入口 `POST /api/test-cases/project/{project_id}/import/provider` 与 provider 列表接口 `GET /api/test-cases/import/providers`。
+- 运行时策略：支持显式 provider 选择与按 payload 自动回退（当前落地 openapi provider）。
+- 测试门禁：通过 `python -m pytest tests/backend/test_import_provider_registry.py tests/backend/test_test_cases_api.py -k "openapi or provider" -q`（8 passed）。
 
 ## 6. 风险与阻塞清单（持续维护）
 
