@@ -62,3 +62,8 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    integration_governance_executions = relationship(
+        "IntegrationGovernanceExecution",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )

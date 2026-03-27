@@ -3,7 +3,7 @@
 ## 1. 验收范围
 - 验收阶段：阶段 7（运营化与平台扩展）
 - 验收口径：以 `app/`、`frontend/src/`、`tests/backend/` 当前代码事实与测试结果为准
-- 当前阶段状态：S7-00~S7-02 已完成，S7-03~S7-06 待推进
+- 当前阶段状态：S7-00~S7-06 已完成，阶段 7 已完成验收
 
 ## 2. 功能验收项（必须满足）
 
@@ -40,7 +40,24 @@
 3. 阶段文档、项目进度与架构文档已同步，不存在“占位能力标记为完成”的表述。
 4. 阶段 7 风险与阻塞清单中无未声明的阻塞项。
 
-## 6. 验收执行记录（待 S7-06 填写）
+## 6. 验收执行记录
 
-- 待补充：执行日期、命令、结果、结论。
+### 2026-03-26
+- 阶段 7 最小回归：`python -m pytest tests/backend/test_import_provider_registry.py tests/backend/test_test_cases_api.py tests/backend/test_operations_overview_api.py tests/backend/test_integration_governance_api.py tests/backend/test_reporting_performance_guards.py -q`
+  - 结果：通过（25 passed，2 warnings）
+- 后端全量回归：`python -m pytest -q`
+  - 结果：通过（允许非阻塞 warnings）
+- 前端构建：`npm run build`（frontend）
+  - 结果：通过
+- 迁移链路：`alembic upgrade head -> downgrade 4c7b2d1e9a6f -> upgrade head`
+  - 结果：通过（SQLite 临时库）
+
+### 验收结论
+- A7-01：通过
+- A7-02：通过
+- A7-03：通过
+- A7-04：通过
+- A7-05：通过
+- A7-06：通过
+- 阶段 7 验收结论：通过，可切换为“已完成验收”。
 

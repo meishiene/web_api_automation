@@ -370,6 +370,15 @@ class IntegrationIdentityOAuthCallbackResponse(BaseModel):
 class IntegrationGovernanceBulkRetryRequest(BaseModel):
     max_events: int = Field(default=20, ge=1, le=200)
     max_deliveries: int = Field(default=20, ge=1, le=200)
+    idempotency_key: Optional[str] = Field(default=None, max_length=128)
+
+    @field_validator("idempotency_key", mode="before")
+    @classmethod
+    def normalize_idempotency_key(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class IntegrationGovernanceFailureItem(BaseModel):
@@ -378,6 +387,25 @@ class IntegrationGovernanceFailureItem(BaseModel):
     status: str
     message: Optional[str]
     updated_at: int
+
+
+class IntegrationGovernanceExecutionResponse(ORMModel):
+    id: int
+    project_id: int
+    execution_type: str
+    status: str
+    idempotency_key: str
+    request_json: Dict[str, Any]
+    result_json: Dict[str, Any]
+    requested_by: Optional[int]
+    completed_at: int
+    created_at: int
+    updated_at: int
+
+
+class IntegrationGovernanceExecutionListResponse(BaseModel):
+    total: int
+    items: List[IntegrationGovernanceExecutionResponse]
 
 
 class IntegrationGovernanceHealthResponse(BaseModel):
@@ -398,6 +426,8 @@ class IntegrationGovernanceBulkRetryResponse(BaseModel):
     retried_deliveries: int
     skipped_events: int
     skipped_deliveries: int
+    execution: IntegrationGovernanceExecutionResponse
+    idempotent_reused: bool = False
 
 
 class IntegrationGovernanceEventRetryResponse(BaseModel):

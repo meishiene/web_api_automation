@@ -45,6 +45,7 @@ def init_db():
     from app.models.execution_task import ExecutionTask
     from app.models.integration_config import IntegrationConfig
     from app.models.integration_event import IntegrationEvent
+    from app.models.integration_governance_execution import IntegrationGovernanceExecution
     from app.models.identity_oauth_session import IdentityOAuthSession
     from app.models.identity_provider_binding import IdentityProviderBinding
     from app.models.notification_delivery import NotificationDelivery

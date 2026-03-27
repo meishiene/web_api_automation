@@ -13,7 +13,8 @@
 
 ## 2. 当前项目阶段
 
-- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 已完成验收（S6-08 已完成），阶段 7 启动中（S7-02 已完成）。
+- **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 已完成验收（S6-08 已完成），阶段 7 已完成验收（S7-06 已完成）。
+- **并行工作线**：已新增“平台完善任务清单”，用于承载前端页面优化、现有功能完善与缺陷修复，不替代原阶段 8 / 9；当前 PF-01 已完成。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -30,9 +31,9 @@
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
 | 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
 | 调度与队列 | 阶段 4 已完成验收：调度/队列/Worker 最小闭环与可视化已稳定落地；阶段 5 聚焦真实消费治理与报告联动增强。 | 45% |
-| 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并完成阶段 5 验收收口（S5-07） | 60% |
+| 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并在阶段 7 补齐运营总览 guardrails 与稳定性门禁 | 68% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
-| 企业集成 | 阶段 6 已完成 S6-01~S6-08（配置中心 + 事件回调 + CI + 通知 + 缺陷联动 + OAuth2 + 治理增强 + 验收收口） | 80% |
+| 企业集成 | 阶段 6 已完成 S6-01~S6-08，并在阶段 7 补齐批量治理幂等保护、执行追踪与审计标准化 | 85% |
 
 ## 4. 当前阶段状态表
 
@@ -45,7 +46,7 @@
 | 阶段 4 | 调度与分布式执行 | 已完成验收 | 已完成 S4-01~S4-05（含验收与切换准备），具备进入阶段 5 的前置条件。 |
 | 阶段 5 | 报告分析与治理 | 已完成验收 | 阶段 5 已完成 S5-00~S5-07，验收门禁通过并完成阶段收口。 |
 | 阶段 6 | 企业集成与生态完善 | 已完成验收 | 阶段 6 已完成 S6-00~S6-08，并完成验收收口与阶段切换准备。 |
-| 阶段 7 | 运营化与平台扩展 | 启动中 | 已完成 S7-00~S7-02（OpenAPI 导入 + Provider Registry 最小骨架），进入 S7-03 准备。 |
+| 阶段 7 | 运营化与平台扩展 | 已完成验收 | 已完成 S7-00~S7-06（导入、扩展骨架、运营看板、治理执行增强、稳定性门禁与阶段验收收口）。 |
 
 ## 5. 当前已完成内容
 
@@ -98,12 +99,15 @@
 - 已新增项目级趋势接口：`GET /api/reports/project/{project_id}/trends`（`granularity=day/week`，支持时间窗口与类型筛选）
 - 已新增项目级失败治理接口：`GET /api/reports/project/{project_id}/failures`（失败分类筛选 + 可追溯详情路径）
 - 已新增报告查询性能护栏：报告接口统一限制 `created_to - created_from <= 180 天`（防止超大窗口查询）
+- 已新增跨项目运营总览接口：`GET /api/reports/operations/overview`（失败积压、死信积压、重试积压与按天重试趋势，支持 `project_ids/days`）
+- 已为跨项目运营总览补齐稳定性 guardrails：`guardrails.alerts/degradation_reasons/project_signal_limit`，并在项目过多时执行 TopN 截断降级
 - 已新增企业集成配置中心最小闭环：`integration_configs` 模型与迁移、`/api/integrations/*` 配置 CRUD、凭据脱敏展示与审计留痕
 - 已新增企业集成事件收件箱：`integration_events` 模型与迁移、签名 Webhook 入站、幂等去重、事件重放与事件查询接口
 - 已新增 CI/CD 最小闭环：`/api/integrations/{config_id}/cicd/trigger`、`/api/integrations/webhooks/{config_id}/cicd/callback`、`/api/integrations/{config_id}/cicd/runs`
 - 已新增通知中心最小闭环：`notification_subscriptions`/`notification_deliveries` 模型与迁移、通知订阅管理、投递日志查询、失败重试与死信收敛
 - 已新增缺陷联动最小闭环：`defect_sync_records` 模型与迁移、`/api/integrations/{config_id}/defects/sync`、`/api/integrations/project/{project_id}/defects/records`、失败指纹去重与建单/更新路径审计留痕
 - 已新增 OAuth2 身份集成最小闭环：`identity_oauth_sessions`/`identity_provider_bindings` 模型与迁移、`/api/integrations/{config_id}/identity/oauth2/start`、`/api/integrations/{config_id}/identity/oauth2/callback`、`/api/integrations/{config_id}/identity/bindings`、state 会话校验与账号绑定策略（新建/关联/复用）
+- 已增强治理执行能力：新增 `integration_governance_executions` 模型与迁移、`GET /api/integrations/project/{project_id}/governance/executions` 查询接口，并为 `POST /api/integrations/project/{project_id}/governance/retry-failed` 补齐幂等保护与结果复用
 
 ### 5.2 前端
 - 已建立登录页、注册页、项目列表页、测试用例页
@@ -119,6 +123,8 @@
 - 已新增最小报告页（Report Center）：`frontend/src/views/ReportSummary.vue`（执行摘要 + Top 失败项）
 - 已新增趋势最小可视化：Report Center 支持日/周趋势查询与条形图展示
 - 已新增失败治理最小可视化：Report Center 支持失败分类筛选与失败记录详情追溯
+- 已新增跨项目运营看板：`frontend/src/views/OperationsOverview.vue`（聚合指标卡 + 重试趋势 + 项目风险信号表）并挂载全局路由入口 `/operations/overview`
+- 已完成前端框架与导航体验首轮优化：全局壳层支持深浅色切换、Workspace / Current Project 导航分区与项目仪表盘首页
 
 ### 5.3 文档
 - 已补充项目概览文档
@@ -221,31 +227,37 @@
 - `frontend/src/views/TestCaseList.vue`
   - 当前承担过多职责，后续应拆分
 
-## 当前阶段优先事项（阶段 2 收尾 / 阶段 3 收尾 / 阶段 5 已完成验收 / 阶段 6 已完成验收 / 阶段 7 启动中）
+## 当前阶段优先事项（阶段 2 收尾 / 阶段 3 收尾 / 阶段 5 已完成验收 / 阶段 6 已完成验收 / 阶段 7 已完成验收 + 平台完善并行工作线）
 
-### P0：API 平台化首批落地（已完成）
+### P0：平台完善并行工作线（启动中）
+- 已新增 `docs/project/platform-improvement-checklist.md`，明确该工作线不替代原阶段 8 / 9。
+- 当前聚焦：前端页面优化、现有功能完善、bug 修复。
+- 已完成 PF-01：前端框架与导航体验优化（壳层重做、主题切换、项目仪表盘）。
+- 下一步：PF-02 API 测试产品化完善。
+
+### P1：API 平台化首批落地（已完成）
 - 已完成 API 套件模型与基础 CRUD
 - 已完成批量执行最小闭环（套件触发、批次记录、结果聚合）
 - 已完成环境与变量最小能力（项目级/环境级 + 执行替换）
 
-### P1：执行与断言增强（进行中）
+### P2：执行与断言增强（进行中）
 - 已落地断言能力（JSONPath / 正则 / 包含 / Schema）
 - 已落地响应数据提取与链路变量传递
 - 已落地 API 用例分组/标签/筛选/搜索（后端查询参数 + 前端筛选入口）
 - 已落地变量治理增强（S2-06）：变量组复用、密钥受控读取、前端治理页、执行详情变量快照
 - 执行详情页与批次结果页面已落地，后续需持续增强展示维度
 
-### P2：阶段 1 遗留风险托管（暂停态）
+### P3：阶段 1 遗留风险托管（暂停态）
 - PostgreSQL 真实生产环境迁移发布演练与窗口执行（按当前决策不做压测）
 - 审计治理生产定时任务与告警平台联动生产验证（脚本已落地）
 
-### P3：阶段 3 收尾项（进行中）
+### P4：阶段 3 收尾项（进行中）
 - Web 领域模型首批设计与落地（`WebTestCase`、`WebStep`、`Locator`）（已完成）
 - Playwright 执行引擎最小闭环接入（单用例执行）（已完成）
 - Web 执行结果基础展示页与产物链路预留（已完成：Web 用例管理页 + Web 执行详情页 + 路由入口）
 - API/Web 统一归档展示对齐（S3-04，已完成：统一结果接口 + Execution Center）
 
-### P4：阶段 4 验收完成（已收口）
+### P5：阶段 4 验收完成（已收口）
 - 已完成阶段 4 SSOT 建立：`docs/project/stage-4-development-checklist.md`
 - 已完成 S4-01：统一执行编排骨架（Execution Task/Job + API/Web 适配层）
 - 已完成 S4-02：调度器最小可用（schedule_tasks 触发链路）
@@ -253,7 +265,7 @@
 - 已完成 S4-04：执行管理最小可视化（前端）
 - 已完成 S4-05：阶段验收与切换准备（验收结论已通过）。
 
-### P5：阶段 6 企业集成（已完成验收）
+### P6：阶段 6 企业集成（已完成验收）
 - 已完成 S6-00：阶段 6 开发清单与验收清单落盘，建立可中断恢复机制。
 - 已完成 S6-01：集成配置中心最小闭环（模型 + 迁移 + API + 鉴权 + 审计）并通过门禁。
 - 已完成 S6-02：事件与签名回调最小闭环（签名校验 + 幂等去重 + 事件重放 + 查询）并通过门禁。
@@ -262,9 +274,43 @@
 - 已完成 S6-06：OAuth2 身份集成最小闭环（授权启动、回调校验、账号绑定与令牌签发）。
 - 已完成 S6-07：治理增强最小闭环（健康看板汇总、失败/死信治理重试、集成域审计补齐、前端治理入口挂载）。
 - 已完成 S6-08：阶段验收收口与切换准备（受控通过）。
-- 下一步：按阶段 7 清单推进 S7-03（跨项目聚合看板最小骨架）。
+- 下一步：转入阶段 7 后运营维护，优先关注生产/准生产环境性能画像、外部告警通道接入与更多 provider/治理动作扩展。
 
 ## 10. 最近更新记录
+### 2026-03-27
+- 完成 PF-01：重做前端全局应用壳层与项目仪表盘，新增深浅色切换、导航分区与更清晰的项目列表入口结构。
+- 前端构建通过：`npm run build`（frontend）。
+- 平台完善工作线推进：当前断点由 PF-01 切换为 PF-02（API 测试产品化完善）准备。
+### 2026-03-27
+- 新增并行工作线文档：`docs/project/platform-improvement-checklist.md`，用于承载前端页面优化、现有功能完善与 bug 修复。
+- 路线说明：该工作线不替代原阶段 8 / 9，仅作为阶段 7 验收后的产品完善与体验优化工作线。
+- 当前断点：进入平台完善工作线 PF-01 准备，优先处理前端框架与导航体验优化。
+### 2026-03-26
+- 完成 S7-06：执行阶段 7 最小回归、后端全量回归、前端构建与迁移链路校验，门禁全部通过。
+- 验收结论：阶段 7 满足 A7-01~A7-06，状态由“启动中”切换为“已完成验收”。
+- 后续输入：项目转入“运营维护 + 受控演进”阶段，重点关注生产环境性能画像、告警通道接入与扩展能力继续演进。
+### 2026-03-26
+- 完成 S7-05：补齐阶段 7 关键链路稳定性门禁，为运营总览接口新增 `guardrails` 输出（告警、降级原因、TopN 截断信息）。
+- 新增容量/性能基线：中等数据量下验证 `GET /api/reports/operations/overview` 与 `GET /api/integrations/project/{project_id}/governance/executions` 响应性能门限。
+- 前端增强：`OperationsOverview.vue` 新增降级提示与告警卡片，前端对运营总览的异常信号具备可见性。
+- 测试门禁通过：`python -m pytest tests/backend/test_operations_overview_api.py tests/backend/test_reporting_performance_guards.py tests/backend/test_integration_governance_api.py -q`（11 passed）。
+- 前端构建通过：`npm run build`（frontend）。
+- 阶段推进：阶段 7 状态保持“启动中”，当前断点由 S7-05 切换为 S7-06 准备。
+### 2026-03-26
+- 完成 S7-04：治理执行增强最小闭环已落地（批量治理幂等保护、治理执行记录、项目级治理执行查询接口）。
+- 新增模型与迁移：`app/models/integration_governance_execution.py`、`migrations/versions/6c8b1f2a9d4e_phase7_governance_execution_tracking.py`。
+- 接口增强：`POST /api/integrations/project/{project_id}/governance/retry-failed` 新增 `idempotency_key`，重复请求可直接复用既有执行结果；新增 `GET /api/integrations/project/{project_id}/governance/executions` 用于治理执行历史追踪。
+- 审计标准化：批量治理与单事件治理审计补齐统一追踪字段（`governance_execution_id`、`execution_type`、`idempotency_key`、`governance_scope`）。
+- 测试门禁通过：`python -m pytest tests/backend/test_integration_governance_api.py -q`（5 passed）；集成域相关回归 `python -m pytest tests/backend/test_integrations_api.py tests/backend/test_integration_events_api.py tests/backend/test_integration_cicd_api.py tests/backend/test_integration_notifications_api.py tests/backend/test_integration_defect_api.py tests/backend/test_integration_identity_oauth_api.py tests/backend/test_integration_governance_api.py -q`（27 passed）。
+- 迁移链路验证通过：`alembic upgrade head -> downgrade 4c7b2d1e9a6f -> upgrade head`（SQLite 临时库）。
+- 阶段推进：阶段 7 状态保持“启动中”，当前断点由 S7-04 切换为 S7-05 准备。
+### 2026-03-18
+- 完成 S7-03：落地跨项目运营看板最小闭环（后端聚合 API + 前端总览页面 + 全局导航入口）。
+- 后端新增 `GET /api/reports/operations/overview`，支持失败积压、死信积压、重试积压与 7/14/30 天重试趋势；默认按当前用户可见项目聚合，并对 `project_ids` 越权筛选返回 `403 FORBIDDEN`。
+- 前端新增 `OperationsOverview.vue` 与路由 `/operations/overview`，支持趋势窗口切换与项目级风险信号展示。
+- 测试门禁通过：`python -m pytest tests/backend/test_operations_overview_api.py -q`（2 passed）；相关报告回归 `python -m pytest tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_reporting_performance_guards.py -q`（11 passed）。
+- 前端构建通过：`npm run build`（frontend）。
+- 阶段推进：阶段 7 状态保持“启动中”，当前断点由 S7-03 切换为 S7-04 准备。
 ### 2026-03-17
 - 完成 S7-02：Provider Registry 最小骨架已落地（`app/services/test_case_import_providers.py`、`POST /api/test-cases/project/{project_id}/import/provider`、`GET /api/test-cases/import/providers`）。
 - 运行时策略：支持 provider 显式选择与按 payload 自动回退（openapi provider）。

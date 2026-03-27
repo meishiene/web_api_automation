@@ -22,6 +22,7 @@ from app.models import execution_job  # noqa: F401
 from app.models import execution_task  # noqa: F401
 from app.models import integration_config  # noqa: F401
 from app.models import integration_event  # noqa: F401
+from app.models import integration_governance_execution  # noqa: F401
 from app.models import identity_oauth_session  # noqa: F401
 from app.models import identity_provider_binding  # noqa: F401
 from app.models import notification_delivery  # noqa: F401

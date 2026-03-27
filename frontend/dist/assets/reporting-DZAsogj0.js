@@ -1,0 +1,1 @@
+import{r as t}from"./_plugin-vue_export-helper-DYdARb5z.js";const s=(r,e={})=>t.get(`/api/reports/project/${r}/summary`,{params:e}),p=(r,e={})=>t.get(`/api/reports/project/${r}/trends`,{params:e}),a=(r,e={})=>t.get(`/api/reports/project/${r}/failures`,{params:e}),n=(r={})=>t.get("/api/reports/operations/overview",{params:r});export{s as a,p as b,a as c,n as g};

@@ -11,6 +11,7 @@ from app.models import execution_job  # noqa: F401
 from app.models import execution_task  # noqa: F401
 from app.models import integration_config  # noqa: F401
 from app.models import integration_event  # noqa: F401
+from app.models import integration_governance_execution  # noqa: F401
 from app.models import notification_delivery  # noqa: F401
 from app.models import notification_subscription  # noqa: F401
 from app.models import organization  # noqa: F401

@@ -65,3 +65,47 @@ class FailureGovernanceListResponse(BaseModel):
     page: int
     page_size: int
     items: List[FailureGovernanceItem]
+
+
+class OperationsRetryTrendItem(ORMModel):
+    bucket_start: int
+    bucket_label: str
+    retry_events: int
+    retry_deliveries: int
+    total_retries: int
+
+
+class OperationsProjectSignal(ORMModel):
+    project_id: int
+    project_name: str
+    failed_backlog: int
+    dead_letter_backlog: int
+    retry_backlog: int
+
+
+class OperationsAlertItem(BaseModel):
+    level: Literal["warning", "critical"]
+    code: str
+    message: str
+    metric: str
+    threshold: int
+    actual: int
+
+
+class OperationsGuardrailStatus(BaseModel):
+    degraded: bool
+    degradation_reasons: List[str]
+    project_signal_limit: int
+    project_signal_returned: int
+    alerts: List[OperationsAlertItem]
+
+
+class OperationsOverviewResponse(BaseModel):
+    generated_at: int
+    project_count: int
+    failed_backlog: int
+    dead_letter_backlog: int
+    retry_backlog: int
+    retry_trend: List[OperationsRetryTrendItem]
+    project_signals: List[OperationsProjectSignal]
+    guardrails: OperationsGuardrailStatus

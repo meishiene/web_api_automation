@@ -15,6 +15,7 @@ from app.errors import AppException, ErrorCode
 from app.models.defect_sync_record import DefectSyncRecord
 from app.models.integration_config import IntegrationConfig
 from app.models.integration_event import IntegrationEvent
+from app.models.integration_governance_execution import IntegrationGovernanceExecution
 from app.models.identity_oauth_session import IdentityOAuthSession
 from app.models.identity_provider_binding import IdentityProviderBinding
 from app.models.notification_delivery import NotificationDelivery
@@ -44,6 +45,8 @@ from app.schemas.integration import (
     IntegrationIdentityOAuthCallbackResponse,
     IdentityProviderBindingResponse,
     IdentityProviderBindingListResponse,
+    IntegrationGovernanceExecutionListResponse,
+    IntegrationGovernanceExecutionResponse,
     IntegrationGovernanceBulkRetryRequest,
     IntegrationGovernanceBulkRetryResponse,
     IntegrationGovernanceEventRetryResponse,
@@ -83,6 +86,32 @@ def _serialize_event_json(raw: str | None) -> dict:
     if isinstance(value, dict):
         return value
     return {"data": value}
+
+
+def _serialize_governance_json(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _to_governance_execution_response(item: IntegrationGovernanceExecution) -> IntegrationGovernanceExecutionResponse:
+    return IntegrationGovernanceExecutionResponse(
+        id=item.id,
+        project_id=item.project_id,
+        execution_type=item.execution_type,
+        status=item.status,
+        idempotency_key=item.idempotency_key,
+        request_json=_serialize_governance_json(item.request_json),
+        result_json=_serialize_governance_json(item.result_json),
+        requested_by=item.requested_by,
+        completed_at=item.completed_at,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 def _to_response(item: IntegrationConfig) -> IntegrationConfigResponse:
@@ -1407,6 +1436,45 @@ def _count_by_status(values: list[str]) -> dict[str, int]:
     return result
 
 
+def _build_governance_retry_idempotency_key(project_id: int, payload: IntegrationGovernanceBulkRetryRequest) -> str:
+    if payload.idempotency_key:
+        return payload.idempotency_key
+    base = json.dumps(
+        {
+            "project_id": project_id,
+            "max_events": payload.max_events,
+            "max_deliveries": payload.max_deliveries,
+            "execution_type": "retry_failed",
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()
+
+
+def _build_governance_audit_details(
+    project_id: int,
+    execution: IntegrationGovernanceExecution,
+    retried_events: int,
+    retried_deliveries: int,
+    skipped_events: int,
+    skipped_deliveries: int,
+    idempotent_reused: bool,
+) -> dict[str, Any]:
+    return {
+        "project_id": project_id,
+        "governance_execution_id": execution.id,
+        "execution_type": execution.execution_type,
+        "execution_status": execution.status,
+        "idempotency_key": execution.idempotency_key,
+        "idempotent_reused": idempotent_reused,
+        "retried_events": retried_events,
+        "retried_deliveries": retried_deliveries,
+        "skipped_events": skipped_events,
+        "skipped_deliveries": skipped_deliveries,
+    }
+
+
 @router.get("/project/{project_id}/governance/health", response_model=IntegrationGovernanceHealthResponse)
 def get_integration_governance_health(
     project_id: int,
@@ -1489,6 +1557,56 @@ def get_integration_governance_health(
     )
 
 
+@router.get("/project/{project_id}/governance/executions", response_model=IntegrationGovernanceExecutionListResponse)
+def list_integration_governance_executions(
+    project_id: int,
+    request: Request,
+    execution_type: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> IntegrationGovernanceExecutionListResponse:
+    _ensure_project_and_permission(db, project_id, user, manage=False)
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Invalid pagination params")
+    if execution_type and execution_type.strip() not in {"retry_failed"}:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Unsupported execution_type")
+
+    query = db.query(IntegrationGovernanceExecution).filter(IntegrationGovernanceExecution.project_id == project_id)
+    if execution_type:
+        query = query.filter(IntegrationGovernanceExecution.execution_type == execution_type.strip())
+
+    total = query.count()
+    items = (
+        query.order_by(IntegrationGovernanceExecution.created_at.desc(), IntegrationGovernanceExecution.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="integration_governance.execution.list",
+        resource_type="integration_governance_execution",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={
+            "project_id": project_id,
+            "execution_type": execution_type,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+        },
+    )
+
+    return IntegrationGovernanceExecutionListResponse(
+        total=total,
+        items=[_to_governance_execution_response(item) for item in items],
+    )
+
+
 @router.post("/project/{project_id}/governance/retry-failed", response_model=IntegrationGovernanceBulkRetryResponse)
 def retry_failed_integrations(
     project_id: int,
@@ -1500,6 +1618,49 @@ def retry_failed_integrations(
     _ensure_project_and_permission(db, project_id, user, manage=True)
 
     now = int(time.time())
+    idempotency_key = _build_governance_retry_idempotency_key(project_id, payload)
+    existing_execution = (
+        db.query(IntegrationGovernanceExecution)
+        .filter(
+            IntegrationGovernanceExecution.project_id == project_id,
+            IntegrationGovernanceExecution.execution_type == "retry_failed",
+            IntegrationGovernanceExecution.idempotency_key == idempotency_key,
+        )
+        .first()
+    )
+    if existing_execution:
+        stored_result = _serialize_governance_json(existing_execution.result_json)
+        retried_events = int(stored_result.get("retried_events", 0))
+        retried_deliveries = int(stored_result.get("retried_deliveries", 0))
+        skipped_events = int(stored_result.get("skipped_events", 0))
+        skipped_deliveries = int(stored_result.get("skipped_deliveries", 0))
+        create_audit_log(
+            db=db,
+            request=request,
+            action="integration_governance.retry_failed",
+            resource_type="integration_governance_execution",
+            resource_id=str(existing_execution.id),
+            user_id=user.id,
+            details=_build_governance_audit_details(
+                project_id=project_id,
+                execution=existing_execution,
+                retried_events=retried_events,
+                retried_deliveries=retried_deliveries,
+                skipped_events=skipped_events,
+                skipped_deliveries=skipped_deliveries,
+                idempotent_reused=True,
+            ),
+        )
+        return IntegrationGovernanceBulkRetryResponse(
+            project_id=project_id,
+            retried_events=retried_events,
+            retried_deliveries=retried_deliveries,
+            skipped_events=skipped_events,
+            skipped_deliveries=skipped_deliveries,
+            execution=_to_governance_execution_response(existing_execution),
+            idempotent_reused=True,
+        )
+
     retried_events = 0
     retried_deliveries = 0
 
@@ -1537,30 +1698,66 @@ def retry_failed_integrations(
         item.updated_at = now
         retried_deliveries += 1
 
+    skipped_events = max(payload.max_events - retried_events, 0)
+    skipped_deliveries = max(payload.max_deliveries - retried_deliveries, 0)
+    execution = IntegrationGovernanceExecution(
+        project_id=project_id,
+        execution_type="retry_failed",
+        status="completed",
+        idempotency_key=idempotency_key,
+        request_json=json.dumps(
+            {
+                "max_events": payload.max_events,
+                "max_deliveries": payload.max_deliveries,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
+        result_json=json.dumps(
+            {
+                "retried_events": retried_events,
+                "retried_deliveries": retried_deliveries,
+                "skipped_events": skipped_events,
+                "skipped_deliveries": skipped_deliveries,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
+        requested_by=user.id,
+        completed_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(execution)
     db.commit()
+    db.refresh(execution)
 
     create_audit_log(
         db=db,
         request=request,
         action="integration_governance.retry_failed",
-        resource_type="integration_config",
-        resource_id=str(project_id),
+        resource_type="integration_governance_execution",
+        resource_id=str(execution.id),
         user_id=user.id,
-        details={
-            "project_id": project_id,
-            "retried_events": retried_events,
-            "retried_deliveries": retried_deliveries,
-            "max_events": payload.max_events,
-            "max_deliveries": payload.max_deliveries,
-        },
+        details=_build_governance_audit_details(
+            project_id=project_id,
+            execution=execution,
+            retried_events=retried_events,
+            retried_deliveries=retried_deliveries,
+            skipped_events=skipped_events,
+            skipped_deliveries=skipped_deliveries,
+            idempotent_reused=False,
+        ),
     )
 
     return IntegrationGovernanceBulkRetryResponse(
         project_id=project_id,
         retried_events=retried_events,
         retried_deliveries=retried_deliveries,
-        skipped_events=max(payload.max_events - retried_events, 0),
-        skipped_deliveries=max(payload.max_deliveries - retried_deliveries, 0),
+        skipped_events=skipped_events,
+        skipped_deliveries=skipped_deliveries,
+        execution=_to_governance_execution_response(execution),
+        idempotent_reused=False,
     )
 
 
@@ -1587,7 +1784,14 @@ def retry_integration_event_with_governance(
         resource_type="integration_event",
         resource_id=str(event.id),
         user_id=user.id,
-        details={"project_id": event.project_id, "status": event.status, "attempt_count": event.attempt_count},
+        details={
+            "project_id": event.project_id,
+            "governance_scope": "single_event",
+            "governance_target_type": "integration_event",
+            "governance_target_id": event.id,
+            "status": event.status,
+            "attempt_count": event.attempt_count,
+        },
     )
     return IntegrationGovernanceEventRetryResponse(event=_to_event_response(event))
 

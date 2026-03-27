@@ -10,6 +10,7 @@ from app.models.user import Base
 # Import all model modules so metadata is fully populated.
 from app.models import api_test_case  # noqa: F401
 from app.models import audit_log  # noqa: F401
+from app.models import integration_governance_execution  # noqa: F401
 from app.models import project  # noqa: F401
 from app.models import run_queue  # noqa: F401
 from app.models import schedule_task  # noqa: F401

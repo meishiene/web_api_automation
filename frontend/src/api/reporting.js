@@ -11,3 +11,7 @@ export const getProjectReportTrends = (projectId, params = {}) => {
 export const getProjectReportFailures = (projectId, params = {}) => {
   return request.get(`/api/reports/project/${projectId}/failures`, { params })
 }
+
+export const getOperationsOverview = (params = {}) => {
+  return request.get('/api/reports/operations/overview', { params })
+}
