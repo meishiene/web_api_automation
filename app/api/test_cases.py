@@ -30,12 +30,14 @@ from app.services.audit_service import create_audit_log
 from app.services.test_case_import_providers import (
     OpenApiImportProvider,
     ImportProviderRegistry,
+    PostmanImportProvider,
 )
 
 router = APIRouter()
 
 import_provider_registry = ImportProviderRegistry()
 import_provider_registry.register(OpenApiImportProvider())
+import_provider_registry.register(PostmanImportProvider())
 
 
 def _serialize_tags(raw_tags: str | None) -> List[str]:

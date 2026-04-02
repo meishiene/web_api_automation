@@ -1,186 +1,123 @@
 <template>
-  <section class="report-page">
-    <div class="hero-card">
-      <div>
-        <router-link :to="`/project/${projectId}`" class="back-link">← 返回 API 用例页</router-link>
-        <span class="eyebrow">Report Center</span>
-        <h2>项目执行摘要</h2>
-        <p>汇总项目执行结果，展示通过率、失败率和 Top 失败项。</p>
-      </div>
-      <button class="secondary-btn" @click="fetchAll" :disabled="loading">
-        {{ loading ? '刷新中...' : '刷新数据' }}
-      </button>
-    </div>
+  <section class="reports-page">
+    <div class="toolbar-card">
+      <div class="toolbar-filters">
+        <div class="filter-group">
+          <label>时间范围:</label>
+          <div class="date-range">
+            <input v-model="filters.created_from_local" type="datetime-local" />
+            <span>至</span>
+            <input v-model="filters.created_to_local" type="datetime-local" />
+          </div>
+        </div>
 
-    <section class="panel-card">
-      <div class="filter-bar">
-        <label>
-          <span>类型</span>
+        <div class="filter-group">
+          <label>测试类型:</label>
           <select v-model="filters.run_type">
             <option value="">全部</option>
-            <option value="api">API</option>
-            <option value="web">Web</option>
+            <option value="api">API测试</option>
+            <option value="web">UI测试</option>
           </select>
-        </label>
-        <label>
-          <span>开始时间</span>
-          <input v-model="filters.created_from_local" type="datetime-local" />
-        </label>
-        <label>
-          <span>结束时间</span>
-          <input v-model="filters.created_to_local" type="datetime-local" />
-        </label>
-        <label>
-          <span>Top N</span>
-          <select v-model.number="filters.top_n">
-            <option :value="3">3</option>
-            <option :value="5">5</option>
-            <option :value="10">10</option>
-          </select>
-        </label>
-        <label>
-          <span>趋势粒度</span>
-          <select v-model="filters.granularity">
-            <option value="day">日</option>
-            <option value="week">周</option>
-          </select>
-        </label>
-        <div class="filter-actions">
-          <button class="secondary-btn" @click="applyFilters">筛选</button>
-          <button class="secondary-btn" @click="resetFilters">重置</button>
         </div>
-      </div>
-    </section>
 
-    <div class="stats-grid">
-      <article class="stat-card">
-        <span>总执行数</span>
-        <strong>{{ summary.total_count }}</strong>
-      </article>
-      <article class="stat-card accent">
-        <span>通过率</span>
-        <strong>{{ asPercent(summary.pass_rate) }}</strong>
-        <small>success / completed</small>
-      </article>
-      <article class="stat-card soft">
-        <span>失败率</span>
-        <strong>{{ asPercent(summary.fail_rate) }}</strong>
-        <small>(failed + error) / completed</small>
-      </article>
-      <article class="stat-card">
-        <span>进行中</span>
-        <strong>{{ summary.running_count }}</strong>
-      </article>
+        <div class="filter-group">
+          <label>趋势粒度:</label>
+          <select v-model="filters.granularity">
+            <option value="day">按日</option>
+            <option value="week">按周</option>
+          </select>
+        </div>
+
+        <button class="toolbar-btn primary" @click="applyFilters">查询</button>
+      </div>
+
+      <button class="toolbar-btn" @click="resetFilters">重置筛选</button>
+    </div>
+
+    <div class="chart-grid">
+      <section class="panel-card">
+        <h3>测试执行趋势</h3>
+        <div class="trend-chart">
+          <div class="trend-lines">
+            <div v-for="item in trendRows" :key="item.label" class="trend-row">
+              <div class="trend-label">{{ item.label }}</div>
+              <div class="trend-track">
+                <div class="trend-line total" :style="{ width: `${item.totalWidth}%` }"></div>
+                <div class="trend-line pass" :style="{ width: `${item.passWidth}%` }"></div>
+                <div class="trend-line fail" :style="{ width: `${item.failWidth}%` }"></div>
+              </div>
+              <div class="trend-meta">
+                <span>总 {{ item.total }}</span>
+                <span>过 {{ item.pass }}</span>
+                <span>失 {{ item.fail }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <h3>通过率分析</h3>
+        <div class="summary-circle">
+          <div class="circle-core">
+            <strong>{{ asPercent(summary.pass_rate) }}</strong>
+            <span>通过率</span>
+          </div>
+        </div>
+        <div class="legend-row">
+          <div class="legend-item"><span class="dot total"></span>总数 {{ summary.total_count }}</div>
+          <div class="legend-item"><span class="dot pass"></span>通过 {{ summary.success_count }}</div>
+          <div class="legend-item"><span class="dot fail"></span>失败 {{ summary.failed_count + summary.error_count }}</div>
+        </div>
+      </section>
     </div>
 
     <section class="panel-card">
       <div class="panel-head">
-        <h3>状态分布</h3>
+        <h3>测试报告列表</h3>
       </div>
-      <div class="status-grid">
-        <article class="mini">
-          <span>completed</span>
-          <strong>{{ summary.completed_count }}</strong>
-        </article>
-        <article class="mini">
-          <span>success</span>
-          <strong>{{ summary.success_count }}</strong>
-        </article>
-        <article class="mini">
-          <span>failed</span>
-          <strong>{{ summary.failed_count }}</strong>
-        </article>
-        <article class="mini">
-          <span>error</span>
-          <strong>{{ summary.error_count }}</strong>
-        </article>
-      </div>
-    </section>
 
-    <section class="panel-card">
-      <div class="panel-head">
-        <h3>Top 失败项</h3>
+      <div v-if="loading" class="state-block">
+        <p>正在加载报告...</p>
       </div>
-      <div v-if="loading" class="state-block">正在加载报告...</div>
-      <div v-else-if="summary.top_failures.length === 0" class="state-block">暂无失败项</div>
+      <div v-else-if="reportRows.length === 0" class="state-block">
+        <p>当前筛选条件下暂无报告数据。</p>
+      </div>
       <div v-else class="table-wrap">
-        <table class="report-table">
+        <table class="data-table">
           <thead>
             <tr>
-              <th>用例</th>
+              <th>报告名称</th>
               <th>类型</th>
-              <th>分类</th>
-              <th>次数</th>
-              <th>最后错误</th>
-              <th>最后出现</th>
+              <th>执行时间</th>
+              <th>总用例</th>
+              <th>通过</th>
+              <th>失败</th>
+              <th>通过率</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in summary.top_failures" :key="`${item.run_type}-${item.case_id}-${item.failure_category}`">
+            <tr v-for="row in reportRows" :key="row.id">
+              <td class="report-name">{{ row.name }}</td>
+              <td><span class="tag-pill">{{ row.type }}</span></td>
+              <td>{{ row.execTime }}</td>
+              <td>{{ row.totalCases }}</td>
+              <td class="success-text">{{ row.passCases }}</td>
+              <td class="danger-text">{{ row.failCases }}</td>
               <td>
-                <div class="case-cell">
-                  <strong>{{ item.case_name }}</strong>
-                  <small>#{{ item.case_id }}</small>
+                <div class="rate-cell">
+                  <div class="rate-track">
+                    <div class="rate-fill" :style="{ width: row.passRate }"></div>
+                  </div>
+                  <span>{{ row.passRate }}</span>
                 </div>
               </td>
-              <td><span class="type-pill" :class="item.run_type">{{ item.run_type }}</span></td>
-              <td><span class="cat-pill">{{ item.failure_category }}</span></td>
-              <td>{{ item.count }}</td>
-              <td class="error-cell">{{ item.last_error_message || '--' }}</td>
-              <td>{{ formatDate(item.last_seen_at) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel-card">
-      <div class="panel-head">
-        <h3>失败治理视图</h3>
-      </div>
-      <div class="governance-filter">
-        <label>
-          <span>失败分类</span>
-          <select v-model="governanceFilters.failure_category" @change="fetchFailuresOnly">
-            <option value="">全部</option>
-            <option value="assertion_failure">assertion_failure</option>
-            <option value="timeout">timeout</option>
-            <option value="network_error">network_error</option>
-            <option value="execution_error">execution_error</option>
-            <option value="test_failure">test_failure</option>
-          </select>
-        </label>
-      </div>
-      <div v-if="loading" class="state-block">正在加载失败治理数据...</div>
-      <div v-else-if="failures.items.length === 0" class="state-block">当前筛选条件暂无失败记录</div>
-      <div v-else class="table-wrap">
-        <table class="report-table">
-          <thead>
-            <tr>
-              <th>类型</th>
-              <th>Run ID</th>
-              <th>用例</th>
-              <th>分类</th>
-              <th>错误信息</th>
-              <th>创建时间</th>
-              <th>追溯</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in failures.items" :key="`${item.run_type}-${item.run_id}`">
-              <td><span class="type-pill" :class="item.run_type">{{ item.run_type }}</span></td>
-              <td>#{{ item.run_id }}</td>
               <td>
-                <div class="case-cell">
-                  <strong>{{ item.case_name }}</strong>
-                  <small>#{{ item.case_id }}</small>
+                <div class="link-group">
+                  <button class="table-link" @click="openRowDetail(row)">详情</button>
+                  <button class="table-link" @click="openRowDetail(row)">查看</button>
                 </div>
-              </td>
-              <td><span class="cat-pill">{{ item.failure_category }}</span></td>
-              <td class="error-cell">{{ item.error_message || '--' }}</td>
-              <td>{{ formatDate(item.created_at) }}</td>
-              <td>
-                <button class="table-link" @click="openFailureDetail(item)">查看详情</button>
               </td>
             </tr>
           </tbody>
@@ -188,26 +125,68 @@
       </div>
     </section>
 
-    <section class="panel-card">
-      <div class="panel-head">
-        <h3>趋势概览（{{ filters.granularity === 'day' ? '按日' : '按周' }}）</h3>
-      </div>
-      <div v-if="loading" class="state-block">正在加载趋势...</div>
-      <div v-else-if="trends.items.length === 0" class="state-block">当前筛选条件暂无趋势数据</div>
-      <div v-else class="trend-list">
-        <article v-for="item in trends.items" :key="`${trends.granularity}-${item.bucket_start}`" class="trend-row">
-          <div class="trend-label">{{ item.bucket_label }}</div>
-          <div class="trend-bar-track">
-            <div class="trend-bar-fill" :style="{ width: `${trendBarWidth(item.total_count)}%` }"></div>
+    <div v-if="selectedReport" class="modal-mask" @click.self="selectedReport = null">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h2>测试报告详情</h2>
+            <p>{{ selectedReport.name }}</p>
           </div>
-          <div class="trend-meta">
-            <strong>{{ item.total_count }}</strong>
-            <span>通过率 {{ asPercent(item.pass_rate) }}</span>
-            <span>失败率 {{ asPercent(item.fail_rate) }}</span>
-          </div>
-        </article>
+          <button class="close-btn" @click="selectedReport = null">✕</button>
+        </div>
+
+        <div class="detail-actions">
+          <button class="toolbar-btn" @click="router.push(`/project/${projectId}/executions`)">打开执行中心</button>
+          <button class="toolbar-btn" @click="openFirstFailureInReport" :disabled="failures.items.length === 0">定位首个失败</button>
+        </div>
+
+        <div class="detail-stack">
+          <section class="detail-section">
+            <h3>基本信息</h3>
+            <div class="detail-grid">
+              <div><label>测试类型:</label><span>{{ selectedReport.type }}</span></div>
+              <div><label>执行时间:</label><span>{{ selectedReport.execTime }}</span></div>
+              <div><label>总用例:</label><span>{{ selectedReport.totalCases }}</span></div>
+              <div><label>通过率:</label><span class="success-text">{{ selectedReport.passRate }}</span></div>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h3>Top 失败项</h3>
+            <div v-if="summary.top_failures.length === 0" class="detail-empty">当前没有失败项。</div>
+            <div v-else class="detail-list">
+              <div v-for="item in summary.top_failures" :key="`${item.run_type}-${item.case_id}-${item.failure_category}`" class="detail-card">
+                <div class="detail-card-head">
+                  <strong>{{ item.case_name }}</strong>
+                  <span class="tag-pill">{{ item.run_type === 'api' ? 'API测试' : 'UI测试' }}</span>
+                </div>
+                <div class="detail-card-copy">
+                  分类：{{ item.failure_category }} / 次数：{{ item.count }}
+                </div>
+                <div class="detail-card-error">{{ item.last_error_message || '无错误信息' }}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h3>失败治理记录</h3>
+            <div v-if="failures.items.length === 0" class="detail-empty">当前没有失败治理记录。</div>
+            <div v-else class="detail-list">
+              <div v-for="item in failures.items" :key="`${item.run_type}-${item.run_id}`" class="detail-card">
+                <div class="detail-card-head">
+                  <strong>#{{ item.run_id }} · {{ item.case_name }}</strong>
+                  <button class="table-link" @click="openFailureDetail(item)">追溯详情</button>
+                </div>
+                <div class="detail-card-copy">
+                  {{ item.run_type === 'api' ? 'API测试' : 'UI测试' }} / {{ item.failure_category }} / {{ formatDate(item.created_at) }}
+                </div>
+                <div class="detail-card-error">{{ item.error_message || '无错误信息' }}</div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-    </section>
+    </div>
   </section>
 </template>
 
@@ -221,6 +200,7 @@ const router = useRouter()
 const projectId = Number(route.params.projectId)
 
 const loading = ref(false)
+const selectedReport = ref(null)
 const filters = ref({
   run_type: '',
   created_from_local: '',
@@ -228,6 +208,10 @@ const filters = ref({
   top_n: 5,
   granularity: 'day',
 })
+const governanceFilters = ref({
+  failure_category: '',
+})
+
 const summary = ref({
   project_id: projectId,
   total_count: 0,
@@ -240,19 +224,18 @@ const summary = ref({
   fail_rate: 0,
   top_failures: [],
 })
+
 const trends = ref({
   project_id: projectId,
   granularity: 'day',
   items: [],
 })
+
 const failures = ref({
   total: 0,
   page: 1,
   page_size: 10,
   items: [],
-})
-const governanceFilters = ref({
-  failure_category: '',
 })
 
 const normalizeTimestamp = (value) => {
@@ -297,6 +280,35 @@ const buildFailureParams = () => ({
   page_size: 10,
 })
 
+const trendRows = computed(() => {
+  const items = trends.value.items || []
+  if (!items.length) return []
+  const maxTotal = Math.max(...items.map((item) => item.total_count), 1)
+  return items.map((item) => ({
+    label: item.bucket_label,
+    total: item.total_count,
+    pass: item.success_count,
+    fail: item.failed_count + item.error_count,
+    totalWidth: Math.max(8, (item.total_count / maxTotal) * 100),
+    passWidth: item.total_count ? Math.max(6, (item.success_count / maxTotal) * 100) : 0,
+    failWidth: item.total_count ? Math.max(6, ((item.failed_count + item.error_count) / maxTotal) * 100) : 0,
+  }))
+})
+
+const reportRows = computed(() => {
+  const buckets = trends.value.items || []
+  return buckets.map((item, index) => ({
+    id: `${item.bucket_start}-${index}`,
+    name: `${filters.value.granularity === 'week' ? '周报' : '日报'} · ${item.bucket_label}`,
+    type: filters.value.run_type === 'web' ? 'UI测试' : filters.value.run_type === 'api' ? 'API测试' : '混合测试',
+    execTime: item.bucket_label,
+    totalCases: item.total_count,
+    passCases: item.success_count,
+    failCases: item.failed_count + item.error_count,
+    passRate: asPercent(item.pass_rate),
+  }))
+})
+
 const fetchAll = async () => {
   loading.value = true
   try {
@@ -328,28 +340,8 @@ const resetFilters = async () => {
     granularity: 'day',
   }
   governanceFilters.value.failure_category = ''
+  selectedReport.value = null
   await fetchAll()
-}
-
-const trendMax = computed(() => {
-  const values = trends.value.items.map(item => item.total_count)
-  return values.length ? Math.max(...values) : 1
-})
-
-const trendBarWidth = (value) => {
-  if (!trendMax.value) return 0
-  return Math.max(6, (value / trendMax.value) * 100)
-}
-
-const fetchFailuresOnly = async () => {
-  loading.value = true
-  try {
-    failures.value = await getProjectReportFailures(projectId, buildFailureParams())
-  } catch (err) {
-    alert(err.response?.data?.detail || '获取失败治理视图失败')
-  } finally {
-    loading.value = false
-  }
 }
 
 const openFailureDetail = (item) => {
@@ -360,69 +352,88 @@ const openFailureDetail = (item) => {
   router.push(`/project/${projectId}/runs/${item.run_id}`)
 }
 
+const openFirstFailureInReport = () => {
+  if (!failures.items.length) return
+  openFailureDetail(failures.items[0])
+}
+
+const openRowDetail = (row) => {
+  selectedReport.value = row
+}
+
 onMounted(fetchAll)
 </script>
 
 <style scoped>
-.report-page { display: flex; flex-direction: column; gap: 20px; }
-.hero-card, .panel-card, .stat-card { background: rgba(255,255,255,0.84); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
-.hero-card { padding: 24px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.panel-card { padding: 22px; }
-.back-link { color: var(--text-muted); text-decoration: none; }
-.eyebrow { display: inline-block; margin-top: 10px; padding: 6px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); font-size: 12px; font-weight: 700; }
-.filter-bar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.filter-bar label { display: flex; flex-direction: column; gap: 6px; }
-.filter-bar span { color: var(--text-muted); font-size: 12px; }
-.filter-bar input, .filter-bar select { height: 38px; border: 1px solid var(--border-color); border-radius: 10px; padding: 0 10px; background: var(--bg-card-soft); color: var(--text-main); }
-.filter-actions { display: flex; align-items: end; gap: 8px; }
-.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.stat-card { padding: 18px; border-radius: var(--radius-md); }
-.stat-card span { color: var(--text-muted); font-size: 13px; }
-.stat-card strong { display: block; margin-top: 10px; font-size: 30px; color: var(--text-strong); line-height: 1; }
-.stat-card small { display: block; margin-top: 8px; color: var(--text-muted); }
-.stat-card.accent { background: linear-gradient(135deg, rgba(18,179,165,0.14), rgba(255,255,255,0.88)); }
-.stat-card.soft { background: linear-gradient(135deg, rgba(91,124,255,0.08), rgba(255,255,255,0.88)); }
-.panel-head h3 { margin: 0 0 12px; color: var(--text-strong); }
-.status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.mini { border: 1px solid var(--border-color); border-radius: 14px; background: var(--bg-card-soft); padding: 14px; }
-.mini span { color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
-.mini strong { display: block; margin-top: 8px; color: var(--text-strong); font-size: 24px; }
-.table-wrap { overflow: auto; border: 1px solid var(--border-color); border-radius: 16px; }
-.report-table { width: 100%; min-width: 900px; border-collapse: collapse; }
-.report-table th, .report-table td { padding: 14px 16px; border-bottom: 1px solid #edf2f1; text-align: left; }
-.report-table thead th { background: #f8fbfb; color: var(--text-muted); font-size: 13px; }
-.case-cell { display: flex; flex-direction: column; gap: 4px; }
-.case-cell small { color: var(--text-muted); }
-.type-pill { display: inline-flex; padding: 6px 10px; border-radius: 999px; font-weight: 700; text-transform: capitalize; }
-.type-pill.api { background: #e6f2ff; color: #2b6cb0; }
-.type-pill.web { background: #efe8ff; color: #6b46c1; }
-.cat-pill { display: inline-flex; padding: 6px 10px; border-radius: 999px; background: #ffe7e7; color: #d44a4a; font-weight: 700; }
-.error-cell { max-width: 360px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; color: var(--text-main); }
-.governance-filter { margin-bottom: 12px; }
-.governance-filter label { display: flex; flex-direction: column; gap: 6px; max-width: 260px; }
-.governance-filter span { color: var(--text-muted); font-size: 12px; }
-.governance-filter select { height: 38px; border: 1px solid var(--border-color); border-radius: 10px; padding: 0 10px; background: var(--bg-card-soft); color: var(--text-main); }
-.secondary-btn { background: #f4f7f7; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 12px; padding: 8px 10px; font-weight: 700; }
-.table-link { border: 0; background: none; color: var(--primary-dark); font-weight: 700; cursor: pointer; }
-.state-block { min-height: 220px; display: grid; place-items: center; border: 1px dashed var(--border-strong); border-radius: 16px; color: var(--text-muted); }
-.trend-list { display: flex; flex-direction: column; gap: 10px; }
-.trend-row { display: grid; grid-template-columns: 110px 1fr 260px; gap: 12px; align-items: center; }
-.trend-label { color: var(--text-main); font-weight: 700; }
-.trend-bar-track { height: 14px; border-radius: 999px; background: #eef5f4; overflow: hidden; border: 1px solid #dce8e5; }
-.trend-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #12b3a5, #0d9488); }
-.trend-meta { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 13px; }
-.trend-meta strong { color: var(--text-strong); min-width: 24px; }
-@media (max-width: 1200px) {
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 900px) {
-  .hero-card { flex-direction: column; align-items: flex-start; }
-  .filter-bar { grid-template-columns: 1fr; }
-  .filter-actions { align-items: stretch; }
-  .stats-grid, .status-grid { grid-template-columns: 1fr; }
-  .trend-row { grid-template-columns: 1fr; gap: 8px; }
-  .trend-meta { flex-wrap: wrap; }
-}
+.reports-page { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.toolbar-card, .panel-card, .modal-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: var(--surface-shadow); }
+.toolbar-card { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.toolbar-filters { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 10px; }
+.filter-group label { font-size: 13px; color: var(--text-main); }
+.filter-group select, .filter-group input { height: 32px; padding: 0 12px; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: var(--bg-card); color: var(--text-main); outline: none; }
+.date-range { display: flex; align-items: center; gap: 8px; }
+.toolbar-btn { min-height: 32px; padding: 0 14px; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: transparent; color: var(--text-main); font-size: 13px; }
+.toolbar-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.panel-card { padding: 20px; }
+.panel-card h3 { margin: 0 0 16px; font-size: 16px; font-weight: 500; color: var(--text-strong); }
+.trend-chart { min-height: 280px; display: flex; align-items: center; }
+.trend-lines { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.trend-row { display: grid; grid-template-columns: 70px 1fr 170px; gap: 12px; align-items: center; }
+.trend-label { font-size: 12px; color: var(--text-main); }
+.trend-track { height: 36px; border-radius: var(--radius); background: var(--bg-muted); position: relative; overflow: hidden; }
+.trend-line { position: absolute; left: 0; border-radius: 0 var(--radius) var(--radius) 0; }
+.trend-line.total { top: 6px; height: 8px; background: rgba(52, 152, 219, 0.35); }
+.trend-line.pass { top: 14px; height: 8px; background: var(--success); }
+.trend-line.fail { top: 22px; height: 8px; background: var(--danger); }
+.trend-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-muted); }
+.summary-circle { min-height: 220px; display: grid; place-items: center; }
+.circle-core { width: 160px; height: 160px; border-radius: 50%; border: 12px solid rgba(39, 174, 96, 0.18); display: grid; place-items: center; text-align: center; }
+.circle-core strong { display: block; font-size: 26px; color: var(--text-strong); }
+.circle-core span { font-size: 12px; color: var(--text-muted); }
+.legend-row { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-main); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot.total { background: var(--primary); }
+.dot.pass { background: var(--success); }
+.dot.fail { background: var(--danger); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead tr { background: var(--bg-muted); border-bottom: 1px solid var(--border-color); }
+.data-table th { padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 500; color: var(--text-main); }
+.data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); font-size: 13px; color: var(--text-main); vertical-align: top; }
+.report-name { color: var(--text-strong); font-weight: 500; }
+.tag-pill { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--bg-muted); color: var(--text-main); }
+.success-text { color: var(--success); }
+.danger-text { color: var(--danger); }
+.rate-cell { display: flex; align-items: center; gap: 10px; }
+.rate-track { flex: 1; height: 6px; border-radius: 999px; background: var(--border-color); overflow: hidden; }
+.rate-fill { height: 100%; border-radius: 999px; background: var(--success); }
+.link-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.table-link { border: 0; background: transparent; color: var(--primary); font-size: 13px; padding: 0; }
+.state-block { min-height: 220px; display: grid; place-items: center; text-align: center; color: var(--text-muted); }
+.modal-mask { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 999; }
+.modal-card { width: min(920px, 100%); max-height: 86vh; overflow-y: auto; padding: 24px; }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.modal-head h2 { margin: 0 0 6px; font-size: 18px; font-weight: 500; color: var(--text-strong); }
+.modal-head p { margin: 0; font-size: 13px; color: var(--text-muted); }
+.close-btn { border: 0; background: transparent; color: var(--text-muted); font-size: 18px; }
+.detail-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.detail-stack { display: flex; flex-direction: column; gap: 20px; }
+.detail-section h3 { margin: 0 0 14px; font-size: 16px; font-weight: 500; color: var(--text-strong); }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.detail-grid div { display: flex; gap: 10px; font-size: 13px; }
+.detail-grid label { width: 84px; color: var(--text-muted); }
+.detail-grid span { color: var(--text-main); }
+.detail-list { display: flex; flex-direction: column; gap: 12px; }
+.detail-card { border: 1px solid var(--border-color); border-radius: var(--radius); padding: 14px; background: var(--bg-muted); }
+.detail-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.detail-card-head strong { color: var(--text-strong); font-size: 14px; }
+.detail-card-copy { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.detail-card-error { font-size: 12px; color: var(--text-main); line-height: 1.6; }
+.detail-empty { min-height: 100px; display: grid; place-items: center; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--radius); }
+@media (max-width: 1100px) { .chart-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .reports-page { padding: 16px; } .toolbar-card, .panel-card, .modal-card { padding: 16px; } .toolbar-filters { flex-direction: column; align-items: flex-start; } .filter-group, .date-range { width: 100%; flex-wrap: wrap; } .filter-group select, .filter-group input { width: 100%; } .trend-row, .detail-grid { grid-template-columns: 1fr; } .trend-meta { flex-wrap: wrap; } .detail-grid div { flex-direction: column; } .detail-grid label { width: auto; } }
 </style>

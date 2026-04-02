@@ -50,6 +50,75 @@ def test_run_test_case_and_query_runs(client, monkeypatch, create_user_and_login
     assert runs[0]["test_case_id"] == case_id
 
 
+def test_run_test_case_uses_runtime_overrides_from_request(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("override_owner", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-override", "description": "desc"},
+    )
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    case_resp = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "Case override",
+            "method": "GET",
+            "url": "https://example.com/original",
+            "expected_status": 200,
+            "expected_body": "{\"stale\": true}",
+            "assertion_rules": "{\"contains\":[\"stale\"]}",
+        },
+    )
+    assert case_resp.status_code == 200
+    case_id = case_resp.json()["id"]
+
+    captured = {}
+
+    async def fake_execute_test(_test_case):
+        captured["method"] = _test_case.method
+        captured["url"] = _test_case.url
+        captured["expected_status"] = _test_case.expected_status
+        captured["expected_body"] = _test_case.expected_body
+        captured["assertion_rules"] = _test_case.assertion_rules
+        captured["body"] = _test_case.body
+        return {
+            "status": "success",
+            "actual_status": 204,
+            "actual_body": "",
+            "error_message": None,
+            "duration_ms": 8,
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(
+        f"/api/test-runs/test-cases/{case_id}/run",
+        headers=headers,
+        json={
+            "method": "POST",
+            "url": "https://example.com/runtime",
+            "body": "{\"fresh\":true}",
+            "expected_status": 204,
+            "expected_body": None,
+            "assertion_rules": None,
+        },
+    )
+    assert run_resp.status_code == 200
+    assert captured == {
+        "method": "POST",
+        "url": "https://example.com/runtime",
+        "expected_status": 204,
+        "expected_body": None,
+        "assertion_rules": None,
+        "body": "{\"fresh\":true}",
+    }
+
+
 def test_non_owner_cannot_run_foreign_test_case(client, monkeypatch, create_user_and_login, auth_headers):
     owner_token = create_user_and_login("owner", "pwd")
     attacker_token = create_user_and_login("attacker", "pwd")
@@ -175,6 +244,9 @@ def test_get_test_run_detail_returns_case_metadata(client, monkeypatch, create_u
     assert detail["test_case_method"] == "GET"
     assert detail["test_case_url"] == "https://example.com/profile"
     assert detail["test_case_expected_status"] == 200
+    assert detail["test_case_expected_body"] is None
+    assert detail["test_case_assertion_rules"] is None
+    assert detail["test_case_extraction_rules"] is None
 
 
 def test_non_owner_cannot_view_foreign_test_run_detail(client, monkeypatch, create_user_and_login, auth_headers):

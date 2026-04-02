@@ -1,111 +1,74 @@
 <template>
   <div id="app">
-    <template v-if="isAuthPage">
-      <router-view />
-    </template>
+    <router-view v-if="isAuthPage" />
 
     <template v-else>
-      <div class="app-shell">
+      <div class="layout-shell">
         <aside class="sidebar">
-          <div class="brand-block">
-            <div class="brand-mark">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M12 3l7 4v10l-7 4-7-4V7l7-4z" stroke="currentColor" stroke-width="1.8" />
-                <path d="M8 9.5h8L11 14h5l-8 6 5-5H8l5-5.5z" fill="currentColor" />
-              </svg>
-            </div>
-            <div class="brand-copy">
-              <div class="brand-title">TTAPI</div>
-              <div class="brand-subtitle">Automation Workspace</div>
-            </div>
+          <div class="sidebar-brand">
+            <h1>自动化测试平台</h1>
           </div>
 
-          <div class="sidebar-section">
-            <div class="sidebar-label">Workspace</div>
-            <nav class="sidebar-nav">
-              <router-link
-                v-for="link in workspaceLinks"
-                :key="link.to"
-                :to="link.to"
-                class="nav-item"
-                :class="{ active: isLinkActive(link.to, link.matchPrefixes) }"
-              >
-                <span class="nav-icon" v-html="link.icon"></span>
-                <span>{{ link.label }}</span>
-              </router-link>
-            </nav>
-          </div>
+          <nav class="sidebar-nav">
+            <button
+              v-for="item in menuItems"
+              :key="item.key"
+              class="nav-item"
+              :class="{ active: isActiveMenu(item), disabled: item.disabled }"
+              :disabled="item.disabled"
+              @click="goMenu(item)"
+            >
+              <span class="nav-icon" v-html="item.icon"></span>
+              <span>{{ item.label }}</span>
+            </button>
+          </nav>
 
-          <div v-if="currentProjectId" class="sidebar-section project-zone">
-            <div class="sidebar-label">Current Project</div>
-            <div class="project-chip">
-              <span class="project-chip-dot"></span>
-              <span>Project #{{ currentProjectId }}</span>
-            </div>
-            <nav class="sidebar-nav">
-              <router-link
-                v-for="link in projectLinks"
-                :key="link.to"
-                :to="link.to"
-                class="nav-item"
-                :class="{ active: isLinkActive(link.to, link.matchPrefixes) }"
-              >
-                <span class="nav-icon" v-html="link.icon"></span>
-                <span>{{ link.label }}</span>
-              </router-link>
-            </nav>
-          </div>
-
-          <div class="sidebar-footer">
-            <button class="theme-toggle" @click="toggleTheme">
-              <span class="theme-toggle-track">
-                <span class="theme-toggle-thumb" :class="{ dark: theme === 'dark' }"></span>
-              </span>
+          <div class="sidebar-bottom">
+            <button class="settings-btn" @click="toggleTheme">
+              <span class="nav-icon" v-html="theme === 'dark' ? moonIcon : sunIcon"></span>
               <span>{{ theme === 'dark' ? '深色模式' : '浅色模式' }}</span>
             </button>
-
-            <div class="sidebar-note">
-              <span class="sidebar-note-dot"></span>
-              平台完善工作线已启动
-            </div>
           </div>
         </aside>
 
-        <div class="shell-main">
+        <div class="main-shell">
           <header class="topbar">
-            <div>
-              <div class="page-kicker">{{ pageKicker }}</div>
-              <h1 class="topbar-title">{{ pageTitle }}</h1>
-              <p class="topbar-subtitle">{{ pageSubtitle }}</p>
+            <div class="topbar-search">
+              <span class="search-icon" v-html="searchIcon"></span>
+              <input type="text" placeholder="搜索项目、用例、接口、任务..." />
             </div>
 
             <div class="topbar-actions">
-              <div class="project-context" v-if="currentProjectId">
-                <span>当前上下文</span>
-                <strong>Project #{{ currentProjectId }}</strong>
-              </div>
-
-              <button class="icon-theme-btn" @click="toggleTheme" :aria-label="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'">
-                <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3v2.5M12 18.5V21M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M3 12h2.5M18.5 12H21M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77M12 16a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="none">
-                  <path d="M20 15.2A7.7 7.7 0 118.8 4 6.4 6.4 0 0020 15.2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                </svg>
+              <button class="icon-btn" aria-label="通知">
+                <span v-html="bellIcon"></span>
+                <span class="notify-dot"></span>
               </button>
-
-              <div class="user-card">
+              <div class="user-panel">
                 <div class="user-avatar">{{ userInitials }}</div>
-                <div class="user-meta">
-                  <strong>{{ username }}</strong>
-                  <span>{{ theme === 'dark' ? 'Dark workspace' : 'Light workspace' }}</span>
+                <div class="user-copy">
+                  <span>{{ username }}</span>
+                  <small v-if="activeProjectId">项目 #{{ activeProjectId }}</small>
                 </div>
-                <button @click="handleLogout" class="ghost-btn">退出</button>
               </div>
             </div>
           </header>
 
-          <main class="page-container">
+          <div class="tabbar">
+            <button
+              v-for="tab in tabs"
+              :key="tab.path"
+              class="tab-item"
+              :class="{ active: activeTab === tab.path }"
+              @click="switchTab(tab.path)"
+            >
+              <span>{{ tab.label }}</span>
+              <button v-if="tabs.length > 1" class="tab-close" @click.stop="closeTab(tab.path)">
+                ×
+              </button>
+            </button>
+          </div>
+
+          <main class="page-wrapper">
             <router-view />
           </main>
         </div>
@@ -117,171 +80,103 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getActiveProjectId, setActiveProjectId } from '@/utils/projectContext'
 
 const router = useRouter()
 const route = useRoute()
-const theme = ref('light')
+
 const THEME_STORAGE_KEY = 'ttapi-ui-theme'
+const theme = ref('light')
+const tabs = ref([{ path: '/', label: '仪表盘' }])
+const activeTab = ref('/')
+const activeProjectId = ref(getActiveProjectId())
 
 const isAuthPage = computed(() => ['/login', '/register'].includes(route.path))
-const currentProjectId = computed(() => String(route.params.projectId || ''))
-const currentUsername = computed(() => localStorage.getItem('username') || '')
-const currentUserId = computed(() => localStorage.getItem('userId') || '')
-const username = computed(() => currentUsername.value || (currentUserId.value ? `用户 ${currentUserId.value}` : '未登录用户'))
+const username = computed(() => localStorage.getItem('username') || '测试工程师')
 const userInitials = computed(() => (username.value ? username.value.slice(0, 1).toUpperCase() : 'U'))
 
-const workspaceLinks = [
-  {
-    to: '/',
-    label: '项目仪表盘',
-    matchPrefixes: ['/'],
-    icon: `
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M4 13h7V4H4v9zm9 7h7V4h-7v16zM4 20h7v-5H4v5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      </svg>
-    `,
-  },
-  {
-    to: '/operations/overview',
-    label: '运营总览',
-    matchPrefixes: ['/operations/overview'],
-    icon: `
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M4 18h16M7 14l3-3 3 2 4-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `,
-  },
-]
+const dashboardIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M4 13h7V4H4v9zm9 7h7V4h-7v16zM4 20h7v-5H4v5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+const folderIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M4 7.5A2.5 2.5 0 016.5 5h3l1.4 1.5H17.5A2.5 2.5 0 0120 9v8.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-10z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+const casesIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M9 7h8M9 12h8M9 17h8M5 7h.01M5 12h.01M5 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+const globeIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm0 0c2.21 0 4-3.582 4-8s-1.79-8-4-8-4 3.582-4 8 1.79 8 4 8zm-7-8h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+const monitorIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7A2.5 2.5 0 0117.5 16h-11A2.5 2.5 0 014 13.5v-7zM8 20h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+const clockIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2m5-2a8 8 0 11-16 0 8 8 0 0116 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+const reportIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+const searchIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 100-14.4 7.2 7.2 0 000 14.4z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+const bellIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0v4l1.5 2H4.5L6 13V9zm4.5 8a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+const sunIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v2.5M12 18.5V21M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M3 12h2.5M18.5 12H21M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77M12 16a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
+const moonIcon = '<svg viewBox="0 0 24 24" fill="none"><path d="M20 15.2A7.7 7.7 0 118.8 4 6.4 6.4 0 0020 15.2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
 
-const projectLinks = computed(() => {
-  if (!currentProjectId.value) return []
-  const projectId = currentProjectId.value
+const menuItems = computed(() => {
+  const pid = activeProjectId.value
   return [
-    {
-      to: `/project/${projectId}`,
-      label: 'API 测试',
-      matchPrefixes: [`/project/${projectId}`, `/project/${projectId}/runs/`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M8 7h11M8 12h11M8 17h11M4 7h.01M4 12h.01M4 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/web-test-cases`,
-      label: 'Web 测试',
-      matchPrefixes: [`/project/${projectId}/web-test-cases`, `/project/${projectId}/web-runs/`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v7A2.5 2.5 0 0117.5 16h-11A2.5 2.5 0 014 13.5v-7zM8 20h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/executions`,
-      label: '执行记录',
-      matchPrefixes: [`/project/${projectId}/executions`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M6 6h12v12H6zM9 3v6M15 15h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/reports`,
-      label: '报告中心',
-      matchPrefixes: [`/project/${projectId}/reports`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/batches`,
-      label: '批次结果',
-      matchPrefixes: [`/project/${projectId}/batches`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M5 7h14M5 12h14M5 17h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/environments`,
-      label: '环境变量',
-      matchPrefixes: [`/project/${projectId}/environments`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M8 5h8M12 5v14M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/scheduling`,
-      label: '调度编排',
-      matchPrefixes: [`/project/${projectId}/scheduling`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M4 12h5l2-6 2 12 2-6h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `,
-    },
-    {
-      to: `/project/${projectId}/integration-governance`,
-      label: '集成治理',
-      matchPrefixes: [`/project/${projectId}/integration-governance`],
-      icon: `
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M12 4l7 4v8l-7 4-7-4V8l7-4zm0 4v8m4-6l-8 4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-        </svg>
-      `,
-    },
+    { key: 'dashboard', label: '仪表盘', path: '/', icon: dashboardIcon, disabled: false },
+    { key: 'projects', label: '项目管理', path: '/projects', icon: folderIcon, disabled: false },
+    { key: 'testcases', label: '测试用例', path: '/testcases', icon: casesIcon, disabled: false },
+    { key: 'api-test', label: 'API测试', path: pid ? `/project/${pid}` : '/projects', icon: globeIcon, disabled: !pid },
+    { key: 'ui-automation', label: 'UI自动化', path: pid ? `/project/${pid}/web-test-cases` : '/projects', icon: monitorIcon, disabled: !pid },
+    { key: 'tasks', label: '任务管理', path: pid ? `/project/${pid}/scheduling` : '/projects', icon: clockIcon, disabled: !pid },
+    { key: 'reports', label: '测试报告', path: pid ? `/project/${pid}/reports` : '/projects', icon: reportIcon, disabled: !pid },
   ]
 })
 
-const pageKicker = computed(() => {
-  if (route.path.includes('/operations/overview')) return 'Workspace / Operations'
-  if (route.path.includes('/reports')) return 'Project / Reports'
-  if (route.path.includes('/executions')) return 'Project / Execution Center'
-  if (route.path.includes('/web-test-cases')) return 'Project / Web Testing'
-  if (route.path.includes('/scheduling')) return 'Project / Scheduling'
-  if (route.path.includes('/integration-governance')) return 'Project / Governance'
-  if (route.path.includes('/environments')) return 'Project / Environments'
-  if (route.path.includes('/batches')) return 'Project / Batch Runs'
-  if (route.path.startsWith('/project/')) return 'Project / API Testing'
-  return 'Workspace / Dashboard'
-})
+const resolveTabLabel = (path) => {
+  if (path === '/') return '仪表盘'
+  if (path === '/projects') return '项目管理'
+  if (path === '/testcases') return '测试用例'
+  if (path.startsWith('/project/') && path.includes('/web-test-cases')) return 'UI自动化'
+  if (path.startsWith('/project/') && path.includes('/scheduling')) return '任务管理'
+  if (path.startsWith('/project/') && path.includes('/reports')) return '测试报告'
+  if (path.startsWith('/project/') && path.includes('/executions')) return '执行中心'
+  if (path.startsWith('/project/') && path.includes('/environments')) return '环境治理'
+  if (path.startsWith('/project/') && path.includes('/integration-governance')) return '集成治理'
+  if (path.startsWith('/project/') && path.includes('/batches')) return '批次结果'
+  if (path.startsWith('/project/') && path.includes('/runs/')) return '运行详情'
+  if (path.startsWith('/project/') && path.includes('/web-runs/')) return 'UI运行详情'
+  if (path.startsWith('/project/')) return 'API测试'
+  return '工作台'
+}
 
-const pageTitle = computed(() => {
-  if (route.path.includes('/operations/overview')) return '运营总览'
-  if (route.path.includes('/reports')) return '报告中心'
-  if (route.path.includes('/executions')) return '执行中心'
-  if (route.path.includes('/web-test-cases')) return 'Web 测试'
-  if (route.path.includes('/scheduling')) return '调度编排'
-  if (route.path.includes('/integration-governance')) return '集成治理'
-  if (route.path.includes('/environments')) return '环境与变量'
-  if (route.path.includes('/batches')) return '批次结果'
-  if (route.path.startsWith('/project/')) return 'API 测试'
-  return '项目仪表盘'
-})
+const isActiveMenu = (item) => {
+  if (item.key === 'dashboard') return route.path === '/' || route.path === '/operations/overview'
+  if (item.key === 'projects') return route.path === '/projects'
+  if (item.key === 'testcases') return route.path === '/testcases'
+  if (!activeProjectId.value || item.disabled) return false
+  const pid = activeProjectId.value
+  if (item.key === 'api-test') {
+    return route.path === `/project/${pid}` || route.path.startsWith(`/project/${pid}/runs/`) || route.path.startsWith(`/project/${pid}/environments`) || route.path.startsWith(`/project/${pid}/integration-governance`)
+  }
+  if (item.key === 'ui-automation') {
+    return route.path.startsWith(`/project/${pid}/web-test-cases`) || route.path.startsWith(`/project/${pid}/web-runs/`)
+  }
+  if (item.key === 'tasks') {
+    return route.path.startsWith(`/project/${pid}/scheduling`) || route.path.startsWith(`/project/${pid}/batches`)
+  }
+  if (item.key === 'reports') {
+    return route.path.startsWith(`/project/${pid}/reports`) || route.path.startsWith(`/project/${pid}/executions`)
+  }
+  return false
+}
 
-const pageSubtitle = computed(() => {
-  if (route.path.includes('/operations/overview')) return '统一查看跨项目风险信号、重试积压与治理趋势'
-  if (route.path.includes('/reports')) return '聚合 API 与 Web 结果，面向问题定位和质量判断'
-  if (route.path.includes('/executions')) return '统一查看 API / Web 执行记录与失败状态'
-  if (route.path.includes('/web-test-cases')) return '管理页面步骤、定位器与执行产物'
-  if (route.path.includes('/scheduling')) return '查看队列、Worker 与调度执行状态'
-  if (route.path.includes('/integration-governance')) return '处理通知、事件、缺陷与治理动作'
-  if (route.path.includes('/environments')) return '集中管理环境、变量组和敏感变量'
-  if (route.path.includes('/batches')) return '按批次追踪回归执行结果和明细'
-  if (route.path.startsWith('/project/')) return '围绕当前项目管理用例、执行结果与测试资产'
-  return '用更清晰的结构组织项目、功能分区和主要工作入口'
-})
+const goMenu = (item) => {
+  if (item.disabled) return
+  router.push(item.path)
+}
 
-const isLinkActive = (to, matchPrefixes = []) => {
-  if (to === '/' && route.path === '/') return true
-  return matchPrefixes.some((prefix) => prefix !== '/' && route.path.startsWith(prefix))
+const switchTab = (path) => {
+  activeTab.value = path
+  router.push(path)
+}
+
+const closeTab = (path) => {
+  const nextTabs = tabs.value.filter((tab) => tab.path !== path)
+  if (!nextTabs.length) return
+  tabs.value = nextTabs
+  if (activeTab.value === path) {
+    const fallback = nextTabs[nextTabs.length - 1]
+    activeTab.value = fallback.path
+    router.push(fallback.path)
+  }
 }
 
 const applyTheme = (value) => {
@@ -294,536 +189,271 @@ const toggleTheme = () => {
   theme.value = theme.value === 'dark' ? 'light' : 'dark'
 }
 
-const handleLogout = () => {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  localStorage.removeItem('userId')
-  localStorage.removeItem('username')
-  router.push('/login')
-}
+watch(
+  () => route.path,
+  (path) => {
+    const routeProjectId = Number(route.params.projectId)
+    if (Number.isFinite(routeProjectId) && routeProjectId > 0) {
+      activeProjectId.value = routeProjectId
+      setActiveProjectId(routeProjectId)
+    }
+
+    activeTab.value = path
+    const label = resolveTabLabel(path)
+    if (!tabs.value.find((tab) => tab.path === path)) {
+      tabs.value = [...tabs.value, { path, label }]
+    }
+  },
+  { immediate: true }
+)
+
+watch(theme, (value) => {
+  applyTheme(value)
+})
 
 onMounted(() => {
   const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
   theme.value = savedTheme === 'dark' ? 'dark' : 'light'
   applyTheme(theme.value)
 })
-
-watch(theme, (value) => {
-  applyTheme(value)
-})
 </script>
 
 <style>
 :root,
 :root[data-theme='light'] {
-  --bg-page: linear-gradient(180deg, #f5f7fb 0%, #eef3f8 100%);
-  --bg-accent: radial-gradient(circle at top left, rgba(49, 120, 102, 0.14), transparent 28%);
-  --surface-shell: rgba(255, 255, 255, 0.72);
-  --surface-card: rgba(255, 255, 255, 0.88);
-  --surface-solid: #ffffff;
-  --surface-muted: #f4f6f8;
-  --surface-elevated: rgba(247, 250, 252, 0.92);
-  --border-color: rgba(184, 194, 204, 0.72);
-  --border-strong: rgba(160, 171, 184, 0.9);
-  --text-strong: #17212b;
-  --text-main: #30404e;
-  --text-muted: #70808f;
-  --primary: #246b5a;
-  --primary-strong: #184c40;
-  --primary-soft: rgba(36, 107, 90, 0.12);
-  --accent: #b5742f;
-  --accent-soft: rgba(181, 116, 47, 0.14);
-  --danger: #c44e4e;
-  --danger-soft: rgba(196, 78, 78, 0.12);
-  --success: #1d8b6b;
-  --success-soft: rgba(29, 139, 107, 0.14);
-  --shadow-sm: 0 8px 20px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 18px 48px rgba(15, 23, 42, 0.10);
-  --radius-sm: 12px;
-  --radius-md: 18px;
-  --radius-lg: 26px;
+  --bg-page: #f5f6f8;
+  --bg-card: #ffffff;
+  --bg-muted: #f5f7fa;
+  --text-strong: #303133;
+  --text-main: #606266;
+  --text-muted: #909399;
+  --border-color: #e1e4e8;
+  --border-color-strong: #dcdfe6;
+  --primary: #3498db;
+  --primary-strong: #2980b9;
+  --success: #27ae60;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+  --surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --radius: 4px;
+  --sidebar-bg: #2c3e50;
+  --sidebar-bg-active: #34495e;
+  --sidebar-text: #bdc3c7;
+  --sidebar-text-active: #ffffff;
 }
 
 :root[data-theme='dark'] {
-  --bg-page: linear-gradient(180deg, #0d1319 0%, #121a22 100%);
-  --bg-accent: radial-gradient(circle at top left, rgba(64, 149, 124, 0.18), transparent 24%);
-  --surface-shell: rgba(17, 24, 32, 0.86);
-  --surface-card: rgba(20, 28, 36, 0.90);
-  --surface-solid: #131b23;
-  --surface-muted: #18212b;
-  --surface-elevated: rgba(27, 37, 48, 0.92);
-  --border-color: rgba(79, 93, 107, 0.66);
-  --border-strong: rgba(97, 114, 130, 0.95);
-  --text-strong: #f1f5f9;
-  --text-main: #d5dee8;
-  --text-muted: #94a3b8;
-  --primary: #5aa88d;
-  --primary-strong: #8fd0bc;
-  --primary-soft: rgba(90, 168, 141, 0.16);
-  --accent: #d5a15d;
-  --accent-soft: rgba(213, 161, 93, 0.16);
-  --danger: #ea7b7b;
-  --danger-soft: rgba(234, 123, 123, 0.18);
-  --success: #61cfa4;
-  --success-soft: rgba(97, 207, 164, 0.16);
-  --shadow-sm: 0 10px 30px rgba(2, 6, 12, 0.34);
-  --shadow-md: 0 22px 54px rgba(2, 6, 12, 0.42);
+  --bg-page: #111827;
+  --bg-card: #1f2937;
+  --bg-muted: #111827;
+  --text-strong: #f3f4f6;
+  --text-main: #d1d5db;
+  --text-muted: #9ca3af;
+  --border-color: #374151;
+  --border-color-strong: #4b5563;
+  --primary: #60a5fa;
+  --primary-strong: #3b82f6;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --radius: 4px;
+  --sidebar-bg: #0f172a;
+  --sidebar-bg-active: #1e293b;
+  --sidebar-text: #94a3b8;
+  --sidebar-text-active: #f8fafc;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
-}
-
+* { box-sizing: border-box; }
+html, body, #app { min-height: 100%; }
 body {
   margin: 0;
-  font-family: 'IBM Plex Sans', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
-  background: var(--bg-accent), var(--bg-page);
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  background: var(--bg-page);
   color: var(--text-main);
-  transition: background 0.24s ease, color 0.24s ease;
 }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
 
-a {
-  color: inherit;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-.app-shell {
-  min-height: 100vh;
-  display: flex;
-}
-
+.layout-shell { display: flex; min-height: 100vh; background: var(--bg-page); overflow: hidden; }
 .sidebar {
-  width: 286px;
-  background: var(--surface-shell);
-  backdrop-filter: blur(18px);
-  border-right: 1px solid var(--border-color);
-  padding: 22px 16px 18px;
+  width: 200px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text-active);
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
 }
-
-.brand-block {
+.sidebar-brand {
+  height: 60px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 10px;
+  justify-content: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-
-.brand-mark {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--primary-strong), var(--primary));
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-}
-
-.brand-mark svg {
-  width: 24px;
-  height: 24px;
-}
-
-.brand-copy {
-  min-width: 0;
-}
-
-.brand-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text-strong);
-  letter-spacing: 0.02em;
-}
-
-.brand-subtitle {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-top: 2px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sidebar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.sidebar-label {
-  padding: 0 12px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
+.sidebar-brand h1 { margin: 0; font-size: 18px; font-weight: 500; color: #fff; }
+.sidebar-nav { padding: 8px 0; display: flex; flex-direction: column; }
 .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 46px;
-  padding: 11px 14px;
-  border-radius: 14px;
-  text-decoration: none;
-  color: var(--text-main);
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.nav-item:hover {
-  background: var(--primary-soft);
-  color: var(--primary-strong);
-  transform: translateX(2px);
-}
-
-.nav-item.active {
-  background: linear-gradient(135deg, var(--primary-soft), transparent);
-  color: var(--text-strong);
-  border: 1px solid rgba(36, 107, 90, 0.18);
-}
-
-.nav-icon {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  flex: none;
-}
-
-.nav-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.project-zone {
-  padding: 14px 0 0;
-  border-top: 1px solid var(--border-color);
-}
-
-.project-chip {
-  margin: 0 12px 4px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--surface-card);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-main);
-}
-
-.project-chip-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 6px var(--accent-soft);
-}
-
-.sidebar-footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.theme-toggle {
   width: 100%;
-  border: 1px solid var(--border-color);
-  background: var(--surface-card);
-  color: var(--text-main);
-  border-radius: 16px;
-  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--sidebar-text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 14px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.nav-item:hover { background: var(--sidebar-bg-active); color: var(--sidebar-text-active); }
+.nav-item.active {
+  background: var(--sidebar-bg-active);
+  color: var(--sidebar-text-active);
+  border-left: 3px solid var(--primary);
+}
+.nav-item.disabled { opacity: 0.45; cursor: not-allowed; }
+.nav-icon { width: 16px; height: 16px; display: inline-flex; }
+.nav-icon svg { width: 16px; height: 16px; }
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.settings-btn {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--sidebar-text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: var(--radius);
+}
+.settings-btn:hover { background: var(--sidebar-bg-active); color: var(--sidebar-text-active); }
+.main-shell { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  height: 60px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  padding: 0 24px;
+  gap: 16px;
 }
-
-.theme-toggle-track {
-  width: 46px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-color);
-  padding: 2px;
+.topbar-search {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
   display: flex;
   align-items: center;
 }
-
-.theme-toggle-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--accent);
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.theme-toggle-thumb.dark {
-  transform: translateX(22px);
-  background: var(--primary);
-}
-
-.sidebar-note {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 4px;
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
   color: var(--text-muted);
-  font-size: 13px;
+  display: inline-flex;
 }
-
-.sidebar-note-dot {
+.search-icon svg { width: 16px; height: 16px; }
+.topbar-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 14px 0 40px;
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius);
+  background: var(--bg-muted);
+  color: var(--text-main);
+  outline: none;
+}
+.topbar-search input:focus { border-color: var(--primary); background: var(--bg-card); }
+.topbar-actions { display: flex; align-items: center; gap: 12px; }
+.icon-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-main);
+  display: grid;
+  place-items: center;
+}
+.icon-btn:hover { background: var(--bg-muted); }
+.icon-btn svg { width: 18px; height: 18px; }
+.notify-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   width: 8px;
   height: 8px;
-  border-radius: 999px;
-  background: var(--success);
-  box-shadow: 0 0 0 5px var(--success-soft);
-}
-
-.shell-main {
-  flex: 1;
-  min-width: 0;
-  padding: 18px 22px 24px;
-}
-
-.topbar {
-  min-height: 96px;
-  border-radius: 28px;
-  padding: 22px 26px;
-  background: var(--surface-card);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.page-kicker {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.topbar-title {
-  margin: 10px 0 6px;
-  font-size: 32px;
-  line-height: 1.08;
-  color: var(--text-strong);
-}
-
-.topbar-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.project-context {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 11px 14px;
-  border-radius: 16px;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border-color);
-}
-
-.project-context span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.project-context strong {
-  color: var(--text-strong);
-}
-
-.icon-theme-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: var(--surface-elevated);
-  color: var(--text-main);
-  display: grid;
-  place-items: center;
-}
-
-.icon-theme-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-.user-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border-color);
-}
-
-.user-avatar {
-  width: 42px;
-  height: 42px;
   border-radius: 50%;
+  background: var(--danger);
+}
+.user-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border-color);
+}
+.user-copy { display: flex; flex-direction: column; gap: 2px; }
+.user-copy span { font-size: 14px; color: var(--text-main); }
+.user-copy small { font-size: 12px; color: var(--text-muted); }
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
   display: grid;
   place-items: center;
-  color: #fff;
+  font-size: 13px;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary-strong), var(--primary));
 }
-
-.user-meta {
+.tabbar {
+  height: 40px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  overflow-x: auto;
 }
-
-.user-meta strong {
-  color: var(--text-strong);
-  font-size: 14px;
-}
-
-.user-meta span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.ghost-btn {
-  border: 1px solid var(--border-color);
-  background: var(--surface-solid);
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0 14px;
+  background: var(--bg-muted);
   color: var(--text-main);
-  border-radius: 12px;
-  padding: 10px 14px;
+  font-size: 13px;
+  flex-shrink: 0;
 }
-
-.page-container {
-  padding-top: 20px;
+.tab-item.active { background: var(--primary); color: #fff; }
+.tab-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
 }
+.page-wrapper { flex: 1; overflow: auto; }
 
-:root[data-theme='dark'] .hero-card,
-:root[data-theme='dark'] .panel-card,
-:root[data-theme='dark'] .stat-card,
-:root[data-theme='dark'] .modal-card,
-:root[data-theme='dark'] .result-panel,
-:root[data-theme='dark'] .result-mini-card,
-:root[data-theme='dark'] .project-card,
-:root[data-theme='dark'] .table-wrap {
-  background: var(--surface-card) !important;
-  border-color: var(--border-color) !important;
-  box-shadow: var(--shadow-sm) !important;
-}
-
-:root[data-theme='dark'] .queue-table th,
-:root[data-theme='dark'] .data-table th,
-:root[data-theme='dark'] .report-table thead th,
-:root[data-theme='dark'] .cases-table thead th {
-  background: var(--surface-muted) !important;
-  color: var(--text-muted) !important;
-}
-
-:root[data-theme='dark'] .search-box,
-:root[data-theme='dark'] .inline-input,
-:root[data-theme='dark'] .field-block input,
-:root[data-theme='dark'] .field-block textarea,
-:root[data-theme='dark'] .field-block select,
-:root[data-theme='dark'] .project-meta,
-:root[data-theme='dark'] .secondary-btn,
-:root[data-theme='dark'] .icon-btn,
-:root[data-theme='dark'] .ghost-btn,
-:root[data-theme='dark'] .theme-toggle {
-  background: var(--surface-muted) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border-color) !important;
-}
-
-:root[data-theme='dark'] .state-block {
-  border-color: var(--border-color) !important;
-  color: var(--text-muted) !important;
-}
-
-:root[data-theme='dark'] .result-panel pre,
-:root[data-theme='dark'] .payload-pre {
-  background: var(--surface-muted) !important;
-  color: var(--text-main) !important;
-}
-
-@media (max-width: 1180px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: auto;
-    height: auto;
-    position: static;
-    border-right: 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-}
-
-@media (max-width: 860px) {
-  .shell-main {
-    padding: 14px;
-  }
-
-  .topbar {
-    padding: 18px;
-    border-radius: 22px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .topbar-title {
-    font-size: 27px;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .user-card {
-    width: 100%;
-    justify-content: space-between;
-  }
+@media (max-width: 1100px) {
+  .layout-shell { flex-direction: column; }
+  .sidebar { width: auto; }
 }
 </style>

@@ -26,7 +26,18 @@ def test_owner_can_add_member_and_member_can_view_project(client, create_user_an
 
     members_resp = client.get(f"/api/projects/{project_id}/members", headers=auth_headers(member_token))
     assert members_resp.status_code == 200
-    assert any(item["user_id"] == 2 for item in members_resp.json())
+    assert any(item["user_id"] == 2 and item["username"] == "member" for item in members_resp.json())
+
+
+def test_authenticated_user_can_list_users(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_user_list", "pwd")
+    create_user_and_login("member_user_list", "pwd")
+
+    resp = client.get("/api/users", headers=auth_headers(token))
+    assert resp.status_code == 200
+    users = resp.json()
+    assert any(item["username"] == "owner_user_list" for item in users)
+    assert any(item["username"] == "member_user_list" for item in users)
 
 
 def test_viewer_cannot_create_test_case(client, create_user_and_login, auth_headers):

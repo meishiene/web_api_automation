@@ -5,6 +5,12 @@ export const getProjectEnvironments = (projectId) => request.get(`/api/environme
 export const createProjectEnvironment = (projectId, payload) =>
   request.post(`/api/environments/project/${projectId}`, payload)
 
+export const updateProjectEnvironment = (environmentId, payload) =>
+  request.put(`/api/environments/${environmentId}`, payload)
+
+export const deleteProjectEnvironment = (environmentId) =>
+  request.delete(`/api/environments/${environmentId}`)
+
 export const getProjectVariables = (projectId) => request.get(`/api/environments/project/${projectId}/variables`)
 
 export const upsertProjectVariable = (projectId, payload) =>

@@ -29,6 +29,36 @@ def _apply_runtime_variables(raw: str | None, runtime_variables: dict[str, Any])
     return _TEMPLATE_PATTERN.sub(_replace, raw)
 
 
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _detect_placeholder_marker(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized in {"{}", "[]"}:
+        return normalized
+
+    candidate = normalized
+    for _ in range(3):
+        try:
+            loaded = json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(loaded, str):
+            return None
+        candidate = loaded.strip()
+        if not candidate:
+            return ""
+        if candidate in {"{}", "[]"}:
+            return candidate
+    return None
+
+
 def _parse_json_path(path: str) -> list[Any]:
     if not path:
         raise ValueError("JSONPath is empty")
@@ -378,11 +408,38 @@ async def execute_test(test_case, runtime_variables: dict[str, Any] | None = Non
     try:
         method = test_case.method.upper()
         url = _apply_runtime_variables(test_case.url, runtime_variables)
-        raw_headers = _apply_runtime_variables(test_case.headers, runtime_variables)
-        raw_body = _apply_runtime_variables(test_case.body, runtime_variables)
-        raw_expected_body = _apply_runtime_variables(test_case.expected_body, runtime_variables)
-        raw_assertion_rules = _apply_runtime_variables(getattr(test_case, "assertion_rules", None), runtime_variables)
-        raw_extraction_rules = _apply_runtime_variables(getattr(test_case, "extraction_rules", None), runtime_variables)
+        raw_headers = _normalize_optional_text(_apply_runtime_variables(test_case.headers, runtime_variables))
+        raw_body = _normalize_optional_text(_apply_runtime_variables(test_case.body, runtime_variables))
+        raw_assertion_rules = _normalize_optional_text(
+            _apply_runtime_variables(getattr(test_case, "assertion_rules", None), runtime_variables)
+        )
+        raw_extraction_rules = _normalize_optional_text(
+            _apply_runtime_variables(getattr(test_case, "extraction_rules", None), runtime_variables)
+        )
+        raw_expected_body = _normalize_optional_text(_apply_runtime_variables(test_case.expected_body, runtime_variables))
+
+        headers_placeholder = _detect_placeholder_marker(raw_headers)
+        body_placeholder = _detect_placeholder_marker(raw_body)
+        expected_body_placeholder = _detect_placeholder_marker(raw_expected_body)
+        assertion_rules_placeholder = _detect_placeholder_marker(raw_assertion_rules)
+        extraction_rules_placeholder = _detect_placeholder_marker(raw_extraction_rules)
+
+        if headers_placeholder:
+            raw_headers = None
+        if assertion_rules_placeholder:
+            raw_assertion_rules = None
+        if extraction_rules_placeholder:
+            raw_extraction_rules = None
+        if method not in ["POST", "PUT", "PATCH"] and body_placeholder:
+            raw_body = None
+        if (
+            method == "GET"
+            and expected_body_placeholder
+            and raw_assertion_rules is None
+            and (raw_headers is None or headers_placeholder is not None)
+            and (raw_body is None or body_placeholder is not None)
+        ):
+            raw_expected_body = None
 
         headers = {}
         if raw_headers:

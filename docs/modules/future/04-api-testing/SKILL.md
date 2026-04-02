@@ -25,7 +25,9 @@
 - 已完成项：失败重试策略与批次幂等保护（`retry_count/retry_on/idempotency_key`）
 - 已完成项：用例复制、导出、通用导入与 OpenAPI 导入最小闭环（S7-01）
 - 已完成项：Provider Registry 最小骨架与统一 provider 导入入口（S7-02）
-- 待完成项：Postman 等多格式导入、导入映射策略扩展与平台级治理
+- 已完成项：API 工作台补齐套件治理入口（套件创建、选择、编排当前用例、套件执行与环境选择）
+- 已完成项：Postman Collection 导入能力接入统一 provider 链路，前端导入弹窗支持 JSON / OpenAPI / Postman 三类入口
+- 待完成项：更多导入格式扩展、复杂导入映射策略与平台级治理
 
 ## 3. 范围边界
 

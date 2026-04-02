@@ -1,6 +1,7 @@
 import json
 import inspect
 import time
+from types import SimpleNamespace
 from typing import Any, Dict, List, Set
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -22,6 +23,7 @@ from app.models.web_test_case import WebTestCase
 from app.models.web_test_run import WebTestRun
 from app.schemas.batch_run import BatchRunDetailResponse, BatchRunItemResponse, BatchRunResponse, SuiteRunRequest
 from app.schemas.test_run import (
+    TestRunExecuteRequest,
     TestRunDetailResponse,
     TestRunResponse,
     UnifiedRunListResponse,
@@ -151,10 +153,38 @@ async def _execute_test_case(test_case: ApiTestCase, runtime_variables: Dict[str
     return await execute_test(test_case)
 
 
+def _resolve_execution_override(payload: TestRunExecuteRequest, field_name: str, fallback: Any) -> Any:
+    if hasattr(payload, "model_fields_set"):
+        provided_fields = payload.model_fields_set
+    else:
+        provided_fields = getattr(payload, "__fields_set__", set())
+    if field_name not in provided_fields:
+        return fallback
+    return getattr(payload, field_name)
+
+
+def _build_execution_case(test_case: ApiTestCase, payload: TestRunExecuteRequest | None) -> ApiTestCase | SimpleNamespace:
+    if payload is None:
+        return test_case
+
+    fields = {
+        "method": _resolve_execution_override(payload, "method", test_case.method),
+        "url": _resolve_execution_override(payload, "url", test_case.url),
+        "headers": _resolve_execution_override(payload, "headers", test_case.headers),
+        "body": _resolve_execution_override(payload, "body", test_case.body),
+        "expected_status": _resolve_execution_override(payload, "expected_status", test_case.expected_status),
+        "expected_body": _resolve_execution_override(payload, "expected_body", test_case.expected_body),
+        "assertion_rules": _resolve_execution_override(payload, "assertion_rules", test_case.assertion_rules),
+        "extraction_rules": _resolve_execution_override(payload, "extraction_rules", test_case.extraction_rules),
+    }
+    return SimpleNamespace(**fields)
+
+
 @router.post("/test-cases/{case_id}/run", response_model=TestRunResponse)
 async def run_test_case(
     case_id: int,
     request: Request,
+    payload: TestRunExecuteRequest | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TestRunResponse:
@@ -170,10 +200,11 @@ async def run_test_case(
         project_id=test_case.project_id,
         environment_id=None,
     )
+    execution_case = _build_execution_case(test_case, payload)
 
     class _ApiCaseExecutionAdapter(ExecutionAdapter):
         async def execute(self) -> dict[str, Any]:
-            return await _execute_test_case(test_case, runtime_variables)
+            return await _execute_test_case(execution_case, runtime_variables)
 
     _task, _job, result = await run_execution_task(
         db=db,
@@ -205,7 +236,11 @@ async def run_test_case(
         resource_type="api_test_case",
         resource_id=str(case_id),
         user_id=user.id,
-        details={"run_id": test_run.id, "status": test_run.status},
+        details={
+            "run_id": test_run.id,
+            "status": test_run.status,
+            "used_overrides": payload is not None,
+        },
     )
 
     return test_run
@@ -578,6 +613,9 @@ def get_test_run_detail(
         test_case_method=run.test_case.method,
         test_case_url=run.test_case.url,
         test_case_expected_status=run.test_case.expected_status,
+        test_case_expected_body=run.test_case.expected_body,
+        test_case_assertion_rules=run.test_case.assertion_rules,
+        test_case_extraction_rules=run.test_case.extraction_rules,
         runtime_variables=_from_json_text(run.runtime_variables),
         variable_sources=_from_json_text(run.variable_sources),
     )

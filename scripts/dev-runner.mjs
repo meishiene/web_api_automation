@@ -1,10 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
 
 const repoRoot = process.cwd()
-const pythonPath = path.join(repoRoot, '.venv', 'Scripts', 'python.exe')
 const frontendNodeModules = path.join(repoRoot, 'frontend', 'node_modules')
 const dryRun = process.argv.includes('--dry-run')
 const envFiles = ['.env.local', '.env']
@@ -57,9 +56,33 @@ if (!backendEnv.APP_ENV) {
   backendEnv.APP_ENV = 'local'
 }
 
-if (!existsSync(pythonPath)) {
-  console.error('Missing virtual environment Python: .venv\\Scripts\\python.exe')
-  console.error('Run `python -m venv .venv` and install Python dependencies first.')
+function canExecutePython(command, args = []) {
+  const probe = spawnSync(command, [...args, '-c', 'import sys; print(sys.executable)'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    shell: false,
+  })
+  return probe.status === 0
+}
+
+function resolvePythonCommand() {
+  const candidates = [
+    { command: path.join(repoRoot, '.venv', 'Scripts', 'python.exe'), args: [], label: '.venv\\Scripts\\python.exe' },
+    { command: 'python', args: [], label: 'python' },
+    { command: 'py', args: ['-3'], label: 'py -3' },
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate.command.endsWith('.exe') && !existsSync(candidate.command)) {
+      continue
+    }
+    if (canExecutePython(candidate.command, candidate.args)) {
+      return candidate
+    }
+  }
+
+  console.error('Unable to find a working Python interpreter for backend startup.')
+  console.error('Checked: .venv\\Scripts\\python.exe, python, py -3')
   process.exit(1)
 }
 
@@ -69,9 +92,11 @@ if (!existsSync(frontendNodeModules)) {
   process.exit(1)
 }
 
+const pythonCommand = resolvePythonCommand()
+
 const backendCommand = {
-  command: pythonPath,
-  args: ['-m', 'uvicorn', 'app.main:app', '--reload', '--host', '127.0.0.1', '--port', '8000'],
+  command: pythonCommand.command,
+  args: [...pythonCommand.args, '-m', 'uvicorn', 'app.main:app', '--reload', '--host', '127.0.0.1', '--port', '8000'],
   options: { cwd: repoRoot, stdio: 'inherit', env: backendEnv },
 }
 

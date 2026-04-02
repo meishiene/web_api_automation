@@ -23,9 +23,31 @@
           <p><strong>URL：</strong>{{ detail.test_case_url }}</p>
         </article>
 
+        <article class="info-card">
+          <h3>断言配置</h3>
+          <p><strong>Expected Body：</strong>{{ detail.test_case_expected_body ? '已配置' : '未配置' }}</p>
+          <p><strong>Assertion Rules：</strong>{{ detail.test_case_assertion_rules ? '已配置' : '未配置' }}</p>
+          <p><strong>Extraction Rules：</strong>{{ detail.test_case_extraction_rules ? '已配置' : '未配置' }}</p>
+        </article>
+
         <article class="info-card full">
           <h3>响应体</h3>
           <pre>{{ formatJson(detail.actual_body) || '无响应体' }}</pre>
+        </article>
+
+        <article v-if="detail.test_case_expected_body" class="info-card full">
+          <h3>期望响应体</h3>
+          <pre>{{ formatJson(detail.test_case_expected_body) }}</pre>
+        </article>
+
+        <article v-if="detail.test_case_assertion_rules" class="info-card full">
+          <h3>断言规则</h3>
+          <pre>{{ formatJson(detail.test_case_assertion_rules) }}</pre>
+        </article>
+
+        <article v-if="detail.test_case_extraction_rules" class="info-card full">
+          <h3>提取规则</h3>
+          <pre>{{ formatJson(detail.test_case_extraction_rules) }}</pre>
         </article>
 
         <article v-if="detail.runtime_variables" class="info-card full">

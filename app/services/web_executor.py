@@ -29,11 +29,28 @@ def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[
     step_logs: List[Dict[str, Any]] = []
     artifacts: List[str] = []
     start_ms = int(time.time() * 1000)
+    browser_name = getattr(test_case, "browser_name", "chromium") or "chromium"
+    timeout_ms = int(getattr(test_case, "timeout_ms", 30000) or 30000)
+    viewport_width = getattr(test_case, "viewport_width", None)
+    viewport_height = getattr(test_case, "viewport_height", None)
+    headless = bool(getattr(test_case, "headless", 1))
+    capture_on_failure = bool(getattr(test_case, "capture_on_failure", 1))
+    record_video = bool(getattr(test_case, "record_video", 0))
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
+            browser_launcher = getattr(p, browser_name, None) or p.chromium
+            browser = browser_launcher.launch(headless=headless)
+            context_kwargs: Dict[str, Any] = {}
+            if viewport_width and viewport_height:
+                context_kwargs["viewport"] = {"width": int(viewport_width), "height": int(viewport_height)}
+            video_dir = artifact_path / "video" if record_video else None
+            if video_dir is not None:
+                video_dir.mkdir(parents=True, exist_ok=True)
+                context_kwargs["record_video_dir"] = str(video_dir)
+            context = browser.new_context(**context_kwargs)
+            page = context.new_page()
+            page.set_default_timeout(timeout_ms)
             try:
                 ordered_steps = sorted(test_case.steps, key=lambda item: item.order_index)
                 for step in ordered_steps:
@@ -91,11 +108,12 @@ def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[
                 }
             except Exception as exc:
                 failure_path = artifact_path / "failure.png"
-                try:
-                    page.screenshot(path=str(failure_path))
-                    artifacts.append(str(failure_path))
-                except Exception:
-                    pass
+                if capture_on_failure:
+                    try:
+                        page.screenshot(path=str(failure_path))
+                        artifacts.append(str(failure_path))
+                    except Exception:
+                        pass
                 duration = int(time.time() * 1000) - start_ms
                 step_logs.append({"status": "error", "error": str(exc)})
                 return {
@@ -106,6 +124,12 @@ def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[
                     "artifacts": artifacts,
                 }
             finally:
+                try:
+                    context.close()
+                finally:
+                    if video_dir is not None and video_dir.exists():
+                        artifacts.extend(str(path) for path in video_dir.glob("*.webm"))
+                        artifacts.extend(str(path) for path in video_dir.glob("*.mp4"))
                 browser.close()
     except PlaywrightError as exc:
         duration = int(time.time() * 1000) - start_ms
@@ -120,4 +144,3 @@ def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[
 
 async def execute_web_test_case(test_case: WebTestCase, artifact_dir: str) -> Dict[str, Any]:
     return await asyncio.to_thread(_execute_with_playwright, test_case, artifact_dir)
-

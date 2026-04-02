@@ -22,7 +22,7 @@
 ## 当前阶段匹配（依据 `project-progress.md`）
 
 - 当前总阶段：阶段 2（收尾）+ 阶段 3（收尾）+ 阶段 4（已验收完成）+ 阶段 5（已验收完成）+ 阶段 6（已验收完成）+ 阶段 7（已验收完成）
-- 说明：新增的 `docs/project/platform-improvement-checklist.md` 属于并行工作线，不替代阶段 8 / 9，也不改变本目录下模块的阶段归属
+- 说明：新增的 `docs/project/platform-function-hardening-plan.md` 属于并行工作线，不替代阶段 8 / 9，也不改变本目录下模块的阶段归属
 - 默认可执行模块：
   - `06-execution-orchestration`（阶段 4 完成态：仅缺陷修复/稳定性维护）
   - `07-scheduling-queue-worker`（阶段 4 完成态：仅缺陷修复/稳定性维护）

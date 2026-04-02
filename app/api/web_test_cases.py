@@ -32,6 +32,13 @@ def _to_response(case: WebTestCase) -> WebTestCaseResponse:
         name=case.name,
         description=case.description,
         base_url=case.base_url,
+        browser_name=case.browser_name,
+        viewport_width=case.viewport_width,
+        viewport_height=case.viewport_height,
+        timeout_ms=case.timeout_ms,
+        headless=bool(case.headless),
+        capture_on_failure=bool(case.capture_on_failure),
+        record_video=bool(case.record_video),
         steps=[
             {
                 "id": step.id,
@@ -102,6 +109,13 @@ def create_web_test_case(
         name=normalized_name,
         description=payload.description,
         base_url=payload.base_url.strip() if payload.base_url else None,
+        browser_name=payload.browser_name,
+        viewport_width=payload.viewport_width,
+        viewport_height=payload.viewport_height,
+        timeout_ms=payload.timeout_ms,
+        headless=1 if payload.headless else 0,
+        capture_on_failure=1 if payload.capture_on_failure else 0,
+        record_video=1 if payload.record_video else 0,
     )
     db.add(case)
     db.flush()
@@ -177,6 +191,13 @@ def update_web_test_case(
     case.name = normalized_name
     case.description = payload.description
     case.base_url = payload.base_url.strip() if payload.base_url else None
+    case.browser_name = payload.browser_name
+    case.viewport_width = payload.viewport_width
+    case.viewport_height = payload.viewport_height
+    case.timeout_ms = payload.timeout_ms
+    case.headless = 1 if payload.headless else 0
+    case.capture_on_failure = 1 if payload.capture_on_failure else 0
+    case.record_video = 1 if payload.record_video else 0
 
     # Replace steps to keep ordering deterministic.
     db.query(WebStep).filter(WebStep.web_test_case_id == case.id).delete(synchronize_session=False)

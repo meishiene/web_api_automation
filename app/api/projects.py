@@ -22,6 +22,17 @@ from app.schemas.project import ProjectCreateRequest, ProjectResponse
 router = APIRouter()
 
 
+def _to_project_member_response(member: ProjectMember) -> ProjectMemberResponse:
+    return ProjectMemberResponse(
+        id=member.id,
+        project_id=member.project_id,
+        user_id=member.user_id,
+        role=member.role,
+        created_at=member.created_at,
+        username=member.user.username if member.user else None,
+    )
+
+
 @router.get("/", response_model=List[ProjectResponse])
 def get_projects(
     user: User = Depends(get_current_user),
@@ -164,12 +175,13 @@ def get_project_members(
     if not can_view_project(db, user, project):
         raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
 
-    return (
+    members = (
         db.query(ProjectMember)
         .filter(ProjectMember.project_id == project_id)
         .order_by(ProjectMember.id.asc())
         .all()
     )
+    return [_to_project_member_response(item) for item in members]
 
 
 @router.post("/{project_id}/members", response_model=ProjectMemberResponse)
@@ -217,7 +229,7 @@ def add_project_member(
         user_id=user.id,
         details={"project_id": project_id, "target_user_id": payload.user_id, "role": payload.role},
     )
-    return member
+    return _to_project_member_response(member)
 
 
 @router.delete("/{project_id}/members/{member_user_id}", response_model=MessageResponse)

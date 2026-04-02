@@ -12,6 +12,18 @@ export const importTestCases = (projectId, data) => {
   return request.post(`/api/test-cases/project/${projectId}/import`, data)
 }
 
+export const importOpenApiTestCases = (projectId, data) => {
+  return request.post(`/api/test-cases/project/${projectId}/import/openapi`, data)
+}
+
+export const getImportProviders = () => {
+  return request.get('/api/test-cases/import/providers')
+}
+
+export const importTestCasesByProvider = (projectId, data) => {
+  return request.post(`/api/test-cases/project/${projectId}/import/provider`, data)
+}
+
 export const createTestCase = (projectId, data) => {
   return request.post(`/api/test-cases/project/${projectId}`, data)
 }
@@ -28,8 +40,8 @@ export const deleteTestCase = (projectId, id) => {
   return request.delete(`/api/test-cases/${id}`)
 }
 
-export const runTestCase = (projectId, id) => {
-  return request.post(`/api/test-runs/test-cases/${id}/run`)
+export const runTestCase = (projectId, id, data) => {
+  return request.post(`/api/test-runs/test-cases/${id}/run`, data)
 }
 
 export const getTestResult = (projectId, runId) => {

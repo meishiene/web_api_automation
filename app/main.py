@@ -18,6 +18,7 @@ from app.api import (
     test_cases,
     test_runs,
     test_suites,
+    users,
     web_test_cases,
     web_test_runs,
 )
@@ -84,6 +85,7 @@ async def request_id_middleware(request, call_next):
 
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(organizations.router, prefix="/api/organizations", tags=["organizations"])
 app.include_router(test_cases.router, prefix="/api/test-cases", tags=["test-cases"])

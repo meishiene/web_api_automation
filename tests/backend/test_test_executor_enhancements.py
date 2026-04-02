@@ -91,6 +91,90 @@ def test_execute_test_replaces_runtime_variables_and_extracts_values(monkeypatch
     assert sent["json"]["username"] == "owner"
 
 
+def test_execute_test_ignores_blank_expected_body_assertion(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        '{"ok": true, "message": "still success"}',
+        json_data={"ok": True, "message": "still success"},
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/status",
+        expected_status=200,
+        expected_body="   ",
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "success"
+    assert result["error_message"] is None
+
+
+def test_execute_test_ignores_legacy_get_placeholders(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        "<html><body>ok</body></html>",
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/page",
+        headers="{}",
+        body="{}",
+        expected_status=200,
+        expected_body="{}",
+        assertion_rules="{}",
+        extraction_rules="{}",
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "success"
+    assert result["error_message"] is None
+    sent = capture[0]
+    assert sent["headers"] == {}
+    assert "json" not in sent
+    assert "content" not in sent
+
+
+def test_execute_test_ignores_wrapped_legacy_placeholders(monkeypatch):
+    capture = []
+    response = _DummyResponse(
+        200,
+        "<html><body>ok</body></html>",
+    )
+
+    monkeypatch.setattr(
+        "app.services.test_executor.httpx.AsyncClient",
+        lambda: _DummyClient(response, capture),
+    )
+
+    case = _DummyCase(
+        method="GET",
+        url="https://example.com/page",
+        headers='"{}"',
+        body='"{}"',
+        expected_status=200,
+        expected_body='"{}"',
+    )
+
+    result = asyncio.run(execute_test(case))
+    assert result["status"] == "success"
+    assert result["error_message"] is None
+    assert capture[0]["headers"] == {}
+
+
 def test_execute_test_supports_schema_assertion_success(monkeypatch):
     capture = []
     response = _DummyResponse(

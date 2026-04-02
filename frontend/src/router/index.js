@@ -13,13 +13,23 @@ const routes = [
   },
   {
     path: '/',
+    name: 'Dashboard',
+    component: () => import('@/views/Dashboard.vue'),
+  },
+  {
+    path: '/projects',
     name: 'ProjectList',
     component: () => import('@/views/ProjectList.vue'),
   },
   {
+    path: '/testcases',
+    name: 'TestCases',
+    component: () => import('@/views/TestCases.vue'),
+  },
+  {
     path: '/operations/overview',
     name: 'OperationsOverview',
-    component: () => import('@/views/OperationsOverview.vue'),
+    component: () => import('@/views/Dashboard.vue'),
   },
   {
     path: '/project/:projectId',

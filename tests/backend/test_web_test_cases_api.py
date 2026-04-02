@@ -18,6 +18,13 @@ def test_web_test_case_crud_for_owner(client, create_user_and_login, auth_header
             "name": "login-smoke",
             "description": "basic login flow",
             "base_url": "https://example.com",
+            "browser_name": "firefox",
+            "viewport_width": 1366,
+            "viewport_height": 768,
+            "timeout_ms": 45000,
+            "headless": False,
+            "capture_on_failure": True,
+            "record_video": True,
             "steps": [
                 {"action": "open", "params": {"url": "/login"}},
                 {"action": "click", "params": {"selector": "#submit"}},
@@ -28,6 +35,13 @@ def test_web_test_case_crud_for_owner(client, create_user_and_login, auth_header
     created = create_resp.json()
     assert created["project_id"] == project_id
     assert created["name"] == "login-smoke"
+    assert created["browser_name"] == "firefox"
+    assert created["viewport_width"] == 1366
+    assert created["viewport_height"] == 768
+    assert created["timeout_ms"] == 45000
+    assert created["headless"] is False
+    assert created["capture_on_failure"] is True
+    assert created["record_video"] is True
     assert len(created["steps"]) == 2
     assert created["steps"][0]["order_index"] == 0
     assert created["steps"][1]["order_index"] == 1
@@ -52,6 +66,13 @@ def test_web_test_case_crud_for_owner(client, create_user_and_login, auth_header
             "name": "login-smoke-updated",
             "description": "updated",
             "base_url": "https://example.com",
+            "browser_name": "webkit",
+            "viewport_width": 375,
+            "viewport_height": 667,
+            "timeout_ms": 15000,
+            "headless": True,
+            "capture_on_failure": False,
+            "record_video": False,
             "steps": [
                 {"action": "open", "params": {"url": "/login"}},
                 {"action": "input", "params": {"selector": "#username", "value": "demo"}},
@@ -62,6 +83,13 @@ def test_web_test_case_crud_for_owner(client, create_user_and_login, auth_header
     assert update_resp.status_code == 200
     updated = update_resp.json()
     assert updated["name"] == "login-smoke-updated"
+    assert updated["browser_name"] == "webkit"
+    assert updated["viewport_width"] == 375
+    assert updated["viewport_height"] == 667
+    assert updated["timeout_ms"] == 15000
+    assert updated["headless"] is True
+    assert updated["capture_on_failure"] is False
+    assert updated["record_video"] is False
     assert len(updated["steps"]) == 3
     assert updated["steps"][2]["order_index"] == 2
 
@@ -116,4 +144,3 @@ def test_non_owner_cannot_create_web_test_case_on_foreign_project(client, create
     )
     assert create_resp.status_code == 403
     assert create_resp.json()["error"]["code"] == "FORBIDDEN"
-

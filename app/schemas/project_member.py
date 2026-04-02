@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,3 +17,4 @@ class ProjectMemberResponse(BaseModel):
     user_id: int
     role: ProjectMemberRole
     created_at: int
+    username: Optional[str] = None

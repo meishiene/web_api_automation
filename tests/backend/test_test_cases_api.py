@@ -509,3 +509,71 @@ def test_import_provider_dispatch_and_fallback(client, create_user_and_login, au
     assert items[0]["case_group"] == "provider-fallback"
     assert items[0]["tags"] == ["auto"]
 
+
+def test_list_import_providers_includes_postman(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_provider_list", "pwd")
+    headers = auth_headers(token)
+
+    resp = client.get("/api/test-cases/import/providers", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "openapi" in body["providers"]
+    assert "postman" in body["providers"]
+
+
+def test_import_postman_collection_by_provider(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_postman", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-postman", "description": "desc"},
+    ).json()["id"]
+
+    collection = {
+        "info": {
+            "name": "sample",
+            "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        "item": [
+            {
+                "name": "Auth",
+                "item": [
+                    {
+                        "name": "Login",
+                        "request": {
+                            "method": "POST",
+                            "url": {"raw": "https://api.example.com/login"},
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "body": {"mode": "raw", "raw": "{\"username\":\"demo\"}"},
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    resp = client.post(
+        f"/api/test-cases/project/{project_id}/import/provider",
+        headers=headers,
+        json={
+            "provider": "postman",
+            "payload": {"collection": collection, "case_group": "postman", "tags": ["imported", "postman"]},
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 1
+
+    cases_resp = client.get(f"/api/test-cases/project/{project_id}", headers=headers)
+    assert cases_resp.status_code == 200
+    cases = cases_resp.json()
+    assert len(cases) == 1
+    case = cases[0]
+    assert case["name"] == "Auth / Login"
+    assert case["method"] == "POST"
+    assert case["url"] == "https://api.example.com/login"
+    assert case["case_group"] == "postman"
+    assert case["tags"] == ["imported", "postman"]
+

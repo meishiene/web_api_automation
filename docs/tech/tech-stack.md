@@ -50,9 +50,20 @@ npm run dev
 说明：
 - 根目录 `package.json` 已提供统一开发入口
 - `npm run dev` 会同时启动后端与前端开发服务
-- 后端固定使用仓库内 `.venv\Scripts\python.exe` 启动 `uvicorn`
+- 后端优先使用仓库内 `.venv\Scripts\python.exe`，若虚拟环境解释器失效则回退到系统 `python` / `py -3`
 - 根目录 `npm run dev` 默认走本地开发配置，可直接使用默认 `SQLite`
 - 前端通过 `frontend/package.json` 的 `vite` 启动
+
+### PowerShell 路径异常时的启动方式
+当 PowerShell 当前目录显示为 `Microsoft.PowerShell.Core\FileSystem::\\?\D:\...` 等设备路径时，`npm.cmd` 可能因 `cmd.exe` 不支持该路径而启动失败。此时可使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev-start.ps1
+```
+
+说明：
+- 该脚本会先切换到仓库的普通磁盘路径，再启动统一开发入口
+- 可避免 `npm run dev` 在 `\\?\...` 路径下退回到 `C:\Windows` 的问题
 
 ## 已声明依赖
 

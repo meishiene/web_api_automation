@@ -14,7 +14,7 @@
 ## 2. 当前项目阶段
 
 - **当前总阶段**：阶段 0 已完成，阶段 1 暂停，阶段 2 收尾中，阶段 3 收尾中，阶段 4 已完成验收，阶段 5 已完成验收，阶段 6 已完成验收（S6-08 已完成），阶段 7 已完成验收（S7-06 已完成）。
-- **并行工作线**：已新增“平台完善任务清单”，用于承载前端页面优化、现有功能完善与缺陷修复，不替代原阶段 8 / 9；当前 PF-01 已完成。
+- **并行工作线**：已新增“平台功能完善计划”，用于承载现有功能从最小闭环到可投入使用的持续补齐，不替代原阶段 8 / 9；当前 FH-00 已完成。
 - **项目定位**：MVP 级 API 自动化测试工具，正准备向企业级自动化测试平台演进
 - **平台目标**：统一承载 `API 测试 + Web 测试 + 调度执行 + 报告治理 + 企业集成`
 
@@ -125,6 +125,9 @@
 - 已新增失败治理最小可视化：Report Center 支持失败分类筛选与失败记录详情追溯
 - 已新增跨项目运营看板：`frontend/src/views/OperationsOverview.vue`（聚合指标卡 + 重试趋势 + 项目风险信号表）并挂载全局路由入口 `/operations/overview`
 - 已完成前端框架与导航体验首轮优化：全局壳层支持深浅色切换、Workspace / Current Project 导航分区与项目仪表盘首页
+- 已完成 API 测试页首轮产品化改造：`TestCaseList.vue` 升级为工作台式布局，支持资产树浏览、内联编辑、JSON/OpenAPI 导入与执行反馈面板
+- 已完成 Web 测试页首轮产品化改造：`WebTestCaseList.vue` 升级为 UI 自动化工作台布局，支持步骤编排、执行日志、运行记录切换与配置分区展示
+- 已完成统一结果与报告页首轮产品化改造：`UnifiedRunList.vue`、`ReportSummary.vue` 已按报告工作台风格重做，统一筛选、图表、列表与详情视图语法
 
 ### 5.3 文档
 - 已补充项目概览文档
@@ -227,13 +230,13 @@
 - `frontend/src/views/TestCaseList.vue`
   - 当前承担过多职责，后续应拆分
 
-## 当前阶段优先事项（阶段 2 收尾 / 阶段 3 收尾 / 阶段 5 已完成验收 / 阶段 6 已完成验收 / 阶段 7 已完成验收 + 平台完善并行工作线）
+## 当前阶段优先事项（阶段 2 收尾 / 阶段 3 收尾 / 阶段 5 已完成验收 / 阶段 6 已完成验收 / 阶段 7 已完成验收 + 平台功能完善并行工作线）
 
-### P0：平台完善并行工作线（启动中）
-- 已新增 `docs/project/platform-improvement-checklist.md`，明确该工作线不替代原阶段 8 / 9。
-- 当前聚焦：前端页面优化、现有功能完善、bug 修复。
-- 已完成 PF-01：前端框架与导航体验优化（壳层重做、主题切换、项目仪表盘）。
-- 下一步：PF-02 API 测试产品化完善。
+### P0：平台功能完善并行工作线（启动中）
+- 已新增 `docs/project/platform-function-hardening-plan.md`，明确该工作线不替代原阶段 8 / 9。
+- 当前聚焦：现有功能从“最小闭环”向“可投入使用”演进。
+- 计划模块：项目与资产、API 测试、Web 测试、执行与调度、结果与报告、企业集成、缺陷修复与收口评审。
+- 当前进行：FH-07 / FH-08 收口阶段（缺陷台账、全量回归、最终交付说明已启动）。
 
 ### P1：API 平台化首批落地（已完成）
 - 已完成 API 套件模型与基础 CRUD
@@ -277,12 +280,88 @@
 - 下一步：转入阶段 7 后运营维护，优先关注生产/准生产环境性能画像、外部告警通道接入与更多 provider/治理动作扩展。
 
 ## 10. 最近更新记录
+### 2026-04-01
+- 推进 FH-07 / FH-08：新增 `docs/project/defect-register.md` 与 `docs/project/final-delivery-summary.md`，沉淀已处理项、保留风险、数据库迁移修复与最终交付结论。
+- 执行验证：`python -m pytest tests/backend -q` 全量通过；`npm run build`（frontend）通过。
+### 2026-04-01
+- 推进 FH-06：`IntegrationGovernanceDashboard.vue` 重构为企业集成工作台，接入通知订阅/投递、缺陷记录、CI/CD 运行、身份绑定、治理执行与集成配置查询链路。
+- 集成治理页支持实操动作：失败积压重试、通知订阅创建、测试派发、投递重试、凭据查看、缺陷定位与项目切换。
+- 验证通过：`python -m pytest tests/backend/test_integration_notifications_api.py tests/backend/test_integration_cicd_api.py tests/backend/test_integration_defect_api.py tests/backend/test_integration_identity_oauth_api.py -q`（14 passed）；`npm run build`（frontend）通过。
+### 2026-04-01
+- 推进 FH-03：Web 用例新增执行配置持久化字段（浏览器、窗口、超时、headless、失败截图、录制视频），`WebTestCaseList.vue` 配置区从占位切换为真实可保存配置，执行器同步接入这些配置。
+- 推进 FH-04 / FH-05：执行中心新增统一“重跑”入口，报告详情新增“打开执行中心 / 定位首个失败”入口，排障与回归动作更闭环。
+- 迁移验证通过：使用临时空库执行 `python -m alembic upgrade head` 成功升级到 `1f4e2a7c9b3d`；当前本地 `test_platform.db` 因历史 Alembic 状态不一致未直接升级。
+- 验证通过：`python -m pytest tests/backend/test_web_test_cases_api.py tests/backend/test_test_runs_api.py -q`（10 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 推进 FH-02：统一导入 provider 链路新增 Postman Collection 支持，`TestCaseList.vue` 导入弹窗现覆盖 JSON / OpenAPI / Postman 三类导入入口。
+- API 工作台继续增强：套件治理入口与多源导入入口同时落地，日常回归工作流更完整。
+- 验证通过：`python -m pytest tests/backend/test_test_cases_api.py tests/backend/test_suite_batch_runs_api.py -q`（18 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 启动 FH-02：`TestCaseList.vue` 新增 API 套件工作台，支持套件创建、选择、加入/移出当前用例、套件执行与环境选择，补齐日常回归链路的前端入口。
+- 验证通过：`python -m pytest tests/backend/test_suite_batch_runs_api.py tests/backend/test_project_members_api.py tests/backend/test_environments_api.py -q`（14 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 收口 FH-01：补齐项目详情抽屉、成员治理弹窗与用户列表接口，项目、成员、环境、变量治理形成首个可用闭环。
+- 项目详情现统一承接资产流转入口：支持进入 API / UI / 环境 / 成员 / 报告，并补齐 API 用例导出入口。
+- 验证通过：`python -m pytest tests/backend/test_project_members_api.py tests/backend/test_environments_api.py -q`（10 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 推进 FH-01：补齐项目成员管理前端，新增 `/api/users` 最小用户列表接口、项目成员用户名返回字段，并在 `ProjectList.vue` 中落地成员治理弹窗（列表、角色调整、添加、移除）。
+- 项目管理页同步补齐成员统计：项目卡片现展示真实成员数量，项目成员治理入口不再是占位按钮。
+- 验证通过：`python -m pytest tests/backend/test_project_members_api.py tests/backend/test_environments_api.py -q`（10 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 启动 FH-01：重构 `EnvironmentManager.vue`，将环境与变量治理页升级为统一工作台布局，补齐项目切换、环境卡片管理、项目/环境变量编辑与变量组绑定分区。
+- 同步补齐环境管理前端接口：新增环境更新 / 删除调用，环境治理页现已覆盖环境、变量、变量组、密钥明文查看等现有后端能力。
+- 验证通过：`python -m pytest tests/backend/test_environments_api.py -q`（4 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 完成前端主工作台 UI 对齐改造：`App.vue` 现按设计稿切换为统一后台壳层，并补齐 `仪表盘 / 项目管理 / 测试用例 / API测试 / UI自动化 / 任务管理 / 测试报告` 导航映射。
+- 新增 `Dashboard.vue` 与 `TestCases.vue`：前者承接项目级执行概览与最近执行记录，后者提供跨类型用例浏览工作台；现有 `ProjectList.vue`、`SchedulingDashboard.vue` 同步按新 UI 结构重做。
+- 补齐项目切换入口：`TestCaseList.vue`、`WebTestCaseList.vue`、`SchedulingDashboard.vue` 现均支持直接切换当前项目，并在路由切换后自动刷新页面数据与上下文。
+- 保留并迁移现有能力入口：项目级 API/UI/任务/报告/环境/集成/批次等能力继续可达，其中设计稿未覆盖的能力按同一视觉风格补充到项目页、API 页与 UI 页扩展入口中。
+- 验证通过：`npm run build`（frontend）通过。
+### 2026-03-31
+- 修复 API 测试执行覆盖链路：`POST /api/test-runs/test-cases/{id}/run` 现支持接收当前编辑态的 `method/url/headers/body/expected_status/expected_body/assertion_rules/extraction_rules`，本次执行不再被数据库中的旧断言配置强行覆盖。
+- 后端区分“字段未传”与“显式传 `null` / 空白”：页面执行时可显式清空旧 `expected_body` / `assertion_rules`，避免历史脏数据继续把正确响应判为 `failed`。
+- 断言兜底与前端同步修正：空白 `expected_body` 不再参与响应体断言；`TestCaseList.vue` 执行时直接提交当前表单中的断言/提取配置，空值统一传 `null`。
+- 兼容旧占位脏数据：对历史遗留的 `headers/body/expected_body/assertion_rules/extraction_rules` 默认 `{}` / `\"{}\"` 占位值增加执行期兜底，GET 页面抓取场景不再把这类占位值误当成真实断言。
+- 验证通过：`python -m pytest tests/backend/test_test_executor_enhancements.py tests/backend/test_test_runs_api.py -q`（15 passed）；`npm run build`（frontend）通过。
+### 2026-03-31
+- 删除旧入口：移除 `docs/project/platform-improvement-checklist.md`。
+- 新增并行工作线文档：`docs/project/platform-function-hardening-plan.md`，后续聚焦现有功能从最小闭环向“可投入使用”演进。
+- 当前断点：FH-01 已完成，进入 FH-02（API 测试功能完善）执行中，当前聚焦 API 套件与回归工作台。
+### 2026-03-30
+- PF-02 / PF-04 细节对齐增强：继续收敛 `frontend/src/App.vue`、`frontend/src/views/TestCaseList.vue`、`frontend/src/views/UnifiedRunList.vue`、`frontend/src/views/ReportSummary.vue` 的视觉细节，减少旧风格残留。
+- 前端构建通过：`npm run build`（frontend）。
+### 2026-03-30
+- 完成 PF-04：重做 `frontend/src/views/UnifiedRunList.vue`，按提供的 React UI `TestReports.tsx` 结构落地为统一执行结果工作台。
+- 完成 PF-04：重做 `frontend/src/views/ReportSummary.vue`，将统计、趋势、失败治理与详情查看统一到报告工作台风格。
+- 功能承接：保留统一结果筛选/分页/失败定位与报告摘要/趋势/失败治理等现有能力，并按新 UI 风格重新组织。
+- 前端构建通过：`npm run build`（frontend）。
+- 平台完善工作线推进：当前断点由 PF-04 切换为 PF-05（缺陷修复与稳定性回归）准备。
+### 2026-03-30
+- 完成 PF-03：重做 `frontend/src/views/WebTestCaseList.vue`，按提供的 React UI `UiAutomation.tsx` 结构落地为 UI 自动化工作台。
+- 功能承接：保留现有 Web 用例切换、创建、保存、删除、执行、执行详情查看与产物查看能力，并按新 UI 风格重新组织。
+- 前端构建通过：`npm run build`（frontend）。
+- 平台完善工作线推进：当前断点由 PF-03 切换为 PF-04（统一结果与报告体验优化）准备。
+### 2026-03-30
+- 修复本地开发启动韧性：`scripts/dev-runner.mjs` 不再强依赖失效的 `.venv\Scripts\python.exe`，会自动回退到系统 `python` / `py -3`。
+- 新增 PowerShell 启动脚本：`scripts/dev-start.ps1`，用于规避 `\\?\D:\...` 设备路径下 `npm.cmd` / `cmd.exe` 无法正常工作的场景。
+- 同步更新 `docs/tech/tech-stack.md` 的开发运行说明，补充 PowerShell 异常路径下的启动方式。
+### 2026-03-30
+- PF-02 对齐增强：`frontend/src/App.vue` 改按提供的 React UI `Layout.tsx` 结构重做，全局壳层切换为深色侧边栏 + 顶部搜索 + 页签栏的后台管理样式。
+- PF-02 对齐增强：`frontend/src/views/ProjectList.vue` 改按 Dashboard 风格重做，首页统一到统计卡片 + 功能分区 + 项目表格布局。
+- PF-02 对齐增强：`frontend/src/views/TestCaseList.vue` 继续按 `ApiTest.tsx` 视觉语法收敛，避免仍保留原有平台风格。
+- 前端构建通过：`npm run build`（frontend）。
+
+### 2026-03-30
+- 完成 PF-02：重做 `frontend/src/views/TestCaseList.vue`，将 API 测试页升级为“资产树 + 编辑工作台 + 执行反馈”布局。
+- 功能承接：保留并增强现有新建、保存、执行、复制、删除、JSON 导入、OpenAPI 导入、导出等能力；新增更明确的 API 页面功能分区入口。
+- 前端构建通过：`npm run build`（frontend）。
+- 平台完善工作线推进：当前断点由 PF-02 切换为 PF-03（Web 测试产品化完善）准备。
 ### 2026-03-27
 - 完成 PF-01：重做前端全局应用壳层与项目仪表盘，新增深浅色切换、导航分区与更清晰的项目列表入口结构。
 - 前端构建通过：`npm run build`（frontend）。
 - 平台完善工作线推进：当前断点由 PF-01 切换为 PF-02（API 测试产品化完善）准备。
 ### 2026-03-27
-- 新增并行工作线文档：`docs/project/platform-improvement-checklist.md`，用于承载前端页面优化、现有功能完善与 bug 修复。
+- 新增并行工作线文档（后于 2026-03-31 替换为 `docs/project/platform-function-hardening-plan.md`），用于承载前端页面优化、现有功能完善与 bug 修复。
 - 路线说明：该工作线不替代原阶段 8 / 9，仅作为阶段 7 验收后的产品完善与体验优化工作线。
 - 当前断点：进入平台完善工作线 PF-01 准备，优先处理前端框架与导航体验优化。
 ### 2026-03-26

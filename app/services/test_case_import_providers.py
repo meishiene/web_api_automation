@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -79,6 +80,38 @@ class OpenApiImportProvider:
         return _build_openapi_import_candidates(request)
 
 
+class PostmanImportProvider:
+    name = "postman"
+
+    def supports(self, payload: dict[str, Any]) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        collection = payload.get("collection")
+        if not isinstance(collection, dict):
+            return False
+        schema = collection.get("info", {}).get("schema")
+        if isinstance(schema, str) and "postman" in schema.lower():
+            return True
+        return isinstance(collection.get("item"), list)
+
+    def build_candidates(self, payload: dict[str, Any]) -> list[TestCaseImportItem]:
+        collection = payload.get("collection")
+        if not isinstance(collection, dict):
+            raise AppException(400, ErrorCode.VALIDATION_ERROR, "Postman collection must be an object")
+
+        items = collection.get("item")
+        if not isinstance(items, list) or not items:
+            raise AppException(400, ErrorCode.VALIDATION_ERROR, "Postman collection items must not be empty")
+
+        case_group = _normalize_optional_text(payload.get("case_group")) or "postman-import"
+        tags = _normalize_tags(payload.get("tags"))
+        skip_empty = bool(payload.get("skip_empty_folder", True))
+        candidates = _build_postman_candidates(items, case_group=case_group, tags=tags, skip_empty=skip_empty)
+        if not candidates:
+            raise AppException(400, ErrorCode.VALIDATION_ERROR, "No importable requests found in Postman collection")
+        return candidates
+
+
 def _choose_expected_status(operation: dict[str, Any]) -> int:
     responses = operation.get("responses")
     if not isinstance(responses, dict) or not responses:
@@ -115,6 +148,152 @@ def _resolve_import_base_url(payload: TestCaseOpenApiImportRequest) -> str:
                 return raw_url.strip().rstrip("/")
 
     return ""
+
+
+def _normalize_optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalize_tags(value: Any) -> list[str]:
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        try:
+            value = value.split(",")
+        except Exception:
+            value = [value]
+    if not isinstance(value, list):
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "tags must be an array of strings")
+    tags: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        tag = item.strip()
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag)
+    return tags
+
+
+def _build_postman_candidates(
+    items: list[dict[str, Any]],
+    *,
+    case_group: str,
+    tags: list[str],
+    skip_empty: bool,
+) -> list[TestCaseImportItem]:
+    candidates: list[TestCaseImportItem] = []
+
+    def walk(nodes: list[dict[str, Any]], prefix: list[str]) -> None:
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            name = _normalize_optional_text(node.get("name")) or "unnamed-request"
+            children = node.get("item")
+            if isinstance(children, list):
+                next_prefix = [*prefix, name]
+                if not children and not skip_empty:
+                    candidates.append(
+                        TestCaseImportItem(
+                            name=" / ".join(next_prefix),
+                            method="GET",
+                            url="/",
+                            case_group=case_group,
+                            tags=tags,
+                            expected_status=200,
+                        )
+                    )
+                walk(children, next_prefix)
+                continue
+
+            request = node.get("request")
+            if not isinstance(request, dict):
+                continue
+
+            method = _normalize_optional_text(request.get("method")) or "GET"
+            url = _extract_postman_url(request.get("url"))
+            if url is None:
+                continue
+
+            headers = _extract_postman_headers(request.get("header"))
+            body = _extract_postman_body(request.get("body"))
+            candidate_name = " / ".join([*prefix, name]) if prefix else name
+
+            candidates.append(
+                TestCaseImportItem(
+                    name=candidate_name[:100],
+                    method=method.upper(),
+                    url=url,
+                    case_group=case_group,
+                    tags=tags,
+                    headers=headers,
+                    body=body,
+                    expected_status=200,
+                )
+            )
+
+    walk(items, [])
+    return candidates
+
+
+def _extract_postman_url(raw_url: Any) -> str | None:
+    if isinstance(raw_url, str):
+        return raw_url.strip() or None
+    if not isinstance(raw_url, dict):
+        return None
+    raw_value = raw_url.get("raw")
+    if isinstance(raw_value, str) and raw_value.strip():
+        return raw_value.strip()
+
+    host = raw_url.get("host") or []
+    path = raw_url.get("path") or []
+    protocol = _normalize_optional_text(raw_url.get("protocol")) or "https"
+    host_text = ".".join([part for part in host if isinstance(part, str) and part.strip()])
+    path_text = "/".join([part for part in path if isinstance(part, str) and part.strip()])
+    if not host_text:
+        return None
+    return f"{protocol}://{host_text}/{path_text}".rstrip("/")
+
+
+def _extract_postman_headers(raw_headers: Any) -> str | None:
+    if not isinstance(raw_headers, list):
+        return None
+    headers: dict[str, str] = {}
+    for item in raw_headers:
+        if not isinstance(item, dict):
+            continue
+        if item.get("disabled") is True:
+            continue
+        key = _normalize_optional_text(item.get("key"))
+        value = _normalize_optional_text(item.get("value"))
+        if key is None or value is None:
+            continue
+        headers[key] = value
+    return json.dumps(headers, ensure_ascii=False) if headers else None
+
+
+def _extract_postman_body(raw_body: Any) -> str | None:
+    if not isinstance(raw_body, dict):
+        return None
+    mode = _normalize_optional_text(raw_body.get("mode"))
+    if mode == "raw":
+        value = _normalize_optional_text(raw_body.get("raw"))
+        return value
+    if mode == "urlencoded" and isinstance(raw_body.get("urlencoded"), list):
+        payload = {
+            item.get("key"): item.get("value")
+            for item in raw_body["urlencoded"]
+            if isinstance(item, dict) and item.get("disabled") is not True and _normalize_optional_text(item.get("key"))
+        }
+        return json.dumps(payload, ensure_ascii=False) if payload else None
+    return None
 
 
 def _build_openapi_import_candidates(payload: TestCaseOpenApiImportRequest) -> list[TestCaseImportItem]:
