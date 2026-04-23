@@ -6,7 +6,7 @@
       <div class="layout-shell">
         <aside class="sidebar">
           <div class="sidebar-brand">
-            <h1>自动化测试平台</h1>
+            <h1>没事嗯嗯测试平台</h1>
           </div>
 
           <nav class="sidebar-nav">

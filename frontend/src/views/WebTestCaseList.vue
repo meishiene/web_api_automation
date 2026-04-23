@@ -13,7 +13,11 @@
             {{ item.name }}
           </option>
         </select>
+        <button class="toolbar-btn" @click="copyCurrentCase" :disabled="!selectedCase">复制</button>
         <button class="toolbar-btn" @click="startNewCase">新建</button>
+        <button class="toolbar-btn" @click="downloadTemplate">下载模板</button>
+        <button class="toolbar-btn" @click="triggerImportExcel" :disabled="importing">{{ importing ? '导入中...' : '导入 Excel' }}</button>
+        <button class="toolbar-btn" @click="handleExportExcel">导出 Excel</button>
         <button class="toolbar-btn" @click="saveCase" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
         <button class="toolbar-btn danger" @click="deleteCurrentCase" :disabled="!selectedCase">删除</button>
         <button class="toolbar-btn success" @click="runCurrentCase" :disabled="running || !selectedCase">
@@ -21,11 +25,12 @@
         </button>
       </div>
     </div>
+    <input ref="importInputRef" type="file" accept=".xlsx" class="hidden-file-input" @change="handleImportExcelChange" />
 
     <div class="project-switch">
       <label class="field-block project-select">
         <span>当前项目</span>
-        <select v-model="selectedProjectId" class="toolbar-select" @change="handleProjectChange">
+        <select v-model="selectedProjectId" class="toolbar-select project-select-input" @change="handleProjectChange">
           <option v-for="project in projects" :key="project.id" :value="String(project.id)">
             {{ project.name }}
           </option>
@@ -39,8 +44,51 @@
       <button class="toolbar-btn small" @click="router.push(`/project/${projectId}/executions`)">执行中心</button>
       <button class="toolbar-btn small" @click="router.push(`/project/${projectId}/environments`)">环境治理</button>
       <button class="toolbar-btn small" @click="router.push(`/project/${projectId}/integration-governance`)">集成治理</button>
-      <button class="toolbar-btn small" @click="router.push(`/project/${projectId}/batches`)">批次结果</button>
+      <button class="toolbar-btn small" @click="router.push(`/project/${projectId}/web-batches`)">批次结果</button>
     </div>
+
+    <section class="panel-card case-selector-card">
+      <div class="panel-head">
+        <div>
+          <h3>用例清单</h3>
+          <p class="selector-copy">支持多选后批量执行和批量删除，单击用例可切到编辑态。</p>
+        </div>
+        <div class="batch-inline">
+          <span>已选 {{ selectedCaseIds.length }} 项</span>
+          <button class="toolbar-btn small" @click="toggleSelectAllCases">
+            {{ isAllCasesSelected ? '取消全选' : '全选用例' }}
+          </button>
+          <button class="toolbar-btn small" :disabled="!selectedCaseIds.length" @click="clearSelectedCases">清空</button>
+          <button class="toolbar-btn small danger" :disabled="!selectedCaseIds.length || batchDeleting" @click="deleteSelectedCases">
+            {{ batchDeleting ? '删除中...' : '批量删除' }}
+          </button>
+          <button class="toolbar-btn small success" :disabled="!selectedCaseIds.length || batchRunning" @click="runSelectedCases">
+            {{ batchRunning ? '执行中...' : '批量执行' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="!cases.length" class="empty-block">
+        <p>当前项目还没有 Web 用例，先新建一个再批量管理。</p>
+      </div>
+
+      <div v-else class="case-selector-list">
+        <div
+          v-for="item in cases"
+          :key="item.id"
+          class="case-selector-item"
+          :class="{ active: String(item.id) === selectedCaseId }"
+        >
+          <label class="case-selector-check" @click.stop>
+            <input type="checkbox" :checked="selectedCaseIds.includes(String(item.id))" @change="toggleCaseSelection(String(item.id))" />
+          </label>
+          <button class="case-selector-main" @click="openCaseFromList(item)">
+            <strong>{{ item.name }}</strong>
+            <span>{{ item.description || item.base_url || '未填写描述' }}</span>
+          </button>
+        </div>
+      </div>
+    </section>
 
     <div class="workspace-grid">
       <section class="panel-card">
@@ -68,9 +116,11 @@
               <div class="step-head">
                 <div>
                   <div class="step-title">{{ stepLabel(step.action) }}</div>
-                  <div class="step-subtitle">{{ stepPreview(step.paramsText) }}</div>
+                  <div class="step-subtitle">{{ stepPreview(step) }}</div>
                 </div>
                 <div class="step-actions">
+                  <button class="icon-link" @click="insertStep(index, 'before')">前插</button>
+                  <button class="icon-link" @click="insertStep(index, 'after')">后插</button>
                   <button class="icon-link" @click="moveStepUp(index)" :disabled="index === 0">↑</button>
                   <button class="icon-link" @click="moveStepDown(index)" :disabled="index === form.steps.length - 1">↓</button>
                   <button class="icon-link danger" @click="removeStep(index)">删除</button>
@@ -90,14 +140,51 @@
                   </select>
                 </label>
 
-                <label class="field-block">
-                  <span>参数（JSON）</span>
-                  <textarea
-                    v-model="step.paramsText"
-                    rows="4"
-                    placeholder='例如：{"selector":"#submit"}'
-                  ></textarea>
-                </label>
+                <template v-if="step.action === 'open'">
+                  <label class="field-block">
+                    <span>打开地址</span>
+                    <input v-model.trim="step.url" type="text" placeholder="例如：/login 或 https://example.com/login" />
+                  </label>
+                </template>
+
+                <template v-else-if="step.action === 'screenshot'">
+                  <label class="field-block">
+                    <span>截图文件名</span>
+                    <input v-model.trim="step.filename" type="text" placeholder="例如：login-success.png" />
+                  </label>
+                </template>
+
+                <template v-else>
+                  <label class="field-block narrow">
+                    <span>定位方式</span>
+                    <select v-model="step.locator_strategy">
+                      <option v-for="item in locatorStrategies" :key="item.value" :value="item.value">
+                        {{ item.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label class="field-block">
+                    <span>定位内容</span>
+                    <input v-model.trim="step.locator" type="text" :placeholder="locatorPlaceholder(step.locator_strategy)" />
+                    <small v-if="step.locator_strategy === 'role'">`role` 输入格式：`button|登录`</small>
+                  </label>
+
+                  <label v-if="step.action === 'input'" class="field-block">
+                    <span>输入值</span>
+                    <input v-model="step.input_value" type="text" placeholder="请输入要填入的内容" />
+                  </label>
+
+                  <label v-if="step.action === 'assert'" class="field-block">
+                    <span>期望包含文本</span>
+                    <input v-model="step.expected_text" type="text" placeholder="例如：欢迎回来" />
+                  </label>
+
+                  <label v-if="step.action === 'wait'" class="field-block narrow">
+                    <span>等待时间 (ms)</span>
+                    <input v-model.number="step.wait_ms" type="number" min="100" max="60000" />
+                  </label>
+                </template>
               </div>
 
               <div v-if="selectedRunDetail?.step_logs?.[index]" class="step-log">
@@ -267,8 +354,19 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProjects } from '@/api/projects'
-import { createWebTestCase, deleteWebTestCase, getWebTestCase, getWebTestCases, updateWebTestCase } from '@/api/webTestCases'
-import { getWebTestRunDetail, getWebTestRuns, runWebTestCase } from '@/api/webTestRuns'
+import {
+  bulkDeleteWebTestCases,
+  copyWebTestCase,
+  createWebTestCase,
+  deleteWebTestCase,
+  downloadWebTestCaseTemplate,
+  exportWebTestCases,
+  getWebTestCase,
+  getWebTestCases,
+  importWebTestCasesFromExcel,
+  updateWebTestCase,
+} from '@/api/webTestCases'
+import { getWebTestRunDetail, getWebTestRuns, runBatchWebTestCases, runWebTestCase } from '@/api/webTestRuns'
 import { setActiveProjectId } from '@/utils/projectContext'
 
 const route = useRoute()
@@ -279,14 +377,19 @@ const projects = ref([])
 const selectedProjectId = ref('')
 const loadingCases = ref(false)
 const saving = ref(false)
+const importing = ref(false)
 const running = ref(false)
 const formError = ref('')
 const projectName = ref('Web 项目')
 const cases = ref([])
 const runs = ref([])
 const selectedCaseId = ref('')
+const selectedCaseIds = ref([])
 const selectedRunId = ref('')
 const selectedRunDetail = ref(null)
+const batchRunning = ref(false)
+const batchDeleting = ref(false)
+const importInputRef = ref(null)
 
 const form = ref({
   name: '',
@@ -303,9 +406,18 @@ const form = ref({
   steps: [],
 })
 
+const locatorStrategies = [
+  { value: 'css', label: 'CSS' },
+  { value: 'xpath', label: 'XPath' },
+  { value: 'text', label: 'Text' },
+  { value: 'testid', label: 'TestId' },
+  { value: 'role', label: 'Role' },
+]
+
 const selectedCase = computed(() => cases.value.find((item) => String(item.id) === selectedCaseId.value) || null)
 const currentCaseLabel = computed(() => selectedCase.value?.name || '新建 Web 用例')
 const caseRuns = computed(() => runs.value.filter((item) => String(item.web_test_case_id) === selectedCaseId.value))
+const isAllCasesSelected = computed(() => cases.value.length > 0 && cases.value.every((item) => selectedCaseIds.value.includes(String(item.id))))
 const executedStepCount = computed(() => selectedRunDetail.value?.step_logs?.length || 0)
 const successStepCount = computed(() => (selectedRunDetail.value?.step_logs || []).filter((item) => item.status === 'success').length)
 const failedStepCount = computed(() => (selectedRunDetail.value?.step_logs || []).filter((item) => ['failed', 'error'].includes(item.status)).length)
@@ -345,6 +457,54 @@ const resetForm = () => {
   formError.value = ''
 }
 
+const syncSelectedCaseIds = () => {
+  const validIds = new Set(cases.value.map((item) => String(item.id)))
+  selectedCaseIds.value = selectedCaseIds.value.filter((id) => validIds.has(id))
+}
+
+const clearSelectedCases = () => {
+  selectedCaseIds.value = []
+}
+
+const toggleCaseSelection = (caseId) => {
+  if (selectedCaseIds.value.includes(caseId)) {
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => id !== caseId)
+    return
+  }
+  selectedCaseIds.value = [...selectedCaseIds.value, caseId]
+}
+
+const toggleSelectAllCases = () => {
+  if (isAllCasesSelected.value) {
+    clearSelectedCases()
+    return
+  }
+  selectedCaseIds.value = cases.value.map((item) => String(item.id))
+}
+
+const openCaseFromList = (item) => {
+  selectedCaseId.value = String(item.id)
+}
+
+const inferLocatorStrategy = (params = {}) => {
+  const raw = String(params.locator_type || params.strategy || '').trim().toLowerCase()
+  if (raw && locatorStrategies.some((item) => item.value === raw)) return raw
+  const locator = String(params.locator || params.selector || '').trim()
+  if (locator.startsWith('//') || locator.startsWith('xpath=')) return 'xpath'
+  return 'css'
+}
+
+const createStepDraft = (action = 'open', params = {}) => ({
+  action,
+  url: params.url || '',
+  locator_strategy: inferLocatorStrategy(params),
+  locator: params.locator || params.selector || '',
+  input_value: params.value || '',
+  expected_text: params.contains || '',
+  wait_ms: Number(params.timeout_ms || 500),
+  filename: params.filename || '',
+})
+
 const detectViewportPreset = (width, height) => {
   const candidate = `${width || 1920}x${height || 1080}`
   if (['1920x1080', '1366x768', '1280x720', '375x667'].includes(candidate)) {
@@ -366,10 +526,7 @@ const syncFormFromCase = (detail) => {
     headless: detail.headless ?? true,
     capture_on_failure: detail.capture_on_failure ?? true,
     record_video: detail.record_video ?? false,
-    steps: (detail.steps || []).map((step) => ({
-      action: step.action || 'open',
-      paramsText: JSON.stringify(step.params || {}, null, 2),
-    })),
+    steps: (detail.steps || []).map((step) => createStepDraft(step.action || 'open', step.params || {})),
   }
 }
 
@@ -410,6 +567,10 @@ const fetchCases = async () => {
   loadingCases.value = true
   try {
     cases.value = await getWebTestCases(projectId.value)
+    syncSelectedCaseIds()
+    if (selectedCaseId.value && !cases.value.some((item) => String(item.id) === selectedCaseId.value)) {
+      selectedCaseId.value = ''
+    }
     if (!selectedCaseId.value && cases.value.length) {
       selectedCaseId.value = String(cases.value[0].id)
     }
@@ -475,11 +636,17 @@ const startNewCase = () => {
   addStep()
 }
 
+const triggerImportExcel = () => {
+  importInputRef.value?.click()
+}
+
 const addStep = () => {
-  form.value.steps.push({
-    action: 'open',
-    paramsText: '{}',
-  })
+  form.value.steps.push(createStepDraft('open'))
+}
+
+const insertStep = (index, position = 'after') => {
+  const nextIndex = position === 'before' ? index : index + 1
+  form.value.steps.splice(nextIndex, 0, createStepDraft('open'))
 }
 
 const removeStep = (index) => {
@@ -514,14 +681,27 @@ const buildPayload = () => {
   }
 
   const steps = form.value.steps.map((step, index) => {
-    let parsed = {}
-    try {
-      parsed = step.paramsText?.trim() ? JSON.parse(step.paramsText) : {}
-    } catch (err) {
-      throw new Error(`第 ${index + 1} 步参数 JSON 无法解析`)
-    }
-    if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
-      throw new Error(`第 ${index + 1} 步参数必须为 JSON 对象`)
+    const parsed = {}
+    if (step.action === 'open') {
+      if (!step.url?.trim()) throw new Error(`第 ${index + 1} 步需要填写打开地址`)
+      parsed.url = step.url.trim()
+    } else if (step.action === 'screenshot') {
+      if (step.filename?.trim()) parsed.filename = step.filename.trim()
+    } else {
+      const locatorValue = step.locator?.trim()
+      if (step.action !== 'wait' && !locatorValue) throw new Error(`第 ${index + 1} 步需要填写定位内容`)
+      if (locatorValue) {
+        parsed.locator_type = step.locator_strategy
+        parsed.locator = locatorValue
+      }
+      if (step.action === 'input') {
+        parsed.value = step.input_value ?? ''
+      } else if (step.action === 'assert') {
+        if (!step.expected_text?.trim()) throw new Error(`第 ${index + 1} 步需要填写期望文本`)
+        parsed.contains = step.expected_text.trim()
+      } else if (step.action === 'wait') {
+        parsed.timeout_ms = Number(step.wait_ms) || 500
+      }
     }
     return {
       action: step.action,
@@ -552,7 +732,7 @@ const saveCase = async () => {
     if (selectedCaseId.value) {
       await updateWebTestCase(selectedCaseId.value, payload)
     } else {
-      const created = await createWebTestCase({ project_id: projectId, ...payload })
+      const created = await createWebTestCase({ project_id: projectId.value, ...payload })
       selectedCaseId.value = String(created.id)
     }
     await fetchCases()
@@ -564,11 +744,24 @@ const saveCase = async () => {
   }
 }
 
+const copyCurrentCase = async () => {
+  if (!selectedCase.value) return
+  try {
+    const copied = await copyWebTestCase(selectedCase.value.id, {})
+    await fetchCases()
+    selectedCaseId.value = String(copied.id)
+    await handleSelectedCaseChange()
+  } catch (err) {
+    alert(err.response?.data?.detail || '复制失败')
+  }
+}
+
 const deleteCurrentCase = async () => {
   if (!selectedCase.value) return
   if (!confirm('确定删除该 Web 用例吗？')) return
   try {
     await deleteWebTestCase(selectedCase.value.id)
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => id !== selectedCaseId.value)
     selectedCaseId.value = ''
     selectedRunId.value = ''
     selectedRunDetail.value = null
@@ -597,6 +790,122 @@ const runCurrentCase = async () => {
   }
 }
 
+const runSelectedCases = async () => {
+  if (!selectedCaseIds.value.length) return
+  batchRunning.value = true
+  let response
+  try {
+    response = await runBatchWebTestCases(projectId.value, {
+      test_case_ids: selectedCaseIds.value.map((id) => Number(id)),
+    })
+  } catch (err) {
+    alert(err.response?.data?.detail || '批量执行请求失败')
+    batchRunning.value = false
+    return
+  }
+
+  try {
+    clearSelectedCases()
+    if (response.status === 'failed' || response.status === 'error') {
+      alert(`批量执行完成：成功 ${response.passed_cases}，失败 ${response.failed_cases}，异常 ${response.error_cases}`)
+    }
+    if (response.id) {
+      router.push(`/project/${projectId.value}/web-batches/${response.id}`)
+      return
+    }
+    await fetchRuns()
+  } catch (err) {
+    console.error('Batch execution follow-up failed', err)
+  } finally {
+    batchRunning.value = false
+  }
+}
+
+const deleteSelectedCases = async () => {
+  if (!selectedCaseIds.value.length) return
+  if (!confirm(`确定批量删除 ${selectedCaseIds.value.length} 个 Web 用例吗？`)) return
+  batchDeleting.value = true
+  try {
+    const deletedCaseIds = [...selectedCaseIds.value]
+    await bulkDeleteWebTestCases(projectId.value, {
+      test_case_ids: deletedCaseIds.map((id) => Number(id)),
+    })
+    if (selectedCaseId.value && deletedCaseIds.includes(selectedCaseId.value)) {
+      selectedCaseId.value = ''
+      selectedRunId.value = ''
+      selectedRunDetail.value = null
+    }
+    clearSelectedCases()
+    await Promise.all([fetchCases(), fetchRuns()])
+    if (cases.value.length && selectedCaseId.value) {
+      await handleSelectedCaseChange()
+    }
+  } catch (err) {
+    alert(err.response?.data?.detail || '批量删除失败')
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
+const downloadBlobFile = (blob, fileName) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const downloadTemplate = async () => {
+  try {
+    const blob = await downloadWebTestCaseTemplate(projectId.value)
+    downloadBlobFile(blob, `web-test-cases-project-${projectId.value}-template.xlsx`)
+  } catch (err) {
+    alert(err.response?.data?.detail || '下载模板失败')
+  }
+}
+
+const handleExportExcel = async () => {
+  try {
+    const blob = await exportWebTestCases(projectId.value)
+    downloadBlobFile(blob, `web-test-cases-project-${projectId.value}-export.xlsx`)
+  } catch (err) {
+    alert(err.response?.data?.detail || '导出 Excel 失败')
+  }
+}
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+  }
+  return btoa(binary)
+}
+
+const handleImportExcelChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  importing.value = true
+  try {
+    const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer())
+    const result = await importWebTestCasesFromExcel(projectId.value, {
+      file_name: file.name,
+      file_content_base64: fileContentBase64,
+    })
+    await fetchCases()
+    alert(`导入完成：新增 ${result.imported}，更新 ${result.updated}`)
+  } catch (err) {
+    alert(err.response?.data?.detail || '导入 Excel 失败')
+  } finally {
+    importing.value = false
+    if (importInputRef.value) {
+      importInputRef.value.value = ''
+    }
+  }
+}
+
 const stepLabel = (action) => {
   const mapping = {
     open: '打开页面',
@@ -611,12 +920,21 @@ const stepLabel = (action) => {
 
 const stepPreview = (paramsText) => {
   if (!paramsText) return '暂无参数'
-  try {
-    const parsed = JSON.parse(paramsText)
-    return Object.entries(parsed).slice(0, 2).map(([key, value]) => `${key}: ${value}`).join(' · ') || '空对象'
-  } catch {
-    return '参数 JSON 待修正'
-  }
+  if (paramsText.action === 'open') return paramsText.url || '待填写打开地址'
+  if (paramsText.action === 'screenshot') return paramsText.filename || '使用默认截图文件名'
+  const locator = paramsText.locator ? `${paramsText.locator_strategy}: ${paramsText.locator}` : '待填写定位内容'
+  if (paramsText.action === 'input') return `${locator} · value: ${paramsText.input_value || ''}`
+  if (paramsText.action === 'assert') return `${locator} · contains: ${paramsText.expected_text || ''}`
+  if (paramsText.action === 'wait') return `${paramsText.locator ? locator : 'fixed wait'} · timeout: ${paramsText.wait_ms || 500}ms`
+  return locator
+}
+
+const locatorPlaceholder = (strategy) => {
+  if (strategy === 'xpath') return '//button[@id="submit"]'
+  if (strategy === 'text') return '登录'
+  if (strategy === 'testid') return 'submit-button'
+  if (strategy === 'role') return 'button|登录'
+  return '#submit'
 }
 
 const renderStepLog = (item) => {
@@ -640,6 +958,7 @@ watch(selectedCaseId, async (value, oldValue) => {
 
 watch(projectId, async () => {
   selectedCaseId.value = ''
+  selectedCaseIds.value = []
   selectedRunId.value = ''
   selectedRunDetail.value = null
   await syncProjectOptions()
@@ -670,11 +989,37 @@ onMounted(async () => {
 .toolbar-copy h2 { margin: 0 0 6px; font-size: 18px; font-weight: 500; color: var(--text-strong); }
 .toolbar-copy p { margin: 0; font-size: 13px; color: var(--text-muted); }
 .toolbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.project-switch { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
-.project-select { min-width: 280px; }
-.project-switch-copy { font-size: 12px; color: var(--text-muted); }
+.hidden-file-input { display: none; }
+.project-switch { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.project-select { min-width: 360px; max-width: 520px; flex: 1 1 360px; }
+.project-select-input { min-width: 360px; width: 100%; }
+.project-switch-copy { font-size: 12px; color: var(--text-muted); flex: 1 1 240px; min-width: 220px; word-break: break-word; }
 .page-links { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.toolbar-select { min-width: 240px; height: 36px; padding: 0 12px; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: var(--bg-card); color: var(--text-main); outline: none; }
+.case-selector-card { display: flex; flex-direction: column; gap: 14px; }
+.selector-copy { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); }
+.batch-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+.case-selector-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.case-selector-item { display: flex; align-items: stretch; gap: 10px; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-muted); }
+.case-selector-item.active { border-color: var(--primary); background: rgba(52, 152, 219, 0.08); }
+.case-selector-check { display: inline-flex; align-items: center; justify-content: center; width: 18px; }
+.case-selector-main { flex: 1; border: 0; background: transparent; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; color: var(--text-main); }
+.case-selector-main strong { font-size: 14px; color: var(--text-strong); }
+.case-selector-main span { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.toolbar-select {
+  min-width: 240px;
+  height: 36px;
+  line-height: 20px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-main);
+  outline: none;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
 .toolbar-btn { min-height: 36px; padding: 0 16px; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: transparent; color: var(--text-main); font-size: 13px; }
 .toolbar-btn.small { min-height: 30px; padding: 0 12px; }
 .toolbar-btn.success { background: var(--success); border-color: var(--success); color: #fff; }
@@ -699,12 +1044,13 @@ onMounted(async () => {
 .step-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .icon-link { border: 0; background: transparent; color: var(--primary); font-size: 12px; padding: 0; }
 .icon-link.danger { color: var(--danger); }
-.step-editor { display: grid; grid-template-columns: 180px 1fr; gap: 12px; }
+.step-editor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .field-block { display: flex; flex-direction: column; gap: 8px; }
 .field-block span { font-size: 13px; color: var(--text-main); }
-.field-block input, .field-block textarea, .field-block select { width: 100%; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: var(--bg-card); color: var(--text-main); padding: 10px 12px; outline: none; }
+.field-block input, .field-block textarea, .field-block select { width: 100%; border: 1px solid var(--border-color-strong); border-radius: var(--radius); background: var(--bg-card); color: var(--text-main); padding:5px 12px; outline: none; }
 .field-block textarea { resize: vertical; font-family: "Consolas", "JetBrains Mono", monospace; }
-.field-block.narrow { width: 180px; }
+.field-block small { font-size: 11px; color: var(--text-muted); }
+.field-block.narrow { width: auto; }
 .step-log { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-main); }
 .log-badge { display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
 .log-badge.success { background: rgba(39, 174, 96, 0.12); color: var(--success); }
@@ -744,5 +1090,5 @@ onMounted(async () => {
 .form-error { margin: 0; font-size: 13px; color: var(--danger); }
 .empty-block { min-height: 180px; display: grid; place-items: center; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--radius); }
 @media (max-width: 1100px) { .workspace-grid { grid-template-columns: 1fr; } .config-grid, .switch-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 720px) { .ui-automation-page { padding: 16px; } .toolbar-card, .panel-card { padding: 16px; } .toolbar-card, .panel-head, .toolbar-actions, .project-switch { flex-direction: column; align-items: flex-start; } .toolbar-select, .run-select, .project-select { width: 100%; min-width: 0; } .step-editor, .config-grid, .switch-grid { grid-template-columns: 1fr; } .field-block.narrow { width: 100%; } }
+@media (max-width: 720px) { .ui-automation-page { padding: 16px; } .toolbar-card, .panel-card { padding: 16px; } .toolbar-card, .panel-head, .toolbar-actions, .project-switch, .batch-inline { flex-direction: column; align-items: flex-start; } .toolbar-select, .run-select, .project-select { width: 100%; min-width: 0; } .step-editor, .config-grid, .switch-grid { grid-template-columns: 1fr; } .field-block.narrow { width: 100%; } .case-selector-list { grid-template-columns: 1fr; } }
 </style>

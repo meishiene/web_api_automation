@@ -577,3 +577,49 @@ def test_import_postman_collection_by_provider(client, create_user_and_login, au
     assert case["case_group"] == "postman"
     assert case["tags"] == ["imported", "postman"]
 
+
+def test_owner_can_bulk_delete_test_cases(client, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_bulk_delete_api", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-bulk-delete-api", "description": "desc"},
+    ).json()["id"]
+
+    case1_id = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "bulk-delete-case-1",
+            "method": "GET",
+            "url": "https://example.com/case-1",
+            "expected_status": 200,
+        },
+    ).json()["id"]
+    case2_id = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "bulk-delete-case-2",
+            "method": "POST",
+            "url": "https://example.com/case-2",
+            "expected_status": 201,
+        },
+    ).json()["id"]
+
+    bulk_delete_resp = client.post(
+        f"/api/test-cases/project/{project_id}/bulk-delete",
+        headers=headers,
+        json={"test_case_ids": [case1_id, case2_id]},
+    )
+    assert bulk_delete_resp.status_code == 200
+    body = bulk_delete_resp.json()
+    assert body["deleted_count"] == 2
+    assert body["deleted_ids"] == [case1_id, case2_id]
+
+    list_resp = client.get(f"/api/test-cases/project/{project_id}", headers=headers)
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+

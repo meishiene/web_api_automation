@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    CORS_ALLOW_ORIGIN_REGEX: Optional[str] = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     CORS_ALLOW_CREDENTIALS: bool = True
 
     SECRET_KEY: str = "your-secret-key-change-in-production"

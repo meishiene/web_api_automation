@@ -31,7 +31,10 @@
         <button class="toolbar-btn primary" @click="applyFilters">查询</button>
       </div>
 
-      <button class="toolbar-btn" @click="resetFilters">重置筛选</button>
+      <div class="toolbar-actions">
+        <button class="toolbar-btn" @click="exportReportSnapshot">导出快照</button>
+        <button class="toolbar-btn" @click="resetFilters">重置筛选</button>
+      </div>
     </div>
 
     <div class="chart-grid">
@@ -359,6 +362,22 @@ const openFirstFailureInReport = () => {
 
 const openRowDetail = (row) => {
   selectedReport.value = row
+}
+
+const exportReportSnapshot = () => {
+  const payload = {
+    filters: filters.value,
+    summary: summary.value,
+    trends: trends.value,
+    failures: failures.value,
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `report-summary-project-${projectId}.json`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 onMounted(fetchAll)

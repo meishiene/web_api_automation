@@ -14,7 +14,7 @@ class RunQueue(Base):
             name="ck_run_queue_target_type_allowed",
         ),
         CheckConstraint(
-            "status IN ('queued', 'running', 'success', 'failed', 'error')",
+            "status IN ('queued', 'running', 'success', 'failed', 'error', 'canceled')",
             name="ck_run_queue_status_allowed",
         ),
         CheckConstraint("priority >= 1 AND priority <= 10", name="ck_run_queue_priority_range"),
@@ -49,7 +49,7 @@ class RunQueue(Base):
     target_type = Column(String(50), nullable=False)
     target_id = Column(Integer, nullable=False, index=True)
 
-    # status: queued | running | success | failed | error
+    # status: queued | running | success | failed | error | canceled
     status = Column(String(20), nullable=False, index=True, default="queued")
     priority = Column(Integer, nullable=False, default=5)
 

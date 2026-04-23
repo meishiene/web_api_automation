@@ -21,7 +21,13 @@ from app.models.test_run import TestRun
 from app.models.user import User
 from app.models.web_test_case import WebTestCase
 from app.models.web_test_run import WebTestRun
-from app.schemas.batch_run import BatchRunDetailResponse, BatchRunItemResponse, BatchRunResponse, SuiteRunRequest
+from app.schemas.batch_run import (
+    BatchRunDetailResponse,
+    BatchRunItemResponse,
+    BatchRunResponse,
+    SuiteRunRequest,
+    TestCaseBatchRunRequest,
+)
 from app.schemas.test_run import (
     TestRunExecuteRequest,
     TestRunDetailResponse,
@@ -180,6 +186,132 @@ def _build_execution_case(test_case: ApiTestCase, payload: TestRunExecuteRequest
     return SimpleNamespace(**fields)
 
 
+def _load_project_or_404(db: Session, project_id: int) -> Project:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    return project
+
+
+def _load_environment_for_project(db: Session, project_id: int, environment_id: int | None) -> ProjectEnvironment | None:
+    if environment_id is None:
+        return None
+    environment = db.query(ProjectEnvironment).filter(ProjectEnvironment.id == environment_id).first()
+    if not environment or environment.project_id != project_id:
+        raise AppException(404, ErrorCode.ENVIRONMENT_NOT_FOUND, "Environment not found")
+    return environment
+
+
+def _load_api_test_cases_by_ids(db: Session, project_id: int, case_ids: List[int]) -> List[ApiTestCase]:
+    records = (
+        db.query(ApiTestCase)
+        .filter(ApiTestCase.project_id == project_id, ApiTestCase.id.in_(case_ids))
+        .all()
+    )
+    record_map = {item.id: item for item in records}
+    missing_ids = [case_id for case_id in case_ids if case_id not in record_map]
+    if missing_ids:
+        raise AppException(
+            404,
+            ErrorCode.TEST_CASE_NOT_FOUND,
+            "Test case not found",
+            details={"missing_ids": missing_ids},
+        )
+    return [record_map[case_id] for case_id in case_ids]
+
+
+def _resolve_batch_status(failed_cases: int, error_cases: int) -> str:
+    if error_cases > 0:
+        return "error"
+    if failed_cases > 0:
+        return "failed"
+    return "success"
+
+
+async def _execute_api_batch_cases(
+    db: Session,
+    project_id: int,
+    ordered_cases: list[tuple[int, ApiTestCase]],
+    triggered_by: int,
+    environment_id: int | None,
+    retry_count: int,
+    retry_on: Set[str],
+    suite_id: int | None = None,
+) -> ApiBatchRun:
+    now = int(time.time())
+    batch = ApiBatchRun(
+        project_id=project_id,
+        suite_id=suite_id,
+        environment_id=environment_id,
+        triggered_by=triggered_by,
+        status="running",
+        total_cases=len(ordered_cases),
+        passed_cases=0,
+        failed_cases=0,
+        error_cases=0,
+        started_at=now,
+        created_at=now,
+    )
+    db.add(batch)
+    db.flush()
+
+    runtime_variables, variable_sources, secret_keys = resolve_runtime_variables_with_meta(
+        db=db,
+        project_id=project_id,
+        environment_id=environment_id,
+    )
+
+    for order_index, test_case in ordered_cases:
+        result, retry_used = await _execute_with_retry(
+            test_case=test_case,
+            runtime_variables=runtime_variables,
+            retry_count=retry_count,
+            retry_on=retry_on,
+        )
+        test_run = _persist_test_run(
+            db=db,
+            case_id=test_case.id,
+            result=result,
+            runtime_variables=runtime_variables,
+            variable_sources=variable_sources,
+            secret_keys=secret_keys,
+        )
+
+        item_error = result.get("error_message")
+        if retry_used > 0 and item_error:
+            item_error = f"{item_error} (retried {retry_used} time(s))"
+
+        db.add(
+            ApiBatchRunItem(
+                batch_run_id=batch.id,
+                test_case_id=test_case.id,
+                test_run_id=test_run.id,
+                order_index=order_index,
+                status=result["status"],
+                error_message=item_error,
+                created_at=int(time.time()),
+            )
+        )
+
+        if result["status"] == "success":
+            batch.passed_cases += 1
+            extracted_variables = result.get("extracted_variables") or {}
+            runtime_variables.update(extracted_variables)
+            for extracted_key in extracted_variables:
+                variable_sources[extracted_key] = "extracted"
+                secret_keys.discard(extracted_key)
+        elif result["status"] == "failed":
+            batch.failed_cases += 1
+        else:
+            batch.error_cases += 1
+
+    batch.status = _resolve_batch_status(batch.failed_cases, batch.error_cases)
+    batch.finished_at = int(time.time())
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+
 @router.post("/test-cases/{case_id}/run", response_model=TestRunResponse)
 async def run_test_case(
     case_id: int,
@@ -246,6 +378,60 @@ async def run_test_case(
     return test_run
 
 
+@router.post("/project/{project_id}/batch-run", response_model=BatchRunResponse)
+async def run_selected_test_cases(
+    project_id: int,
+    payload: TestCaseBatchRunRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BatchRunResponse:
+    project = _load_project_or_404(db, project_id)
+    if not can_execute_test_run(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    retry_on = set(payload.retry_on or ["error"])
+    _validate_retry_options(payload.retry_count, retry_on)
+    _load_environment_for_project(db, project_id, payload.environment_id)
+
+    ordered_cases = [
+        (index, case)
+        for index, case in enumerate(_load_api_test_cases_by_ids(db, project_id, payload.test_case_ids))
+    ]
+    batch = await _execute_api_batch_cases(
+        db=db,
+        project_id=project_id,
+        ordered_cases=ordered_cases,
+        triggered_by=user.id,
+        environment_id=payload.environment_id,
+        retry_count=payload.retry_count,
+        retry_on=retry_on,
+        suite_id=None,
+    )
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.batch_run",
+        resource_type="project",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={
+            "batch_run_id": batch.id,
+            "status": batch.status,
+            "test_case_ids": payload.test_case_ids,
+            "total_cases": batch.total_cases,
+            "passed_cases": batch.passed_cases,
+            "failed_cases": batch.failed_cases,
+            "error_cases": batch.error_cases,
+            "retry_count": payload.retry_count,
+            "retry_on": sorted(list(retry_on)),
+            "environment_id": payload.environment_id,
+        },
+    )
+    return batch
+
+
 @router.post("/suites/{suite_id}/run", response_model=BatchRunResponse)
 async def run_test_suite(
     suite_id: int,
@@ -262,16 +448,7 @@ async def run_test_suite(
 
     retry_on = set(payload.retry_on or ["error"])
     _validate_retry_options(payload.retry_count, retry_on)
-
-    environment = None
-    if payload.environment_id is not None:
-        environment = (
-            db.query(ProjectEnvironment)
-            .filter(ProjectEnvironment.id == payload.environment_id)
-            .first()
-        )
-        if not environment or environment.project_id != suite.project_id:
-            raise AppException(404, ErrorCode.ENVIRONMENT_NOT_FOUND, "Environment not found")
+    _load_environment_for_project(db, suite.project_id, payload.environment_id)
 
     links = (
         db.query(ApiTestSuiteCase)
@@ -313,81 +490,16 @@ async def run_test_suite(
                 return existing
             _idempotency_cache.pop(cache_key, None)
 
-    batch = ApiBatchRun(
-        project_id=suite.project_id,
-        suite_id=suite.id,
-        environment_id=payload.environment_id,
-        triggered_by=user.id,
-        status="running",
-        total_cases=len(links),
-        passed_cases=0,
-        failed_cases=0,
-        error_cases=0,
-        started_at=now,
-        created_at=now,
-    )
-    db.add(batch)
-    db.flush()
-
-    runtime_variables, variable_sources, secret_keys = resolve_runtime_variables_with_meta(
+    batch = await _execute_api_batch_cases(
         db=db,
         project_id=suite.project_id,
+        ordered_cases=[(link.order_index, link.test_case) for link in links],
+        triggered_by=user.id,
         environment_id=payload.environment_id,
+        retry_count=payload.retry_count,
+        retry_on=retry_on,
+        suite_id=suite.id,
     )
-
-    for link in links:
-        result, retry_used = await _execute_with_retry(
-            test_case=link.test_case,
-            runtime_variables=runtime_variables,
-            retry_count=payload.retry_count,
-            retry_on=retry_on,
-        )
-        test_run = _persist_test_run(
-            db=db,
-            case_id=link.test_case_id,
-            result=result,
-            runtime_variables=runtime_variables,
-            variable_sources=variable_sources,
-            secret_keys=secret_keys,
-        )
-
-        item_error = result.get("error_message")
-        if retry_used > 0 and item_error:
-            item_error = f"{item_error} (retried {retry_used} time(s))"
-
-        item = ApiBatchRunItem(
-            batch_run_id=batch.id,
-            test_case_id=link.test_case_id,
-            test_run_id=test_run.id,
-            order_index=link.order_index,
-            status=result["status"],
-            error_message=item_error,
-            created_at=int(time.time()),
-        )
-        db.add(item)
-
-        if result["status"] == "success":
-            batch.passed_cases += 1
-            extracted_variables = result.get("extracted_variables") or {}
-            runtime_variables.update(extracted_variables)
-            for extracted_key in extracted_variables:
-                variable_sources[extracted_key] = "extracted"
-                secret_keys.discard(extracted_key)
-        elif result["status"] == "failed":
-            batch.failed_cases += 1
-        else:
-            batch.error_cases += 1
-
-    if batch.error_cases > 0:
-        batch.status = "error"
-    elif batch.failed_cases > 0:
-        batch.status = "failed"
-    else:
-        batch.status = "success"
-
-    batch.finished_at = int(time.time())
-    db.commit()
-    db.refresh(batch)
 
     if cache_key:
         _idempotency_cache[cache_key] = (batch.id, int(time.time()))

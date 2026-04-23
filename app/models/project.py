@@ -36,6 +36,7 @@ class Project(Base):
     web_test_cases = relationship("WebTestCase", back_populates="project", cascade="all, delete-orphan")
     web_locators = relationship("WebLocator", back_populates="project", cascade="all, delete-orphan")
     web_test_runs = relationship("WebTestRun", back_populates="project", cascade="all, delete-orphan")
+    web_batch_runs = relationship("WebBatchRun", back_populates="project", cascade="all, delete-orphan")
     integration_configs = relationship("IntegrationConfig", back_populates="project", cascade="all, delete-orphan")
     notification_subscriptions = relationship(
         "NotificationSubscription",

@@ -1,5 +1,7 @@
 import request from '@/utils/request'
 
+const EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
+
 export const getTestSuites = (projectId) => {
   return request.get(`/api/test-suites/project/${projectId}`)
 }
@@ -29,5 +31,7 @@ export const deleteTestSuiteCase = (suiteId, caseId) => {
 }
 
 export const runTestSuite = (suiteId, payload = {}) => {
-  return request.post(`/api/test-runs/suites/${suiteId}/run`, payload)
+  return request.post(`/api/test-runs/suites/${suiteId}/run`, payload, {
+    timeout: EXECUTION_TIMEOUT_MS,
+  })
 }

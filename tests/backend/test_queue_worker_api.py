@@ -143,6 +143,25 @@ def test_worker_execute_once_placeholder_consumes_queue_item(client, create_user
     assert queue_item.finished_at is not None
 
 
+def test_owner_can_cancel_queue_item(client, create_user_and_login, auth_headers, db_session):
+    token = create_user_and_login("owner_queue_cancel", "pwd")
+    headers = auth_headers(token)
+    project_id = _create_project(client, headers, name="P-queue-cancel")
+    task_id = _create_schedule_task(client, headers, project_id, "queue-cancel", 909)
+    queue_item_id = _trigger_task(client, headers, task_id)
+
+    cancel_resp = client.post(f"/api/run-queue/{queue_item_id}/cancel", headers=headers)
+    assert cancel_resp.status_code == 200
+    body = cancel_resp.json()
+    assert body["queue_item_id"] == queue_item_id
+    assert body["status"] == "canceled"
+
+    queue_item = db_session.query(RunQueue).filter(RunQueue.id == queue_item_id).first()
+    assert queue_item is not None
+    assert queue_item.status == "canceled"
+    assert queue_item.finished_at is not None
+
+
 def test_non_owner_cannot_claim_or_heartbeat(client, create_user_and_login, auth_headers):
     owner_token = create_user_and_login("owner_queue_forbid", "pwd")
     attacker_token = create_user_and_login("attacker_queue_forbid", "pwd")

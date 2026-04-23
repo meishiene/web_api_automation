@@ -1,26 +1,37 @@
-# API 测试平台文档导航
+# 文档导航
 
-## 1. AI 快速熟悉（必读）
-按下面顺序阅读，可在最短时间内理解“做什么、做到哪、改哪里”：
+## 1. 面向使用者
 
-1. `docs/project/project-overview.md`：项目目标、已实现能力、边界
-2. `docs/project/project-progress.md`：当前进度、阶段状态、下一步优先级
-3. `docs/architecture/system-architecture.md`：系统分层、调用流程、认证链路
-4. `docs/modules/modules.md`：按文件定位模块职责（最重要的改码索引）
-5. `docs/architecture/dependency-graph.md`：前后端与数据流依赖关系
+建议按以下顺序阅读：
 
-## 2. 按任务找文档
-- 需要快速定位代码文件：看 `docs/modules/modules.md`
-- 需要理解调用链和耦合点：看 `docs/architecture/dependency-graph.md`
-- 需要确认技术约束和运行方式：看 `docs/tech/tech-stack.md`
-- 需要确认目录结构：看 `docs/tech/repo-structure.md`
-- 需要确认核心实体与业务关系：看 `docs/domain/domain-model.md`
-- 需要数据库迁移规范：看 `docs/tech/db-migration.md`
-- 需要日志与审计规范：看 `docs/tech/logging-audit-spec.md`
-- 需要中长期路线图：看 `docs/architecture/企业级自动化测试平台系统架构规划.md`
-- 需要后续模块化开发指引：看 `docs/modules/future/README.md`
+1. [用户手册](D:\project\web_api_automation\docs\project\user-manual.md)
+2. [项目概览](D:\project\web_api_automation\docs\project\project-overview.md)
+3. [最终交付说明](D:\project\web_api_automation\docs\project\final-delivery-summary.md)
+4. [缺陷与风险台账](D:\project\web_api_automation\docs\project\defect-register.md)
 
-## 3. 文档使用原则
-- 文档与代码冲突时，以 `app/` 与 `frontend/src/` 实际代码为准
-- 仅有模型或页面占位，不算功能已完成
-- 任何影响功能/架构/阶段状态的改动，都必须同步更新 `docs/project/project-progress.md`
+## 2. 面向维护者
+
+建议按以下顺序阅读：
+
+1. [项目进度](D:\project\web_api_automation\docs\project\project-progress.md)
+2. [平台功能完善计划](D:\project\web_api_automation\docs\project\platform-function-hardening-plan.md)
+3. [系统架构](D:\project\web_api_automation\docs\architecture\system-architecture.md)
+4. [企业级自动化测试平台系统架构规划](D:\project\web_api_automation\docs\architecture\企业级自动化测试平台系统架构规划.md)
+5. [模块索引](D:\project\web_api_automation\docs\modules\modules.md)
+6. [后续模块说明](D:\project\web_api_automation\docs\modules\future\README.md)
+
+## 3. 面向技术排查
+
+按问题类型查看：
+
+- 数据库迁移：[db-migration.md](D:\project\web_api_automation\docs\tech\db-migration.md)
+- 技术栈与启动方式：[tech-stack.md](D:\project\web_api_automation\docs\tech\tech-stack.md)
+- 仓库结构：[repo-structure.md](D:\project\web_api_automation\docs\tech\repo-structure.md)
+- 日志与审计：[logging-audit-spec.md](D:\project\web_api_automation\docs\tech\logging-audit-spec.md)
+- 领域模型：[domain-model.md](D:\project\web_api_automation\docs\domain\domain-model.md)
+
+## 4. 使用原则
+
+- 若文档与代码冲突，以 `app/` 与 `frontend/src/` 的实际实现为准
+- 若你只想快速上手，请优先阅读用户手册
+- 若你要继续开发，请优先阅读项目进度与功能完善计划

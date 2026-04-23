@@ -47,4 +47,4 @@ class WebTestRun(Base):
     project = relationship("Project", back_populates="web_test_runs")
     web_test_case = relationship("WebTestCase", back_populates="web_test_runs")
     triggered_user = relationship("User")
-
+    web_batch_run_items = relationship("WebBatchRunItem", back_populates="web_test_run")

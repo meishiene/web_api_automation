@@ -64,6 +64,12 @@ class QueueCompleteResponse(BaseModel):
     finished_at: int
 
 
+class QueueCancelResponse(BaseModel):
+    queue_item_id: int
+    status: str
+    finished_at: int
+
+
 class WorkerExecuteOnceResponse(BaseModel):
     executed: bool
     queue_item_id: Optional[int] = None

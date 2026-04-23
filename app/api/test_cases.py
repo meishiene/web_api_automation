@@ -24,7 +24,7 @@ from app.schemas.api_test_case import (
     TestCaseImportResponse,
     TestCaseResponse,
 )
-from app.schemas.common import MessageResponse
+from app.schemas.common import BulkDeleteResponse, MessageResponse, TestCaseIdCollectionRequest
 from app.services.access_control import can_manage_test_case, can_view_test_case
 from app.services.audit_service import create_audit_log
 from app.services.test_case_import_providers import (
@@ -92,6 +92,31 @@ def _build_unique_name(db: Session, project_id: int, base_name: str) -> str:
         if not exists:
             return candidate
         suffix += 1
+
+
+def _load_project_or_404(db: Session, project_id: int) -> Project:
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise AppException(404, ErrorCode.PROJECT_NOT_FOUND, "Project not found")
+    return project
+
+
+def _load_api_test_cases_by_ids(db: Session, project_id: int, case_ids: List[int]) -> List[ApiTestCase]:
+    records = (
+        db.query(ApiTestCase)
+        .filter(ApiTestCase.project_id == project_id, ApiTestCase.id.in_(case_ids))
+        .all()
+    )
+    record_map = {item.id: item for item in records}
+    missing_ids = [case_id for case_id in case_ids if case_id not in record_map]
+    if missing_ids:
+        raise AppException(
+            404,
+            ErrorCode.TEST_CASE_NOT_FOUND,
+            "Test case not found",
+            details={"missing_ids": missing_ids},
+        )
+    return [record_map[case_id] for case_id in case_ids]
 
 
 
@@ -465,6 +490,40 @@ def create_test_case(
         details={"name": new_test_case.name, "project_id": project_id},
     )
     return _to_response(new_test_case)
+
+
+@router.post("/project/{project_id}/bulk-delete", response_model=BulkDeleteResponse)
+def bulk_delete_test_cases(
+    project_id: int,
+    payload: TestCaseIdCollectionRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BulkDeleteResponse:
+    project = _load_project_or_404(db, project_id)
+    if not can_manage_test_case(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    records = _load_api_test_cases_by_ids(db, project_id, payload.test_case_ids)
+    deleted_ids = [item.id for item in records]
+    for item in records:
+        db.delete(item)
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="test_case.bulk_delete",
+        resource_type="project",
+        resource_id=str(project_id),
+        user_id=user.id,
+        details={"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids},
+    )
+    return BulkDeleteResponse(
+        message="Test cases deleted",
+        deleted_count=len(deleted_ids),
+        deleted_ids=deleted_ids,
+    )
 
 
 @router.post("/{case_id}/copy", response_model=TestCaseResponse)

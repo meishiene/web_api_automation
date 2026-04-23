@@ -21,6 +21,39 @@ def _normalize_url(base_url: str | None, url: str) -> str:
     return f"{base}{suffix}" if base else suffix
 
 
+def _normalize_locator_strategy(params: Dict[str, Any]) -> str:
+    raw = str(params.get("locator_type") or params.get("strategy") or "css").strip().lower()
+    if raw in {"css", "xpath", "text", "testid", "role"}:
+        return raw
+    raise ValueError(f"unsupported locator strategy: {raw}")
+
+
+def _resolve_locator(page, params: Dict[str, Any]):
+    locator_value = str(params.get("locator") or params.get("selector") or "").strip()
+    if not locator_value:
+        raise ValueError("locator is required")
+
+    strategy = _normalize_locator_strategy(params)
+    if strategy == "css":
+        return page.locator(locator_value)
+    if strategy == "xpath":
+        expression = locator_value if locator_value.startswith("xpath=") else f"xpath={locator_value}"
+        return page.locator(expression)
+    if strategy == "text":
+        return page.get_by_text(locator_value)
+    if strategy == "testid":
+        return page.get_by_test_id(locator_value)
+
+    role, _, name = locator_value.partition("|")
+    role = role.strip()
+    name = name.strip()
+    if not role:
+        raise ValueError("role locator must provide a role name")
+    if name:
+        return page.get_by_role(role, name=name)
+    return page.get_by_role(role)
+
+
 def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[str, Any]:
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
@@ -67,19 +100,24 @@ def _execute_with_playwright(test_case: WebTestCase, artifact_dir: str) -> Dict[
                         url = _normalize_url(test_case.base_url, str(parsed.get("url", "")))
                         page.goto(url, wait_until="domcontentloaded")
                     elif action == "click":
-                        selector = str(parsed.get("selector", ""))
-                        page.click(selector)
+                        locator = _resolve_locator(page, parsed)
+                        locator.click()
                     elif action == "input":
-                        selector = str(parsed.get("selector", ""))
                         value = str(parsed.get("value", ""))
-                        page.fill(selector, value)
+                        locator = _resolve_locator(page, parsed)
+                        locator.fill(value)
                     elif action == "wait":
                         wait_ms = int(parsed.get("timeout_ms", 500))
-                        page.wait_for_timeout(wait_ms)
+                        locator_value = str(parsed.get("locator") or parsed.get("selector") or "").strip()
+                        if locator_value:
+                            locator = _resolve_locator(page, parsed)
+                            locator.wait_for(state="visible", timeout=wait_ms)
+                        else:
+                            page.wait_for_timeout(wait_ms)
                     elif action == "assert":
-                        selector = str(parsed.get("selector", ""))
                         expected = str(parsed.get("contains", ""))
-                        content = page.text_content(selector) or ""
+                        locator = _resolve_locator(page, parsed)
+                        content = locator.text_content() or ""
                         if expected not in content:
                             raise AssertionError(f"assert contains failed: '{expected}' not in element text")
                     elif action == "screenshot":

@@ -168,6 +168,14 @@ const router = useRouter()
 const loading = ref(false)
 const projects = ref([])
 const activeProjectId = ref(getActiveProjectId())
+const defaultSummary = () => ({
+  total_count: 0,
+  success_count: 0,
+  failed_count: 0,
+  error_count: 0,
+  running_count: 0,
+  pass_rate: 0,
+})
 const summary = ref({
   total_count: 0,
   success_count: 0,
@@ -248,6 +256,12 @@ const statusLabel = (status) => {
 
 const trendPolyline = (key) => trendPoints.value.map((point) => `${point.x},${point[`${key}Y`]}`).join(' ')
 
+const resetOverview = () => {
+  summary.value = defaultSummary()
+  trends.value = { items: [] }
+  recentRuns.value = []
+}
+
 const openRunDetail = (item) => {
   if (!activeProjectId.value) return
   if (item.run_type === 'web') {
@@ -259,14 +273,25 @@ const openRunDetail = (item) => {
 
 const fetchProjects = async () => {
   projects.value = await getProjects()
-  if (!activeProjectId.value && projects.value.length) {
+  if (!projects.value.length) {
+    activeProjectId.value = null
+    setActiveProjectId(null)
+    resetOverview()
+    return
+  }
+  const normalizedActiveProjectId = Number(activeProjectId.value)
+  const hasActiveProject = projects.value.some((item) => item.id === normalizedActiveProjectId)
+  if (!hasActiveProject) {
     activeProjectId.value = projects.value[0].id
     setActiveProjectId(activeProjectId.value)
   }
 }
 
 const fetchProjectOverview = async () => {
-  if (!activeProjectId.value) return
+  if (!activeProjectId.value) {
+    resetOverview()
+    return
+  }
   const [summaryResp, trendResp, runResp] = await Promise.all([
     getProjectReportSummary(activeProjectId.value),
     getProjectReportTrends(activeProjectId.value, { granularity: 'day' }),
@@ -283,6 +308,17 @@ const refreshAll = async () => {
     await fetchProjects()
     await fetchProjectOverview()
   } catch (err) {
+    if ((err.response?.status === 403 || err.response?.status === 404) && projects.value.length) {
+      activeProjectId.value = projects.value[0].id
+      setActiveProjectId(activeProjectId.value)
+      try {
+        await fetchProjectOverview()
+        return
+      } catch (retryErr) {
+        alert(retryErr.response?.data?.detail || '加载仪表盘失败')
+        return
+      }
+    }
     alert(err.response?.data?.detail || '加载仪表盘失败')
   } finally {
     loading.value = false

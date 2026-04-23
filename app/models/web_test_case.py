@@ -65,3 +65,4 @@ class WebTestCase(Base):
         order_by="WebStep.order_index",
     )
     web_test_runs = relationship("WebTestRun", back_populates="web_test_case", cascade="all, delete-orphan")
+    web_batch_run_items = relationship("WebBatchRunItem", back_populates="web_test_case")

@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.common import ORMModel
+from app.schemas.common import ORMModel, TestCaseIdCollectionRequest
 
 
 class SuiteRunRequest(BaseModel):
@@ -10,6 +10,12 @@ class SuiteRunRequest(BaseModel):
     retry_count: int = Field(default=0, ge=0, le=3)
     retry_on: List[str] = Field(default_factory=lambda: ["error"])
     idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=64)
+
+
+class TestCaseBatchRunRequest(TestCaseIdCollectionRequest):
+    environment_id: Optional[int] = None
+    retry_count: int = Field(default=0, ge=0, le=3)
+    retry_on: List[str] = Field(default_factory=lambda: ["error"])
 
 
 class BatchRunResponse(ORMModel):

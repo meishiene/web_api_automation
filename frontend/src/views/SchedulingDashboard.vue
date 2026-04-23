@@ -106,7 +106,10 @@
             <span class="status-text" :class="item.status">{{ item.status }}</span>
             <span>{{ item.run_type }}</span>
             <span>{{ item.target_type }}#{{ item.target_id }}</span>
-            <span>{{ formatDate(item.created_at) }}</span>
+            <span class="queue-end">
+              <span>{{ formatDate(item.created_at) }}</span>
+              <button class="table-link" :disabled="!['queued', 'running'].includes(item.status)" @click="cancelQueuedItem(item)">取消</button>
+            </span>
           </div>
         </div>
       </section>
@@ -247,7 +250,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProjectEnvironments } from '@/api/environments'
 import { getProjects } from '@/api/projects'
-import { getQueueItems, getWorkerHeartbeats } from '@/api/queueWorker'
+import { cancelQueueItem, getQueueItems, getWorkerHeartbeats } from '@/api/queueWorker'
 import {
   createScheduleTask,
   deleteScheduleTask,
@@ -566,6 +569,16 @@ const retryTask = async (task) => {
   await triggerTask(task)
 }
 
+const cancelQueuedItem = async (item) => {
+  if (!['queued', 'running'].includes(item.status)) return
+  try {
+    await cancelQueueItem(item.id)
+    await Promise.all([refreshQueue(), refreshTasks()])
+  } catch (err) {
+    alert(err.response?.data?.detail || '取消队列任务失败')
+  }
+}
+
 const applyTemplate = (templateKey) => {
   if (templateKey === 'smoke') {
     form.value.run_type = 'api'
@@ -666,6 +679,7 @@ onMounted(async () => {
 .mini-table { display: flex; flex-direction: column; gap: 10px; }
 .mini-row { display: grid; grid-template-columns: 72px 90px 72px 1fr 150px; gap: 10px; font-size: 12px; color: var(--text-main); }
 .mini-row.head { color: var(--text-muted); font-weight: 500; }
+.queue-end { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .mini-state,
 .state-card { min-height: 140px; display: grid; place-items: center; color: var(--text-muted); text-align: center; }
 .status-text.success,

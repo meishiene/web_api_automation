@@ -17,6 +17,7 @@ from app.schemas.queue_worker import (
     QueueClaimResponse,
     QueueCompleteRequest,
     QueueCompleteResponse,
+    QueueCancelResponse,
     QueueListResponse,
     RunQueueItemResponse,
     WorkerExecuteOnceRequest,
@@ -216,6 +217,49 @@ def complete_queue_item(
     )
 
     return QueueCompleteResponse(
+        queue_item_id=queue_item.id,
+        status=queue_item.status,
+        finished_at=queue_item.finished_at or now,
+    )
+
+
+@router.post("/{queue_item_id}/cancel", response_model=QueueCancelResponse)
+def cancel_queue_item(
+    queue_item_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> QueueCancelResponse:
+    queue_item = db.query(RunQueue).filter(RunQueue.id == queue_item_id).first()
+    if not queue_item:
+        raise AppException(404, ErrorCode.RUN_QUEUE_ITEM_NOT_FOUND, "Queue item not found")
+
+    project = _project_or_404(db, queue_item.project_id)
+    if not can_manage_project(db, user, project):
+        raise AppException(403, ErrorCode.FORBIDDEN, "Forbidden")
+
+    if queue_item.status not in {"queued", "running"}:
+        raise AppException(400, ErrorCode.VALIDATION_ERROR, "Queue item is not cancelable")
+
+    now = int(time.time())
+    if queue_item.started_at is None:
+        queue_item.started_at = now
+    queue_item.status = "canceled"
+    queue_item.finished_at = now
+    db.commit()
+    db.refresh(queue_item)
+
+    create_audit_log(
+        db=db,
+        request=request,
+        action="run_queue.cancel",
+        resource_type="run_queue",
+        resource_id=str(queue_item.id),
+        user_id=user.id,
+        details={"status": queue_item.status},
+    )
+
+    return QueueCancelResponse(
         queue_item_id=queue_item.id,
         status=queue_item.status,
         finished_at=queue_item.finished_at or now,

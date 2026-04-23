@@ -24,12 +24,12 @@
 | --- | --- | --- |
 | 用户与认证 | 已完成 JWT + Refresh Token、最小 RBAC（admin/user）、角色-权限矩阵、项目成员与组织层权限基础能力 | 80% |
 | 项目管理 | 已支持基础 CRUD、项目成员管理与组织归属治理 | 60% |
-| API 用例管理 | 已支持基础 CRUD、套件关联与增强断言配置（阶段 2 首批已落地） | 65% |
-| API 执行能力 | 已支持单条执行与套件批量执行（含批次追踪、变量链路传递、运行时变量快照） | 60% |
+| API 用例管理 | 已支持基础 CRUD、批量删除、套件关联与增强断言配置（阶段 2 首批已落地） | 68% |
+| API 执行能力 | 已支持单条执行、选中用例批量执行与套件批量执行（含批次追踪、变量链路传递、运行时变量快照） | 65% |
 | 工程化与测试基线 | 已建立测试基线、统一异常错误码、结构化日志、审计治理闭环、Alembic/PG 本地测试落地与模型治理细则 | 90% |
-| Web 测试能力 | 阶段 3 收尾中（领域模型、用例管理、单用例执行、前端最小闭环与 API/Web 统一结果展示已落地） | 45% |
+| Web 测试能力 | 阶段 3 收尾中（领域模型、用例管理、复制、批量管理、单/批用例执行、步骤插入、Excel 导入导出、Web 批次结果页与 API/Web 统一结果展示已落地） | 61% |
 | 环境与变量管理 | 已落地变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动） | 55% |
-| 套件与批量执行 | 已落地 API 套件与批量执行首批闭环 | 45% |
+| 套件与批量执行 | 已落地 API 套件批量执行、选中 API 用例批量执行、选中 Web 用例批量执行与 Web 批次查询首批闭环 | 60% |
 | 调度与队列 | 阶段 4 已完成验收：调度/队列/Worker 最小闭环与可视化已稳定落地；阶段 5 聚焦真实消费治理与报告联动增强。 | 45% |
 | 报告与分析 | 已落地统一输入映射、摘要/趋势/失败治理接口、治理页、审计事件与性能护栏，并在阶段 7 补齐运营总览 guardrails 与稳定性门禁 | 68% |
 | 权限与治理 | 已完成最小 RBAC 闭环并推进细粒度治理（权限矩阵、越权校验、项目成员协作、组织层与跨项目治理基础） | 55% |
@@ -57,6 +57,7 @@
 - 已支持项目 CRUD
 - 已支持 API 测试用例 CRUD
 - 已支持单条 API 测试执行
+- 已支持选中 API 用例批量执行与批量删除
 - 已支持执行结果入库
 - 已保留 `schedule_tasks` 与 `run_queue` 模型
 - 已建立并持续扩展 `pytest` 后端测试基线（持续增长中）
@@ -83,6 +84,12 @@
 - 已落地 API 套件模型与接口：`api_test_suites`、`api_test_suite_cases`、`/api/test-suites/*`
 - 已落地批次执行模型与接口：`api_batch_runs`、`api_batch_run_items`、`/api/test-runs/suites/{suite_id}/run`
 - 已落地批次查询接口：`/api/test-runs/batches/project/{project_id}`、`/api/test-runs/batches/{batch_id}`
+- 已新增选中 API 用例批量执行接口：`POST /api/test-runs/project/{project_id}/batch-run`
+- 已新增 API / Web 用例批量删除接口：`POST /api/test-cases/project/{project_id}/bulk-delete`、`POST /api/web-test-cases/project/{project_id}/bulk-delete`
+- 已新增选中 Web 用例批量执行接口：`POST /api/web-test-runs/project/{project_id}/batch-run`
+- 已新增 Web 批次结果接口：`GET /api/web-test-runs/batches/project/{project_id}`、`GET /api/web-test-runs/batches/{batch_id}`
+- 已新增 Web 用例 Excel 资产流转接口：`GET /api/web-test-cases/project/{project_id}/template.xlsx`、`GET /api/web-test-cases/project/{project_id}/export.xlsx`、`POST /api/web-test-cases/project/{project_id}/import/xlsx`
+- 已新增 Web 用例复制接口：`POST /api/web-test-cases/{case_id}/copy`
 - 已落地环境与变量模型及接口：`project_environments`、`project_variables`、`environment_variables`、`/api/environments/*`
 - 已落地变量组复用与环境绑定：`project_variables.group_name`、`environment_variable_group_bindings`、`/api/environments/*/variable-groups/*`
 - 已落地密钥受控读取接口（管理权限 + 审计留痕）：`/api/environments/project/{project_id}/variables/{key}/secret-value`、`/api/environments/{environment_id}/variables/{key}/secret-value`
@@ -118,6 +125,7 @@
 - 已支持批次结果页与执行详情页联动（批次列表 -> 批次详情 -> 执行详情）
 - 已新增环境变量治理页并与执行详情联动（变量治理页 -> 执行详情变量快照）
 - 已新增 Web 用例管理页与 Web 执行详情页，并打通路由入口（API 用例页 -> Web 用例页 -> Web 执行详情）
+- 已新增 Web 批次结果页与详情页，并打通批量执行后跳转链路（Web 用例页 -> Web 批次列表 -> Web 批次详情 -> Web 执行详情）
 - 已新增统一执行结果页（Execution Center），聚合 API/Web 执行记录并支持统一字段展示与详情跳转
 - 已增强统一执行结果能力：支持 `run_type/status/time range` 筛选、分页与快速定位失败记录
 - 已新增最小报告页（Report Center）：`frontend/src/views/ReportSummary.vue`（执行摘要 + Top 失败项）
@@ -127,6 +135,9 @@
 - 已完成前端框架与导航体验首轮优化：全局壳层支持深浅色切换、Workspace / Current Project 导航分区与项目仪表盘首页
 - 已完成 API 测试页首轮产品化改造：`TestCaseList.vue` 升级为工作台式布局，支持资产树浏览、内联编辑、JSON/OpenAPI 导入与执行反馈面板
 - 已完成 Web 测试页首轮产品化改造：`WebTestCaseList.vue` 升级为 UI 自动化工作台布局，支持步骤编排、执行日志、运行记录切换与配置分区展示
+- 已补齐 API / Web 工作台批量操作入口：API 资产树支持多选、批量执行、批量删除；Web 工作台新增用例清单选择区，支持多选、批量执行、批量删除
+- 已补齐 Web 工作台步骤插入与 Excel 资产流转：步骤支持前插/后插；支持下载双语 Excel 模板、导出当前项目 Web 用例、按 Excel 回导更新/新建用例，并提供字段说明 sheet
+- 已补齐 Web 工作台复制能力：当前选中 Web 用例可一键复制生成副本，并保留原有执行配置与步骤编排
 - 已完成统一结果与报告页首轮产品化改造：`UnifiedRunList.vue`、`ReportSummary.vue` 已按报告工作台风格重做，统一筛选、图表、列表与详情视图语法
 
 ### 5.3 文档
@@ -134,8 +145,7 @@
 - 已补充系统架构文档
 - 已补充模块清单、领域模型、技术栈、仓库结构文档
 - 已新增企业级平台总纲文档
-- 已新增阶段 4 开发清单文档（`docs/project/stage-4-development-checklist.md`）
-- 已新增阶段 6 开发清单与验收清单文档（`docs/project/stage-6-development-checklist.md`、`docs/project/stage-6-acceptance-checklist.md`）
+- 已补齐阶段性开发/验收清单（现已归档清理）
 
 ## 6. 当前部分完成内容
 
@@ -152,9 +162,10 @@
 
 ### 6.2 执行能力
 - 已支持单条 API 用例执行
-- 已支持 API 套件执行与批量回归（按套件顺序执行）
+- 已支持选中 API 用例批量执行与 API 套件执行（按所选顺序或套件顺序执行）
 - 已支持批次级状态汇总与明细追踪（`success/failed/error`）
-- 已支持 Web 单用例自动化执行（含步骤日志与产物路径查询）
+- 已支持 Web 单用例自动化执行与选中用例批量执行（含步骤日志与产物路径查询），并支持复制与 Excel 管理用例资产
+- 已支持 Web 批量执行结果持久化与按批次查询，不再只依赖临时汇总响应
 
 ### 6.3 结果展示
 - 当前已记录单次执行结果与套件批次结果
@@ -261,7 +272,7 @@
 - API/Web 统一归档展示对齐（S3-04，已完成：统一结果接口 + Execution Center）
 
 ### P5：阶段 4 验收完成（已收口）
-- 已完成阶段 4 SSOT 建立：`docs/project/stage-4-development-checklist.md`
+- 已完成阶段 4 SSOT 建立（阶段文档现已归档）
 - 已完成 S4-01：统一执行编排骨架（Execution Task/Job + API/Web 适配层）
 - 已完成 S4-02：调度器最小可用（schedule_tasks 触发链路）
 - 已完成 S4-03：队列与 Worker 最小闭环（run_queue + Worker 心跳/消费占位）
@@ -280,6 +291,54 @@
 - 下一步：转入阶段 7 后运营维护，优先关注生产/准生产环境性能画像、外部告警通道接入与更多 provider/治理动作扩展。
 
 ## 10. 最近更新记录
+### 2026-04-21
+- 修复本地开发端口切换登录报错：后端 CORS 由固定白名单扩展为允许 `localhost / 127.0.0.1` 的任意本地端口，解决前端切到 `5175` 后登录预检被拒的问题。
+- 验证通过：`python -m pytest tests/backend/test_error_response_format.py tests/backend/test_health_and_auth.py -q`（9 passed）。
+### 2026-04-17
+- 新增 Web 用例复制能力：`POST /api/web-test-cases/{case_id}/copy` 已落地，前端 UI 自动化页补齐“复制”按钮，可基于当前用例直接生成副本，并自动切换到新副本继续编辑。
+- 复制副本会保留原用例的描述、Base URL、浏览器/视口/超时/录像等执行配置，以及完整步骤编排；名称按 `原名-copy` 自动去重生成。
+- 验证通过：`python -m pytest tests/backend/test_web_test_cases_api.py -q`（7 passed）；`npm run build`（frontend）通过。
+### 2026-04-17
+- 修复执行类请求超时误报：前端全局 `10000ms` 超时会把实际仍在运行的 API / Web 执行请求提前判失败；现已为 `runWebTestCase / runBatchWebTestCases / runTestCase / runBatchTestCases / runTestSuite` 单独提升超时窗口，避免“后端已成功执行但前端超时误报失败”。
+- 结合本地 PostgreSQL 核对：`project_id=10 (DSDL)` 的 Web 批量执行在数据库中真实状态为 `success`，此前页面弹窗属于超时误报而非执行失败。
+- 验证通过：`npm run build`（frontend）通过。
+### 2026-04-17
+- 新增 Web 批次结果页闭环：选中 Web 用例批量执行现在会持久化 `web_batch_runs / web_batch_run_items`，并补齐列表、详情与执行详情跳转，不再只返回一次性汇总结果。
+- Web 工作台的“批次结果”入口已切换到独立的 Web 批次列表；批量执行成功后会直接进入对应 Web 批次详情页，失败批次也可按条查看具体 run。
+- 验证通过：`python -m pytest tests/backend/test_web_test_runs_api.py tests/backend/test_reporting_summary_api.py tests/backend/test_unified_results_api.py -q`（10 passed）；`npm run build`（frontend）通过；`python -m alembic upgrade head` 已验证 SQLite 与 PostgreSQL 均可升级到 `3d9e7b1c4a2f`.
+### 2026-04-17
+- 修复 Web 批量执行误报失败：核对本地 PostgreSQL 中 `project_id=10 (DSDL)` 的 `web_test_runs` 与 `audit_logs` 后确认批量执行真实结果为 `success`，前端 `WebTestCaseList.vue` 仅在批量请求成功后的界面同步阶段误触发失败提示。
+- 批量执行前端现改为区分“请求失败”和“执行结果失败”：请求异常才弹“批量执行请求失败”，业务结果为 `failed/error` 时展示成功/失败/异常汇总，且优先定位首个失败 run，不再把成功执行误报为失败。
+- 验证通过：读取本地 PostgreSQL 记录确认 `web_test_run.batch_execute` 为 `success`；`python -m pytest tests/backend/test_web_test_runs_api.py tests/backend/test_reporting_summary_api.py tests/backend/test_unified_results_api.py -q`（10 passed）；`npm run build`（frontend）通过。
+### 2026-04-17
+- 推进 Web UI 自动化工作台增强：步骤编辑区新增“前插/后插”能力，已添加步骤中可直接插入新步骤，不再只能末尾追加。
+- 新增 Web 用例 Excel 管理链路：支持下载双语模板、导出当前项目 Web 用例、按 Excel 回导新建/更新用例；模板内附带 `字段说明 Field Guide` sheet 解释各字段用途。
+- 验证通过：`python -m pytest tests/backend/test_web_test_cases_api.py -q`（6 passed）；`npm run build`（frontend）通过。
+### 2026-04-03
+- 修复 PostgreSQL 开发启动阻塞：迁移 `migrations/versions/2b7c4e1a9d0f_phase4_queue_cancel_status.py` 去掉对 `sqlite_master` 的硬编码依赖，改为通过通用约束检查兼容 SQLite / PostgreSQL，避免 `npm run dev` 在本地 pgsql 上因自动迁移失败导致后端未启动。
+- 验证通过：`python -m alembic current`（PostgreSQL 本地库返回 `2b7c4e1a9d0f (head)`）；真实链路验证通过（注册 / 登录 / 创建项目 / 查询项目）；`python -m pytest tests/backend/test_projects_api.py tests/backend/test_health_and_auth.py -q`（9 passed）。
+### 2026-04-03
+- 修复仪表盘加载兜底：`Dashboard.vue` 现会校验本地缓存的当前项目是否仍可访问，若项目已删除或无权限则自动回退到首个可访问项目，避免首页直接提示“加载仪表盘失败”。
+- 验证通过：`npm run build`（frontend）通过。
+### 2026-04-03
+- 推进 FH-02 / FH-03：API 工作台新增多选批量执行 / 批量删除，复用批次结果页承接批量回归详情；Web 工作台新增用例清单选择区，支持多选批量执行与批量删除。
+- 后端补齐页面批量链路：新增 `/api/test-runs/project/{project_id}/batch-run`、`/api/test-cases/project/{project_id}/bulk-delete`、`/api/web-test-runs/project/{project_id}/batch-run`、`/api/web-test-cases/project/{project_id}/bulk-delete`。
+- 验证通过：`python -m pytest tests/backend/test_test_cases_api.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_cases_api.py tests/backend/test_web_test_runs_api.py -q`（31 passed）；`npm run build`（frontend）通过。
+### 2026-04-03
+- 重写根目录 `README.md`，改为面向交付用户的一页式入口说明，聚合启动方式、访问地址、上手路径、关键文档与常用命令。
+- 当前对外主入口文档已统一为：`README.md`（仓库入口）+ `docs/README.md`（文档导航）+ `docs/project/user-manual.md`（详细使用说明）。
+### 2026-04-03
+- 新增正式用户手册：`docs/project/user-manual.md`，覆盖启动、登录、项目管理、环境变量、API 测试、Web 测试、调度、报告、集成治理与常见问题，作为面向使用者的主入口文档。
+- 清理阶段性冗余文档：删除阶段 2~7 的开发/验收清单与临时交接摘要，仅保留持续有效的总进度、交付说明、缺陷台账、功能完善计划、报告输入契约与用户手册。
+- 更新文档导航：`docs/README.md` 重写为面向“使用者 / 维护者 / 技术排查”的稳定入口。
+### 2026-04-03
+- 推进 FH-04 / FH-05：调度页支持取消队列任务，报告页支持导出当前筛选快照 JSON，执行与分析动作更完整。
+- 本地数据库迁移状态同步到最新 head：当前 `python -m alembic current` 为 `2b7c4e1a9d0f (head)`。
+- 验证通过：`python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py -q`（12 passed）；`npm run build`（frontend）通过。
+### 2026-04-02
+- 推进 FH-03：`WebTestCaseList.vue` 的步骤编辑器由原始 JSON 输入改为结构化定位编辑，支持 CSS / XPath / Text / TestId / Role 下拉选择与单输入框填写。
+- `web_executor.py` 同步支持多种定位策略解析，`wait` 步骤兼容“等待元素”与“固定等待”两种模式，保留旧 `selector` 参数兼容。
+- 验证通过：`python -m pytest tests/backend/test_web_executor.py tests/backend/test_web_test_cases_api.py tests/backend/test_web_test_runs_api.py -q`（10 passed）；`npm run build`（frontend）通过。
 ### 2026-04-01
 - 推进 FH-07 / FH-08：新增 `docs/project/defect-register.md` 与 `docs/project/final-delivery-summary.md`，沉淀已处理项、保留风险、数据库迁移修复与最终交付结论。
 - 执行验证：`python -m pytest tests/backend -q` 全量通过；`npm run build`（frontend）通过。
@@ -400,7 +459,7 @@
 - 测试门禁：`python -m pytest tests/backend/test_test_cases_api.py -k openapi -q` 通过（4 passed）。
 - 阶段推进：阶段 7 状态保持“启动中”，当前断点切换为 S7-02 准备。
 - 文档口径同步：已同步更新阶段 7 开发/验收清单与架构总纲。
-- 完成 S6-08：阶段 6 验收收口，补齐 `docs/project/stage-6-acceptance-checklist.md` 验收执行记录与收口结论。
+- 完成 S6-08：阶段 6 验收收口，并完成验收执行记录与收口结论归档。
 - 阶段状态切换：阶段 6 由“启动中”切换为“已完成验收”，企业集成进度由 60% 更新为 80%。
 - 测试门禁：阶段 6 最小回归通过（25 passed），前端构建通过（`npm run build`）；后端全量回归受 `tests/backend/test_db_migration_workflow.py` 临时目录权限（WinError 5）阻塞，受控排除该用例后其余全量回归通过。
 - 文档口径同步：已同步更新阶段 6 开发清单、验收清单、架构总纲与 09-enterprise-integrations 模块 SKILL。
@@ -415,10 +474,10 @@
 - 说明：`tests/backend/test_db_migration_workflow.py` 在当前环境受 `pytest` 临时目录权限限制（WinError 5）未完成执行；本次改动已补齐迁移文件并完成相关接口回归验证。
 ### 2026-03-17
 - 文档口径补齐：同步修订 docs/project/project-overview.md，更新为“阶段 5 已验收完成、阶段 6 启动中（S6-04 已完成）”并移除已过期“未打通能力”表述。
-- 阶段 6 验收清单口径对齐：docs/project/stage-6-acceptance-checklist.md 状态更新为 S6-00~S6-04 已完成，S6-05~S6-08 待推进。
+- 阶段 6 验收口径已完成对齐并归档。
 - 模块 SKILL 口径对齐：02-user-org-auth、03-project-assets-env、04-api-testing 状态从“进行中”调整为“收尾中”，并明确仅执行阶段 2 收尾范围缺陷修复/治理优化。
 ### 2026-03-17
-- 启动阶段 6：新增 `docs/project/stage-6-development-checklist.md` 与 `docs/project/stage-6-acceptance-checklist.md`，建立阶段 6 SSOT、门禁、DoD 与中断恢复机制。
+- 启动阶段 6：建立阶段 6 SSOT、门禁、DoD 与中断恢复机制（阶段文档现已归档）。
 - 阶段状态切换：`阶段 6 未开始 -> 启动中（规划中）`，后续按 `S6-01~S6-08` 顺序推进。
 - 完成 S6-01：新增企业集成配置中心最小闭环（`app/models/integration_config.py`、`migrations/versions/6a9d4c2e1b7f_phase6_integration_config_center.py`、`app/api/integrations.py`）。
 - S6-01 测试门禁：新增 `tests/backend/test_integrations_api.py` 并通过（4 passed）；后端全量回归通过 `.\.venv\Scripts\python -m pytest`（115 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
@@ -434,7 +493,7 @@
 - 同步模块与架构文档：更新 `docs/modules/future/09-enterprise-integrations/SKILL.md` 与 `docs/architecture/企业级自动化测试平台系统架构规划.md`，对齐阶段 6 启动口径。
 - 更新模块匹配规则：更新 `docs/modules/future/README.md`，将 `09-enterprise-integrations` 纳入当前默认可执行模块。
 - 完成 S5-00：创建阶段 5 开发清单与验收清单，建立“看板 + 最近更新 + 风险阻塞”可中断恢复机制。
-- 阶段 5 SSOT 已落盘：`docs/project/stage-5-development-checklist.md`、`docs/project/stage-5-acceptance-checklist.md`。
+- 阶段 5 SSOT 已落盘（阶段文档现已归档）。
 - 阶段切换：阶段 4 已完成并关闭，阶段 5 进入启动中（首批任务推进）。
 - 启动 S5-01：新增 `docs/project/stage-5-reporting-input-contract.md`，冻结 API/Web 报告输入字段、映射规则与统计口径（v1）。
 - 修复进度文档历史编码污染行，并统一阶段 5 口径为“启动中（S5-01 进行中）”，同步与架构总纲对齐。
@@ -457,15 +516,15 @@
 - S5-06 测试门禁：后端回归通过 `.\.venv\Scripts\python -m pytest tests/backend/test_reporting_input_service.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py tests/backend/test_reporting_audit_api.py tests/backend/test_reporting_performance_guards.py tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py`（25 passed）。
 - 完成 S5-07：执行阶段 5 核心验收门禁并收口验收记录，阶段 5 状态切换为“已完成验收”。
 - S5-07 测试门禁：后端全量回归通过 `.\.venv\Scripts\python -m pytest`（111 passed，2 warnings）；前端构建通过 `npm run build`（frontend）。
-- 同步阶段文档：更新 `docs/project/stage-5-development-checklist.md`、`docs/project/stage-5-acceptance-checklist.md`，完成 S5-07 记录与结论落盘。
+- 同步阶段文档：完成 S5-07 记录与结论落盘（阶段文档现已归档）。
 - 同步模块与架构文档：更新 `docs/modules/future/08-reporting-analytics/SKILL.md` 与 `docs/architecture/企业级自动化测试平台系统架构规划.md`，保持阶段口径一致。
 ### 2026-03-16
 - 阶段状态切换：`阶段 2 进行中 -> 收尾中`，`阶段 3 未开始 -> 启动中`
 - 同步更新阶段门禁与模块匹配：`docs/modules/future/README.md`、`docs/modules/future/05-web-testing/SKILL.md`
 - 同步检查并更新架构总纲阶段状态：`docs/architecture/企业级自动化测试平台系统架构规划.md`
-- 新增阶段 3 开发清单文档：`docs/project/stage-3-development-checklist.md`（阶段 3 进度追踪 SSOT）
+- 新增阶段 3 开发清单文档（阶段 3 进度追踪 SSOT，现已归档）
 - 对齐文档进度口径：更新 `docs/project/project-overview.md`、`docs/architecture/system-architecture.md`、`docs/architecture/dependency-graph.md`，消除与阶段 2 实际能力的冲突表述
-- 阶段 3 启动：完成 S3-00（开发准备），明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定（更新 `docs/project/stage-3-development-checklist.md`）
+- 阶段 3 启动：完成 S3-00（开发准备），明确阶段 3 最小闭环路径、后端目录/命名规划、接口边界与产物归档约定。
 - 阶段 3 推进：完成 S3-01（Web 领域模型与用例管理），落地 `web_test_cases/web_steps/web_locators` 模型与迁移，并提供最小 CRUD API；新增后端测试 `tests/backend/test_web_test_cases_api.py`；回归通过 `.\.venv\Scripts\python -m pytest`
 - 阶段 3 推进：完成 S3-02（Playwright 执行引擎最小闭环），落地 `web_test_runs` 模型与迁移、Web 单用例执行接口与执行结果查询接口，产物归档路径为 `artifacts/web-test-runs/{run_id}/`；新增后端测试 `tests/backend/test_web_test_runs_api.py`；回归通过 `.\.venv\Scripts\python -m pytest`
 - 阶段 3 推进：完成 S3-03（前端最小页面闭环），新增 `frontend/src/views/WebTestCaseList.vue` 与 `frontend/src/views/WebTestRunDetail.vue`，补齐 Web 路由与 API 用例页入口按钮
@@ -475,7 +534,7 @@
 - 阶段 3 测试门禁：新增 `tests/backend/test_unified_results_api.py`，并通过回归 `.\.venv\Scripts\python -m pytest tests/backend/test_unified_results_api.py tests/backend/test_test_runs_api.py tests/backend/test_web_test_runs_api.py`（12 passed）
 - 阶段 3 测试门禁：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段状态切换：`阶段 3 启动中 -> 收尾中`，`阶段 4 未开始 -> 启动中`
-- 新增阶段 4 开发清单文档：`docs/project/stage-4-development-checklist.md`（阶段 4 进度追踪 SSOT）
+- 新增阶段 4 开发清单文档（阶段 4 进度追踪 SSOT，现已归档）
 - 同步更新阶段匹配与模块技能文档：`docs/modules/future/README.md`、`docs/modules/future/06-execution-orchestration/SKILL.md`、`docs/modules/future/07-scheduling-queue-worker/SKILL.md`
 - 同步更新架构总纲与项目概览阶段口径，消除阶段状态冲突
 - 阶段 4 推进：完成 S4-01（统一执行编排骨架），新增 `execution_tasks/execution_jobs` 模型与迁移，落地统一编排服务并接入 API/Web 单用例执行入口
@@ -491,7 +550,7 @@
 - 阶段 2 验收执行：完成全量后端回归 `.\.venv\Scripts\python -m pytest`（78 passed）
 - 阶段 2 验收执行：完成前端构建验证 `npm run build`（frontend，通过）
 - 阶段 2 验收执行：完成迁移流程相关测试 `.\.venv\Scripts\python -m pytest tests/backend/test_db_migration_workflow.py`（3 passed）
-- 新增阶段 2 验收清单文档：`docs/project/stage-2-acceptance-checklist.md`
+- 新增阶段 2 验收清单文档（现已归档）
 - 完成阶段 2 S2-06：变量治理增强闭环（变量组复用、密钥受控读取、前端治理页联动、执行详情变量快照）
 - 新增迁移：`c3e8a6b1d2f4_phase2_variable_governance_enhancement`（`project_variables.group_name`、`environment_variable_group_bindings`、`test_runs.runtime_variables/variable_sources`）
 - 后端接口增强：新增变量组绑定/解绑与查询、密钥明文读取接口（管理权限 + 审计）、项目变量 `group_name` 管理能力
@@ -510,7 +569,7 @@
 - 完成定时任务注册命令校验（DryRun）：`scripts/setup-audit-governance-schedule.ps1` 可正确生成 `schtasks /Create` 命令
 - 说明：以上为“演练/联调验证”完成，阶段 1 仍保持“暂停态风险托管”；真实生产环境任务注册与窗口执行闭环仍待落地
 
-- S4-05 kickoff: added `docs/project/stage-4-acceptance-checklist.md` with A4-01~A4-05 acceptance rubric.
+- S4-05 kickoff: added stage-4 acceptance rubric with A4-01~A4-05（现已归档）。
 - Defined R1~R5 strategy for real worker consumption (loop, idempotent claim, retry/dead-letter, stale recovery, orchestration convergence).
 
 ### 2026-03-13
@@ -530,7 +589,7 @@
 - 新增测试覆盖：`test_get_test_run_detail_returns_case_metadata`、`test_non_owner_cannot_view_foreign_test_run_detail`，并增强 `test_suite_batch_runs_api.py` 的批次详情字段断言
 - 验证通过：`.\.venv\Scripts\python -m pytest tests/backend/test_test_runs_api.py tests/backend/test_suite_batch_runs_api.py`（6 passed）
 - 前端构建验证通过：`npm run build`（frontend）
-- 新增阶段 2 执行清单文档：`docs/project/stage-2-development-checklist.md`（含已完成/进行中/待完成、优先级、验收标准、测试门禁与单人开发顺序）
+- 新增阶段 2 执行清单文档（含已完成/进行中/待完成、优先级、验收标准、测试门禁与单人开发顺序，现已归档）
 - 基于当前代码基线补齐文档：核对 `app/`、`frontend/src/` 与 `tests/backend` 现状，修正文档中阶段 2 能力评估不一致项
 - 同步补全后端路由现状描述：`auth`、`organizations`、`projects`、`test_cases`、`test_suites`、`environments`、`test_runs`、`audit_logs`
 - 同步更新 `docs/architecture/企业级自动化测试平台系统架构规划.md`：修正“环境变量/套件批量未开始”等过期表述，统一为与当前代码一致的阶段 2 状态与优先级

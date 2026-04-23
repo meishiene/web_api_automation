@@ -11,3 +11,7 @@ export const getQueueItemDetail = (queueItemId) => {
 export const getWorkerHeartbeats = (projectId) => {
   return request.get(`/api/run-queue/worker/heartbeats/project/${projectId}`)
 }
+
+export const cancelQueueItem = (queueItemId) => {
+  return request.post(`/api/run-queue/${queueItemId}/cancel`)
+}

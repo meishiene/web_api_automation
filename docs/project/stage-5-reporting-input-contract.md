@@ -126,4 +126,4 @@
 1. API/Web 字段映射规则完整可执行；
 2. 状态与核心统计口径明确且无冲突；
 3. 异常与边界处理规则可复现；
-4. 本文档与 `stage-5-development-checklist.md`、`stage-5-acceptance-checklist.md` 已同步引用。
+4. 本文档已与项目总进度和最终交付说明保持口径一致。

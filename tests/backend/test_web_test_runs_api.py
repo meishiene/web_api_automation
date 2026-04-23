@@ -1,10 +1,10 @@
-def _create_web_case(client, headers, project_id):
+def _create_web_case(client, headers, project_id, name="web-case-1"):
     create_resp = client.post(
         "/api/web-test-cases",
         headers=headers,
         json={
             "project_id": project_id,
-            "name": "web-case-1",
+            "name": name,
             "base_url": "https://example.com",
             "steps": [
                 {"action": "open", "params": {"url": "/login"}},
@@ -115,3 +115,68 @@ def test_web_run_persists_error_result_when_executor_fails(client, monkeypatch, 
     assert body["error_message"] == "browser launch failed"
     assert body["artifacts"][0].endswith("failure.png")
 
+
+def test_run_selected_web_test_cases_returns_batch_summary(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_web_batch_run", "pwd")
+    headers = auth_headers(token)
+
+    project_resp = client.post("/api/projects/", headers=headers, json={"name": "P-web-batch-run", "description": "desc"})
+    assert project_resp.status_code == 200
+    project_id = project_resp.json()["id"]
+
+    case1_id = _create_web_case(client, headers, project_id, name="web-batch-success")
+    case2_id = _create_web_case(client, headers, project_id, name="web-batch-failed")
+
+    async def fake_execute_web_test_case(test_case, artifact_dir):
+        if test_case.name == "web-batch-failed":
+            return {
+                "status": "failed",
+                "duration_ms": 39,
+                "error_message": "assert text failed",
+                "step_logs": [{"step": 1, "action": "assert", "status": "failed"}],
+                "artifacts": [f"{artifact_dir}/failed.png"],
+            }
+        return {
+            "status": "success",
+            "duration_ms": 24,
+            "error_message": None,
+            "step_logs": [{"step": 0, "action": "open", "status": "success"}],
+            "artifacts": [f"{artifact_dir}/success.png"],
+        }
+
+    monkeypatch.setattr("app.api.web_test_runs.execute_web_test_case", fake_execute_web_test_case)
+
+    batch_resp = client.post(
+        f"/api/web-test-runs/project/{project_id}/batch-run",
+        headers=headers,
+        json={"test_case_ids": [case2_id, case1_id]},
+    )
+    assert batch_resp.status_code == 200
+    body = batch_resp.json()
+    assert body["total_cases"] == 2
+    assert body["passed_cases"] == 1
+    assert body["failed_cases"] == 1
+    assert body["error_cases"] == 0
+    assert body["status"] == "failed"
+    assert body["id"] > 0
+
+    list_resp = client.get(f"/api/web-test-runs/project/{project_id}", headers=headers)
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 2
+
+    batch_list_resp = client.get(f"/api/web-test-runs/batches/project/{project_id}", headers=headers)
+    assert batch_list_resp.status_code == 200
+    batch_list = batch_list_resp.json()
+    assert len(batch_list) == 1
+    assert batch_list[0]["id"] == body["id"]
+    assert batch_list[0]["status"] == "failed"
+
+    batch_detail_resp = client.get(f"/api/web-test-runs/batches/{body['id']}", headers=headers)
+    assert batch_detail_resp.status_code == 200
+    detail = batch_detail_resp.json()
+    assert detail["id"] == body["id"]
+    assert detail["total_cases"] == 2
+    assert [item["web_test_case_id"] for item in detail["items"]] == [case2_id, case1_id]
+    assert detail["items"][0]["status"] == "failed"
+    assert detail["items"][1]["status"] == "success"
+    assert detail["items"][0]["web_test_run_id"] is not None

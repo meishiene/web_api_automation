@@ -351,3 +351,79 @@ def test_run_detail_contains_runtime_variable_snapshot(client, monkeypatch, crea
     assert detail["runtime_variables"]["api_key"] == "******"
     assert detail["variable_sources"]["base_url"] == "project"
     assert detail["variable_sources"]["api_key"] == "project"
+
+
+def test_run_selected_test_cases_creates_batch(client, monkeypatch, create_user_and_login, auth_headers):
+    token = create_user_and_login("owner_api_batch_run", "pwd")
+    headers = auth_headers(token)
+
+    project_id = client.post(
+        "/api/projects/",
+        headers=headers,
+        json={"name": "P-api-batch-run", "description": "desc"},
+    ).json()["id"]
+
+    case1_id = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "batch-case-success",
+            "method": "GET",
+            "url": "https://example.com/success",
+            "expected_status": 200,
+        },
+    ).json()["id"]
+    case2_id = client.post(
+        f"/api/test-cases/project/{project_id}",
+        headers=headers,
+        json={
+            "name": "batch-case-failed",
+            "method": "POST",
+            "url": "https://example.com/failed",
+            "expected_status": 200,
+        },
+    ).json()["id"]
+
+    async def fake_execute_test(test_case, runtime_variables=None):
+        assert runtime_variables == {}
+        if test_case.name == "batch-case-failed":
+            return {
+                "status": "failed",
+                "actual_status": 500,
+                "actual_body": "{\"ok\": false}",
+                "error_message": "assertion mismatch",
+                "duration_ms": 17,
+                "extracted_variables": {},
+            }
+        return {
+            "status": "success",
+            "actual_status": 200,
+            "actual_body": "{\"ok\": true}",
+            "error_message": None,
+            "duration_ms": 13,
+            "extracted_variables": {},
+        }
+
+    monkeypatch.setattr("app.api.test_runs.execute_test", fake_execute_test)
+
+    run_resp = client.post(
+        f"/api/test-runs/project/{project_id}/batch-run",
+        headers=headers,
+        json={"test_case_ids": [case2_id, case1_id], "retry_count": 0, "retry_on": ["error"]},
+    )
+    assert run_resp.status_code == 200
+    body = run_resp.json()
+    assert body["suite_id"] is None
+    assert body["total_cases"] == 2
+    assert body["passed_cases"] == 1
+    assert body["failed_cases"] == 1
+    assert body["error_cases"] == 0
+    assert body["status"] == "failed"
+
+    batch_id = body["id"]
+    detail_resp = client.get(f"/api/test-runs/batches/{batch_id}", headers=headers)
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()
+    assert [item["test_case_id"] for item in detail["items"]] == [case2_id, case1_id]
+    assert detail["items"][0]["status"] == "failed"
+    assert detail["items"][1]["status"] == "success"

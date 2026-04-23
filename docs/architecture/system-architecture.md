@@ -166,5 +166,5 @@ SQLite / PostgreSQL
 
 ## Stage-4 Acceptance And Real-Consumption Strategy (2026-03-16)
 
-- Acceptance rubric: A4-01~A4-05 + regression/build gates (see `docs/project/stage-4-acceptance-checklist.md`).
+- Acceptance rubric: A4-01~A4-05 + regression/build gates，已并入项目总进度与最终交付文档。
 - Real-consumption strategy: R1~R5 prioritizing worker loop and idempotent claim before retry/recovery enhancements.

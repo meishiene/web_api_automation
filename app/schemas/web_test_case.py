@@ -67,6 +67,10 @@ class WebTestCaseUpdateRequest(BaseModel):
         return normalized or None
 
 
+class WebTestCaseCopyRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+
 class WebTestCaseResponse(ORMModel):
     id: int
     project_id: int
@@ -83,6 +87,18 @@ class WebTestCaseResponse(ORMModel):
     steps: List[WebStepResponse] = Field(default_factory=list)
     created_at: int
     updated_at: int
+
+
+class WebTestCaseExcelImportRequest(BaseModel):
+    file_name: Optional[str] = Field(default=None, max_length=255)
+    file_content_base64: str = Field(..., min_length=1)
+
+
+class WebTestCaseExcelImportResponse(BaseModel):
+    imported: int
+    updated: int
+    created_case_ids: List[int] = Field(default_factory=list)
+    updated_case_ids: List[int] = Field(default_factory=list)
 
 
 def parse_params(raw: str | None) -> Dict[str, Any]:

@@ -8,6 +8,23 @@
             <button class="ghost-btn" @click="openImportModal('json')">导入</button>
             <button class="ghost-btn" @click="handleExportCases">导出</button>
           </div>
+          <div v-if="testCases.length" class="batch-toolbar">
+            <div class="batch-summary">
+              <span>已选 {{ selectedCaseIds.length }} 项</span>
+              <button class="table-link" @click="toggleSelectAllVisible">
+                {{ isAllVisibleSelected ? '取消全选' : '全选当前结果' }}
+              </button>
+              <button class="table-link" :disabled="!selectedCaseIds.length" @click="clearSelectedCases">清空</button>
+            </div>
+            <div class="batch-actions">
+              <button class="ghost-btn small" :disabled="!selectedCaseIds.length || batchDeleting" @click="deleteSelectedCases">
+                {{ batchDeleting ? '删除中...' : '批量删除' }}
+              </button>
+              <button class="success-btn small" :disabled="!selectedCaseIds.length || batchRunning" @click="runSelectedCases">
+                {{ batchRunning ? '执行中...' : '批量执行' }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="tree-search">
@@ -36,16 +53,29 @@
             </button>
 
             <div v-if="expandedGroups[group.name]" class="tree-group-list">
-              <button
+              <div class="tree-group-actions">
+                <button class="table-link" @click="toggleGroupSelection(group)">
+                  {{ isGroupFullySelected(group) ? '取消本组' : '全选本组' }}
+                </button>
+              </div>
+              <div
                 v-for="item in group.items"
                 :key="item.id"
-                class="tree-item"
+                class="tree-item-row"
                 :class="{ active: selectedCaseId === item.id }"
-                @click="selectCase(item)"
               >
-                <span class="method-badge" :class="`method-${item.method}`">{{ item.method }}</span>
-                <span class="tree-item-name">{{ item.name }}</span>
-              </button>
+                <label class="tree-check" @click.stop>
+                  <input type="checkbox" :checked="selectedCaseIds.includes(item.id)" @change="toggleCaseSelection(item.id)" />
+                </label>
+                <button
+                  class="tree-item"
+                  :class="{ active: selectedCaseId === item.id }"
+                  @click="selectCase(item)"
+                >
+                  <span class="method-badge" :class="`method-${item.method}`">{{ item.method }}</span>
+                  <span class="tree-item-name">{{ item.name }}</span>
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -359,6 +389,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getProjectEnvironments } from '@/api/environments'
 import { getProjects } from '@/api/projects'
 import {
+  bulkDeleteTestCases,
   copyTestCase as copyTestCaseApi,
   createTestCase,
   deleteTestCase as deleteTestCaseApi,
@@ -367,6 +398,7 @@ import {
   getTestCases,
   importOpenApiTestCases,
   importTestCases,
+  runBatchTestCases,
   runTestCase as runTestCaseApi,
   updateTestCase,
 } from '@/api/testCases'
@@ -395,6 +427,7 @@ const keyword = ref('')
 const caseGroupFilter = ref('')
 const tagFilter = ref('')
 const selectedCaseId = ref(null)
+const selectedCaseIds = ref([])
 const activeTab = ref('params')
 const expandedGroups = ref({})
 const resultMap = ref({})
@@ -414,6 +447,8 @@ const postmanCaseGroup = ref('postman-import')
 const postmanTags = ref('imported, postman')
 const paramsDraft = ref({ key: '', value: '' })
 const suiteSaving = ref(false)
+const batchRunning = ref(false)
+const batchDeleting = ref(false)
 const editingSuiteId = ref(null)
 const suiteFormError = ref('')
 const suiteForm = ref({ name: '', description: '' })
@@ -472,6 +507,11 @@ const groupedCaseEntries = computed(() => {
     .sort((a, b) => a.name.localeCompare(b.name))
 })
 
+const visibleCaseIds = computed(() => groupedCaseEntries.value.flatMap((group) => group.items.map((item) => item.id)))
+const isAllVisibleSelected = computed(() => {
+  return visibleCaseIds.value.length > 0 && visibleCaseIds.value.every((id) => selectedCaseIds.value.includes(id))
+})
+
 const normalizeTimestamp = (value) => {
   if (!value) return 0
   const numeric = Number(value)
@@ -528,6 +568,44 @@ const selectCase = (testCase) => {
 const startNewCase = () => {
   selectedCaseId.value = null
   syncFormFromCase(null)
+}
+
+const syncSelectedCaseIds = () => {
+  const validIds = new Set(testCases.value.map((item) => item.id))
+  selectedCaseIds.value = selectedCaseIds.value.filter((id) => validIds.has(id))
+}
+
+const clearSelectedCases = () => {
+  selectedCaseIds.value = []
+}
+
+const toggleCaseSelection = (caseId) => {
+  if (selectedCaseIds.value.includes(caseId)) {
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => id !== caseId)
+    return
+  }
+  selectedCaseIds.value = [...selectedCaseIds.value, caseId]
+}
+
+const toggleSelectAllVisible = () => {
+  if (isAllVisibleSelected.value) {
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => !visibleCaseIds.value.includes(id))
+    return
+  }
+  selectedCaseIds.value = [...new Set([...selectedCaseIds.value, ...visibleCaseIds.value])]
+}
+
+const isGroupFullySelected = (group) => {
+  return group.items.length > 0 && group.items.every((item) => selectedCaseIds.value.includes(item.id))
+}
+
+const toggleGroupSelection = (group) => {
+  const groupIds = group.items.map((item) => item.id)
+  if (isGroupFullySelected(group)) {
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => !groupIds.includes(id))
+    return
+  }
+  selectedCaseIds.value = [...new Set([...selectedCaseIds.value, ...groupIds])]
 }
 
 const fetchProjectName = async () => {
@@ -594,6 +672,7 @@ const fetchTestCases = async () => {
       case_group: caseGroupFilter.value || undefined,
       tag: tagFilter.value || undefined,
     })
+    syncSelectedCaseIds()
     refreshExpandedGroups()
     if (selectedCaseId.value) {
       const matched = testCases.value.find((item) => item.id === selectedCaseId.value)
@@ -684,6 +763,25 @@ const runCurrentCase = async () => {
     alert(err.response?.data?.detail || '运行测试失败')
   } finally {
     running.value = false
+  }
+}
+
+const runSelectedCases = async () => {
+  if (!selectedCaseIds.value.length) return
+  batchRunning.value = true
+  try {
+    const response = await runBatchTestCases(projectId.value, {
+      test_case_ids: selectedCaseIds.value,
+      environment_id: suiteEnvironmentId.value ? Number(suiteEnvironmentId.value) : undefined,
+      retry_count: 0,
+      retry_on: ['error'],
+    })
+    clearSelectedCases()
+    router.push(`/project/${projectId.value}/batches/${response.id}`)
+  } catch (err) {
+    alert(err.response?.data?.detail || '批量执行失败')
+  } finally {
+    batchRunning.value = false
   }
 }
 
@@ -805,10 +903,33 @@ const deleteCurrentCase = async () => {
   try {
     await deleteTestCaseApi(projectId.value, selectedCaseId.value)
     delete resultMap.value[selectedCaseId.value]
+    selectedCaseIds.value = selectedCaseIds.value.filter((id) => id !== selectedCaseId.value)
     selectedCaseId.value = null
     await fetchTestCases()
   } catch (err) {
     alert('删除失败')
+  }
+}
+
+const deleteSelectedCases = async () => {
+  if (!selectedCaseIds.value.length) return
+  if (!confirm(`确定批量删除 ${selectedCaseIds.value.length} 个接口用例吗？`)) return
+  batchDeleting.value = true
+  try {
+    const deletedCaseIds = [...selectedCaseIds.value]
+    await bulkDeleteTestCases(projectId.value, { test_case_ids: deletedCaseIds })
+    deletedCaseIds.forEach((id) => {
+      delete resultMap.value[id]
+    })
+    if (selectedCaseId.value && deletedCaseIds.includes(selectedCaseId.value)) {
+      selectedCaseId.value = null
+    }
+    clearSelectedCases()
+    await Promise.all([fetchTestCases(), fetchSuites(), fetchSuiteCases()])
+  } catch (err) {
+    alert(err.response?.data?.detail || '批量删除失败')
+  } finally {
+    batchDeleting.value = false
   }
 }
 
@@ -928,6 +1049,7 @@ const formatJson = (data) => {
 
 watch(projectId, async () => {
   selectedCaseId.value = null
+  selectedCaseIds.value = []
   selectedSuiteId.value = ''
   suiteCases.value = []
   resultMap.value = {}
@@ -947,6 +1069,9 @@ onMounted(async () => {
 .api-shell { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 100px); }
 .api-tree { background: var(--bg-card); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
 .tree-toolbar { padding: 14px; border-bottom: 1px solid var(--border-color); }
+.batch-toolbar { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-color); display: grid; gap: 10px; }
+.batch-summary, .batch-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.batch-summary { font-size: 12px; color: var(--text-muted); }
 .full-width { width: 100%; justify-content: center; }
 .tree-tools { display: flex; gap: 8px; margin-top: 10px; }
 .tree-search, .tree-filters { padding: 14px; border-bottom: 1px solid var(--border-color); }
@@ -959,6 +1084,10 @@ onMounted(async () => {
 .tree-toggle { color: var(--text-muted); width: 14px; text-align: center; }
 .tree-folder { font-size: 14px; }
 .tree-group-list { padding-left: 18px; }
+.tree-group-actions { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.tree-item-row { display: flex; align-items: center; gap: 8px; border-radius: var(--radius); }
+.tree-item-row.active { background: rgba(52, 152, 219, 0.06); }
+.tree-check { display: inline-flex; align-items: center; justify-content: center; width: 20px; }
 .tree-item { width: 100%; border: 0; background: transparent; display: flex; align-items: center; gap: 8px; padding: 8px 8px; border-radius: var(--radius); text-align: left; color: var(--text-main); }
 .tree-item.active { background: rgba(52, 152, 219, 0.10); color: var(--primary); }
 .tree-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1029,7 +1158,7 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .api-main { padding: 16px; }
   .kv-head, .kv-row { grid-template-columns: 1fr; }
-  .editor-actions, .modal-actions, .filter-actions { width: 100%; }
+  .editor-actions, .modal-actions, .filter-actions, .batch-actions { width: 100%; }
   .ghost-btn, .primary-btn, .success-btn { width: 100%; }
 }
 </style>

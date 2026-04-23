@@ -1,5 +1,7 @@
 import request from '@/utils/request'
 
+const EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
+
 export const getTestCases = (projectId, params = {}) => {
   return request.get(`/api/test-cases/project/${projectId}`, { params })
 }
@@ -40,8 +42,20 @@ export const deleteTestCase = (projectId, id) => {
   return request.delete(`/api/test-cases/${id}`)
 }
 
+export const bulkDeleteTestCases = (projectId, data) => {
+  return request.post(`/api/test-cases/project/${projectId}/bulk-delete`, data)
+}
+
 export const runTestCase = (projectId, id, data) => {
-  return request.post(`/api/test-runs/test-cases/${id}/run`, data)
+  return request.post(`/api/test-runs/test-cases/${id}/run`, data, {
+    timeout: EXECUTION_TIMEOUT_MS,
+  })
+}
+
+export const runBatchTestCases = (projectId, data) => {
+  return request.post(`/api/test-runs/project/${projectId}/batch-run`, data, {
+    timeout: EXECUTION_TIMEOUT_MS,
+  })
 }
 
 export const getTestResult = (projectId, runId) => {

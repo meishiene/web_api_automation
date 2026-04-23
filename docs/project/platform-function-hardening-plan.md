@@ -198,6 +198,14 @@
 
 ## 5. 最近更新记录
 
+### 2026-04-03
+- FH-04 / FH-05 继续增强：调度页支持取消队列任务，报告页支持导出当前筛选快照 JSON，执行与分析动作进一步闭环。
+- 本地数据库迁移状态推进到最新 head：当前 `python -m alembic current` 为 `2b7c4e1a9d0f (head)`。
+- 验证通过：`python -m pytest tests/backend/test_queue_worker_api.py tests/backend/test_reporting_summary_api.py tests/backend/test_reporting_trends_api.py tests/backend/test_reporting_failures_api.py -q`（12 passed）；`npm run build`（frontend）通过。
+### 2026-04-02
+- FH-03 继续增强：Web 步骤编辑器由原始 JSON 输入改为结构化定位编辑，支持 CSS / XPath / Text / TestId / Role 下拉选择与单输入框填写。
+- `web_executor.py` 同步支持多种定位策略解析，`wait` 步骤兼容“等待元素”与“固定等待”两种模式，保留旧 `selector` 参数兼容。
+- 验证通过：`python -m pytest tests/backend/test_web_executor.py tests/backend/test_web_test_cases_api.py tests/backend/test_web_test_runs_api.py -q`（10 passed）；`npm run build`（frontend）通过。
 ### 2026-04-01
 - FH-08 / FH-07 收口：新增 `docs/project/defect-register.md` 与 `docs/project/final-delivery-summary.md`，沉淀已处理项、保留风险、数据库迁移修复与最终交付建议。
 - 执行验证：`python -m pytest tests/backend -q` 全量通过；`npm run build`（frontend）通过。

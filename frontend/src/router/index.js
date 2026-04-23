@@ -77,6 +77,16 @@ const routes = [
     component: () => import('@/views/BatchRunDetail.vue'),
   },
   {
+    path: '/project/:projectId/web-batches',
+    name: 'WebBatchRunList',
+    component: () => import('@/views/WebBatchRunList.vue'),
+  },
+  {
+    path: '/project/:projectId/web-batches/:batchId',
+    name: 'WebBatchRunDetail',
+    component: () => import('@/views/WebBatchRunDetail.vue'),
+  },
+  {
     path: '/project/:projectId/runs/:runId',
     name: 'TestRunDetail',
     component: () => import('@/views/TestRunDetail.vue'),
